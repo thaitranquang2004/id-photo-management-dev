@@ -1,6 +1,6 @@
 # ID Photo Management
 
-Ứng dụng quản lý ảnh thẻ với web app React Vite, API Express, Supabase cho dữ liệu, Cloudinary cho lưu trữ ảnh, và Banana.dev là thành phần xử lý ảnh tùy chọn.
+Ứng dụng quản lý ảnh thẻ với web app React Vite, API Express, Supabase cho dữ liệu, Cloudinary cho lưu trữ ảnh, và Google AI Gemini Nano Banana là thành phần xử lý ảnh tùy chọn.
 
 ## Local setup
 
@@ -18,7 +18,7 @@
    cp apps/web/.env.example apps/web/.env
    ```
 
-4. Điền các biến Supabase, Cloudinary, và Banana.dev nếu dùng xử lý ảnh qua Banana.dev.
+4. Điền các biến Supabase, Cloudinary, và Google AI nếu dùng xử lý ảnh qua Gemini Nano Banana.
 
 Không commit `.env`, `.env.local`, hoặc bất kỳ file nào chứa secret. Chỉ commit các file mẫu như `.env.example`.
 
@@ -61,4 +61,4 @@ API mặc định dùng `PORT=4000`. Web mặc định trỏ đến `http://loca
 - Express cho backend API.
 - Supabase cho database, auth/storage-related config nếu cần.
 - Cloudinary cho quản lý và phân phối ảnh.
-- Banana.dev optional cho pipeline xử lý ảnh bằng model bên ngoài.
+- Google AI Gemini Nano Banana optional cho pipeline xử lý ảnh bằng model ảnh Gemini.

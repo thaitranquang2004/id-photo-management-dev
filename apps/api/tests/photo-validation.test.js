@@ -9,6 +9,7 @@ process.env.SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY ||
 process.env.DATABASE_URL = process.env.DATABASE_URL || 'postgresql://postgres:postgres@127.0.0.1:54322/postgres';
 
 const photoService = require('../src/services/photo.service');
+const schemas = require('../src/validation/schemas');
 
 const context = {
   user: { id: '00000000-0000-4000-8000-000000000001', role: 'staff' },
@@ -27,4 +28,21 @@ test('photo file upload path is explicit while Cloudinary upload is not integrat
     () => photoService.createPhotos({ order_id: '20000000-0000-4000-8000-000000000001' }, [{ originalname: 'sample.jpg' }], context),
     (error) => error.code === 'CLOUDINARY_ERROR'
   );
+});
+
+test('batch processing defaults to Google AI provider', () => {
+  const body = schemas.batchProcessBody.parse({
+    order_id: '20000000-0000-4000-8000-000000000001',
+    photo_ids: ['30000000-0000-4000-8000-000000000001']
+  });
+
+  assert.equal(body.provider, 'google_ai');
+});
+
+test('batch processing rejects Banana.dev provider value', () => {
+  assert.throws(() => schemas.batchProcessBody.parse({
+    order_id: '20000000-0000-4000-8000-000000000001',
+    photo_ids: ['30000000-0000-4000-8000-000000000001'],
+    provider: 'banana'
+  }));
 });

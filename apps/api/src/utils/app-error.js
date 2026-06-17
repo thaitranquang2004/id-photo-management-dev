@@ -31,8 +31,8 @@ const errors = {
   cloudinary(message = 'Không thể xử lý tài nguyên Cloudinary', details = {}) {
     return new AppError(502, 'CLOUDINARY_ERROR', message, details);
   },
-  banana(message = 'Không thể xử lý tác vụ Banana', details = {}) {
-    return new AppError(502, 'BANANA_ERROR', message, details);
+  googleAi(message = 'Không thể xử lý tác vụ Google AI', details = {}) {
+    return new AppError(502, 'GOOGLE_AI_ERROR', message, details);
   },
   ai(message = 'Không thể xử lý ảnh bằng AI', details = {}) {
     return new AppError(502, 'AI_PROCESSING_FAILED', message, details);

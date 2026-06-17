@@ -81,7 +81,7 @@ async function createProcessingJob(data, actorId, client) {
     [
       data.order_id,
       actorId,
-      data.provider || 'cloudinary',
+      data.provider || 'google_ai',
       data.strict_quality_check || false,
       data.photo_ids.length
     ],

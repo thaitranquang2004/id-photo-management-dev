@@ -2,7 +2,7 @@ const path = require('node:path');
 const dotenv = require('dotenv');
 const { z } = require('zod');
 
-dotenv.config({ path: process.env.DOTENV_CONFIG_PATH || path.resolve(process.cwd(), '.env') });
+dotenv.config({ path: process.env.DOTENV_CONFIG_PATH || path.resolve(process.cwd(), '.env'), quiet: true });
 
 const emptyToUndefined = (value) => (value === '' ? undefined : value);
 
@@ -17,8 +17,8 @@ const envSchema = z.object({
   CLOUDINARY_CLOUD_NAME: z.preprocess(emptyToUndefined, z.string().optional()),
   CLOUDINARY_API_KEY: z.preprocess(emptyToUndefined, z.string().optional()),
   CLOUDINARY_API_SECRET: z.preprocess(emptyToUndefined, z.string().optional()),
-  BANANA_API_KEY: z.preprocess(emptyToUndefined, z.string().optional()),
-  BANANA_MODEL_KEY: z.preprocess(emptyToUndefined, z.string().optional()),
+  GEMINI_API_KEY: z.preprocess(emptyToUndefined, z.string().optional()),
+  GEMINI_IMAGE_MODEL: z.preprocess(emptyToUndefined, z.string().default('gemini-2.5-flash-image')),
   SIGNED_URL_PUBLIC_TTL_SECONDS: z.coerce.number().int().positive().default(86400),
   SIGNED_URL_INTERNAL_TTL_SECONDS: z.coerce.number().int().positive().default(900),
   PUBLIC_LOOKUP_RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(900000),

@@ -2,6 +2,7 @@ const { z } = require('zod');
 const {
   ORDER_STATUSES,
   PHOTO_STATUSES,
+  PROCESSING_PROVIDERS,
   REPRINT_STATUSES
 } = require('../config/constants');
 
@@ -77,6 +78,7 @@ const photoCreateBody = z.object({
 const batchProcessBody = z.object({
   order_id: uuid,
   photo_ids: z.array(uuid).min(1),
+  provider: z.enum(PROCESSING_PROVIDERS).default('google_ai'),
   strict_quality_check: z.boolean().default(false)
 });
 

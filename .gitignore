@@ -7,4 +7,3 @@ build/
 .supabase/
 coverage/
 docs/
-supabase/

@@ -7,6 +7,7 @@
     "api:dev": "npm --prefix apps/api run dev",
     "api:start": "npm --prefix apps/api start",
     "api:test": "npm --prefix apps/api test",
+    "api:verify:integrations": "npm --prefix apps/api run verify:integrations",
     "test": "npm run api:test"
   },
   "keywords": [],

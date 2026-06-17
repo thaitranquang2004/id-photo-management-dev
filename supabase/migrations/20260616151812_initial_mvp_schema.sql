@@ -120,7 +120,7 @@ create table public.processing_jobs (
   id uuid primary key default extensions.gen_random_uuid(),
   order_id uuid not null references public.orders(id) on delete cascade,
   requested_by uuid not null references public.profiles(id),
-  provider text not null default 'cloudinary',
+  provider text not null default 'google_ai',
   status text not null default 'queued',
   strict_quality_check boolean not null default false,
   photo_count integer not null default 0,
@@ -130,7 +130,7 @@ create table public.processing_jobs (
   started_at timestamptz,
   completed_at timestamptz,
   created_at timestamptz not null default now(),
-  constraint processing_jobs_provider_check check (provider in ('cloudinary', 'banana', 'hybrid')),
+  constraint processing_jobs_provider_check check (provider in ('cloudinary', 'google_ai', 'hybrid')),
   constraint processing_jobs_status_check check (
     status in ('queued', 'processing', 'completed', 'failed', 'cancelled')
   ),
