@@ -5,7 +5,6 @@ node_modules/
 dist/
 build/
 .supabase/
+supabase/
 coverage/
-docs/*
-!docs/
-!docs/API_TESTS.md
+docs/
