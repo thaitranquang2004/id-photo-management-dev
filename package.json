@@ -1,0 +1,16 @@
+{
+  "name": "id-photo-management",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "api:dev": "npm --prefix apps/api run dev",
+    "api:start": "npm --prefix apps/api start",
+    "api:test": "npm --prefix apps/api test",
+    "test": "npm run api:test"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs"
+}
