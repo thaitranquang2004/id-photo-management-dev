@@ -8,6 +8,10 @@
     "api:start": "npm --prefix apps/api start",
     "api:test": "npm --prefix apps/api test",
     "api:verify:integrations": "npm --prefix apps/api run verify:integrations",
+    "api:create:first-admin": "npm --prefix apps/api run create:first-admin",
+    "web:dev": "npm --prefix apps/web run dev",
+    "web:build": "npm --prefix apps/web run build",
+    "web:preview": "npm --prefix apps/web run preview",
     "test": "npm run api:test"
   },
   "keywords": [],

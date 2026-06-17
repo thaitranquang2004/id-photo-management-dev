@@ -92,8 +92,8 @@ const photoOverrideBody = z.object({
 const layoutConfigBody = z.object({
   order_id: uuid,
   photo_ids: z.array(uuid).min(1),
-  layout_type: z.string().trim().min(1),
-  paper_size: z.string().trim().min(1),
+  layout_type: z.string().trim().min(1).default('grid'),
+  paper_size: z.string().trim().min(1).default('A4'),
   add_text: z.boolean().default(false),
   layout_config: z.record(z.string(), z.any()).default({})
 });

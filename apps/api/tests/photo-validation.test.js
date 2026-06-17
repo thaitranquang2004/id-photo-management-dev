@@ -23,13 +23,6 @@ test('photo creation requires Cloudinary original public_id before DB insert', a
   );
 });
 
-test('photo file upload path is explicit while Cloudinary upload is not integrated', async () => {
-  await assert.rejects(
-    () => photoService.createPhotos({ order_id: '20000000-0000-4000-8000-000000000001' }, [{ originalname: 'sample.jpg' }], context),
-    (error) => error.code === 'CLOUDINARY_ERROR'
-  );
-});
-
 test('batch processing defaults to Google AI provider', () => {
   const body = schemas.batchProcessBody.parse({
     order_id: '20000000-0000-4000-8000-000000000001',
@@ -45,4 +38,14 @@ test('batch processing rejects Banana.dev provider value', () => {
     photo_ids: ['30000000-0000-4000-8000-000000000001'],
     provider: 'banana'
   }));
+});
+
+test('layout generation defaults to grid on A4 paper', () => {
+  const body = schemas.layoutGenerateBody.parse({
+    order_id: '20000000-0000-4000-8000-000000000001',
+    photo_ids: ['30000000-0000-4000-8000-000000000001']
+  });
+
+  assert.equal(body.layout_type, 'grid');
+  assert.equal(body.paper_size, 'A4');
 });

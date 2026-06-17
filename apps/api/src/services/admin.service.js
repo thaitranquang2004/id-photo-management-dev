@@ -42,8 +42,18 @@ async function getExportJob(id) {
 async function listUsers(query) {
   const pagination = parsePagination(query);
   const result = await profilesRepository.list(pagination);
+  const { data } = await serviceClient.auth.admin.listUsers({
+    page: 1,
+    perPage: 1000
+  });
+  const emailById = new Map((data?.users || []).map((user) => [user.id, user.email]));
   return {
-    data: { users: result.rows.map(({ total, ...row }) => row) },
+    data: {
+      users: result.rows.map(({ total, ...row }) => ({
+        ...row,
+        email: emailById.get(row.id) || null
+      }))
+    },
     pagination: buildPagination(pagination.page, pagination.limit, result.total)
   };
 }

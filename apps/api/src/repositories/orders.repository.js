@@ -48,9 +48,10 @@ async function findByIdForUpdate(id, client) {
 
 async function findByCodeAndPhone(orderCode, phone, client) {
   return one(
-    `select o.*
+    `select o.*, ct.name as card_type_name
      from public.orders o
      join public.customers c on c.id = o.customer_id
+     join public.card_types ct on ct.id = o.card_type_id
      where o.order_code = $1 and c.phone = $2`,
     [orderCode, phone],
     client

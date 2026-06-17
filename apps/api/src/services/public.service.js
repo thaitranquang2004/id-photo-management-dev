@@ -22,6 +22,7 @@ function publicOrderInfo(order) {
   return {
     id: order.id,
     order_code: order.order_code,
+    card_type_name: order.card_type_name,
     status: order.status,
     created_at: order.created_at
   };
@@ -80,7 +81,10 @@ async function customerLookup(query, req) {
         layout_type: layout.layout_type,
         paper_size: layout.paper_size,
         status: layout.status,
-        signed_url: signedOrNull(layout.cloudinary_public_id, { format: 'pdf', attachment: true }).signed_url
+        signed_url: signedOrNull(layout.cloudinary_public_id, {
+          format: layout.layout_asset_metadata?.format || 'png',
+          attachment: true
+        }).signed_url
       }))
     };
   });

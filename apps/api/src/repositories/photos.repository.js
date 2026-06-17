@@ -54,6 +54,43 @@ async function updateStatus(id, status, patch, client) {
   );
 }
 
+async function markProcessed(id, data, client) {
+  return one(
+    `update public.photos
+     set status = 'processed',
+         cloudinary_processed_public_id = $2,
+         processed_asset_metadata = $3,
+         quality_score = $4,
+         quality_issues = $5,
+         processing_error = null,
+         processed_at = now(),
+         updated_at = now()
+     where id = $1
+     returning *`,
+    [
+      id,
+      data.cloudinary_processed_public_id,
+      data.processed_asset_metadata || {},
+      data.quality_score ?? null,
+      JSON.stringify(data.quality_issues || [])
+    ],
+    client
+  );
+}
+
+async function markProcessingFailed(id, message, client) {
+  return one(
+    `update public.photos
+     set status = 'rejected',
+         processing_error = $2,
+         updated_at = now()
+     where id = $1
+     returning *`,
+    [id, message],
+    client
+  );
+}
+
 async function overrideProcessed(id, data, client) {
   return one(
     `update public.photos
@@ -107,6 +144,39 @@ async function findProcessingJob(id, client) {
   return one('select * from public.processing_jobs where id = $1', [id], client);
 }
 
+async function markJobStarted(id, client) {
+  return one(
+    `update public.processing_jobs
+     set status = 'processing',
+         started_at = coalesce(started_at, now())
+     where id = $1
+     returning *`,
+    [id],
+    client
+  );
+}
+
+async function finishProcessingJob(id, patch, client) {
+  return one(
+    `update public.processing_jobs
+     set status = $2,
+         processed_count = $3,
+         failed_count = $4,
+         error_message = $5,
+         completed_at = now()
+     where id = $1
+     returning *`,
+    [
+      id,
+      patch.status,
+      patch.processed_count,
+      patch.failed_count,
+      patch.error_message || null
+    ],
+    client
+  );
+}
+
 async function photosForJob(jobId, client) {
   return many(
     `select *
@@ -124,9 +194,13 @@ module.exports = {
   findManyByIds,
   findApprovedByOrder,
   updateStatus,
+  markProcessed,
+  markProcessingFailed,
   overrideProcessed,
   createProcessingJob,
   markPhotosProcessing,
   findProcessingJob,
+  markJobStarted,
+  finishProcessingJob,
   photosForJob
 };

@@ -58,6 +58,14 @@ router.post(
 
 router.use(authenticate, requireRole('staff', 'admin'));
 
+router.get('/me', (req, res) => sendSuccess(res, {
+  user: {
+    id: req.user.id,
+    role: req.user.role,
+    profile: req.user.profile
+  }
+}));
+
 router.get(
   '/customers',
   validate(z.object({ query: schemas.paginationQuery.extend({ phone: schemas.phone.optional() }) })),

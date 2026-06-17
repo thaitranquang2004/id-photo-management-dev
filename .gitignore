@@ -6,4 +6,6 @@ dist/
 build/
 .supabase/
 coverage/
-docs/
+docs/*
+!docs/
+!docs/API_TESTS.md

@@ -2,9 +2,10 @@ const { one, many } = require('../db/pool');
 
 async function findOrderByTokenHash(tokenHash, client) {
   return one(
-    `select o.*
+    `select o.*, ct.name as card_type_name
      from public.customer_access_tokens cat
      join public.orders o on o.id = cat.order_id
+     join public.card_types ct on ct.id = o.card_type_id
      where cat.token_hash = $1
        and cat.revoked_at is null
        and cat.expires_at > now()`,
