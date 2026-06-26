@@ -27,12 +27,12 @@ async function createAccessToken(orderId, tokenHash, expiresAt, client) {
 
 async function logLookupEvent(event, client) {
   return one(
-    `insert into public.public_lookup_events (
-       order_id, photo_id, action, result, phone, order_code, success,
+    `insert into public.su_kien_tra_cuu (
+       don_hang_id, anh_id, hanh_dong, ket_qua, so_dien_thoai, ma_don,
        ip_hash, user_agent, metadata
      )
-     values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-     returning *`,
+     values ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+     returning id`,
     [
       event.order_id || null,
       event.photo_id || null,
@@ -40,7 +40,6 @@ async function logLookupEvent(event, client) {
       event.result || 'failed',
       event.phone || null,
       event.order_code || null,
-      event.success || false,
       event.ip_hash || null,
       event.user_agent || null,
       event.metadata || {}

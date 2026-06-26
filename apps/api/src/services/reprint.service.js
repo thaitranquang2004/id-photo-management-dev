@@ -44,7 +44,7 @@ async function updateStatus(id, body, context) {
       });
     }
     const request = await reprintRepository.updateStatus(id, body, context.user.id, client);
-    await writeAudit('reprint_request.status_changed', 'public_reprint_requests', id, context, {
+    await writeAudit('reprint_request.status_changed', 'yeu_cau_in_lai', id, context, {
       old_data: oldRequest,
       new_data: request
     }, client);
@@ -107,7 +107,7 @@ async function convertToOrder(id, body, context) {
     }
 
     const updatedRequest = await reprintRepository.linkOrder(id, order.id, context.user.id, client);
-    await writeAudit('reprint_request.converted', 'public_reprint_requests', id, context, {
+    await writeAudit('reprint_request.converted', 'yeu_cau_in_lai', id, context, {
       old_data: request,
       new_data: { request: updatedRequest, order_id: order.id }
     }, client);
