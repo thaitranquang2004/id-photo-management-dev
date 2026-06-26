@@ -3,13 +3,13 @@ const auditRepository = require('../repositories/audit.repository');
 async function writeAudit(action, entityType, entityId, context, data = {}, client) {
   return auditRepository.insertAuditLog(
     {
-      actor_id: context?.user?.id || null,
-      action,
-      entity_type: entityType,
-      entity_id: entityId,
-      old_data: data.old_data || null,
-      new_data: data.new_data || null,
-      ip_address: context?.ip || null,
+      nguoi_thuc_hien: context?.user?.id || null,
+      hanh_dong: action,
+      loai_doi_tuong: entityType,
+      doi_tuong_id: entityId,
+      du_lieu_cu: data.old_data || null,
+      du_lieu_moi: data.new_data || null,
+      dia_chi_ip: context?.ip || null,
       user_agent: context?.userAgent || null
     },
     client

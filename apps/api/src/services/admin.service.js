@@ -95,8 +95,8 @@ async function auditLogs(query) {
   const { many } = require('../db/pool');
   const rows = await many(
     `select *, count(*) over()::int as total
-     from public.audit_logs
-     order by created_at desc
+     from public.nhat_ky_he_thong
+     order by ngay_tao desc
      limit $1 offset $2`,
     [pagination.limit, pagination.offset]
   );
