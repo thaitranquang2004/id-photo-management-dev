@@ -115,10 +115,10 @@ async function approvedPhotos(customerId, client) {
 async function printLayouts(customerId, { limit, offset }, client) {
   const rows = await many(
     `select pl.*, count(*) over()::int as total
-     from public.print_layouts pl
-     join public.orders o on o.id = pl.order_id
+     from public.bo_cuc_in pl
+     join public.orders o on o.id = pl.don_hang_id
      where o.customer_id = $1
-     order by pl.created_at desc
+     order by pl.ngay_tao desc
      limit $2 offset $3`,
     [customerId, limit, offset],
     client

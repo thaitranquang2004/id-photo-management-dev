@@ -72,9 +72,9 @@ async function approvedPhotos(orderId, client) {
 async function generatedLayouts(orderId, client) {
   return many(
     `select *
-     from public.print_layouts
-     where order_id = $1 and status = 'generated'
-     order by created_at desc`,
+     from public.bo_cuc_in
+     where don_hang_id = $1 and trang_thai = 'generated'
+     order by ngay_tao desc`,
     [orderId],
     client
   );

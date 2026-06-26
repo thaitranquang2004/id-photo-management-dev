@@ -203,7 +203,7 @@ async function generateLayout(body, context) {
 
     const printLayout = await layoutsRepository.createLayout(layoutBody, context.user.id, client);
     const items = await layoutsRepository.createItems(printLayout.id, body.photo_ids, client);
-    await writeAudit('layout.created', 'print_layouts', printLayout.id, context, { new_data: { print_layout: printLayout, items } }, client);
+    await writeAudit('layout.created', 'bo_cuc_in', printLayout.id, context, { new_data: { print_layout: printLayout, items } }, client);
 
     let updatedOrder = order;
     if (order.status === 'processing') {
@@ -224,11 +224,11 @@ async function getLayout(id) {
 async function downloadUrl(id) {
   const layout = await layoutsRepository.findById(id);
   if (!layout) throw errors.notFound('Không tìm thấy layout');
-  if (layout.status !== 'generated') {
-    throw errors.invalidState('Chỉ layout generated mới có URL tải', { status: layout.status });
+  if (layout.trang_thai !== 'generated') {
+    throw errors.invalidState('Chỉ layout generated mới có URL tải', { status: layout.trang_thai });
   }
-  const signed = assetService.signedDownloadUrl(layout.cloudinary_public_id, {
-    format: layout.layout_asset_metadata?.format || 'png',
+  const signed = assetService.signedDownloadUrl(layout.cloudinary_id, {
+    format: layout.metadata_file?.format || 'png',
     resource_type: 'image',
     attachment: true
   });
@@ -245,7 +245,7 @@ async function reportIssue(id, body, context) {
     if (!layout) throw errors.notFound('Không tìm thấy layout');
     const issue = await layoutsRepository.createIssue(id, body, context.user.id, client);
     const printLayout = await layoutsRepository.markNeedsFix(id, client);
-    await writeAudit('layout.issue_reported', 'layout_issues', issue.id, context, {
+    await writeAudit('layout.issue_reported', 'loi_bo_cuc', issue.id, context, {
       old_data: layout,
       new_data: { issue, print_layout: printLayout }
     }, client);

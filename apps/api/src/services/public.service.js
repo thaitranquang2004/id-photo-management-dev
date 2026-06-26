@@ -83,12 +83,12 @@ async function customerLookup(query, req) {
       }),
       print_layouts: layouts.map((layout) => ({
         id: layout.id,
-        layout_type: layout.layout_type,
-        paper_size: layout.paper_size,
-        status: layout.status,
-        purged: Boolean(layout.purged_at),
-        signed_url: layout.purged_at ? null : signedOrNull(layout.cloudinary_public_id, {
-          format: layout.layout_asset_metadata?.format || 'png',
+        layout_type: layout.kieu_bo_cuc,
+        paper_size: layout.kho_giay,
+        status: layout.trang_thai,
+        purged: Boolean(layout.ngay_don_dep),
+        signed_url: layout.ngay_don_dep ? null : signedOrNull(layout.cloudinary_id, {
+          format: layout.metadata_file?.format || 'png',
           attachment: true
         }).signed_url
       })),

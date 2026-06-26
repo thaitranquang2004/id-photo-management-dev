@@ -79,7 +79,7 @@ async function details(id, client) {
   const [pricingSnapshot, photos, printLayouts, appointment] = await Promise.all([
     one('select * from public.pricing_snapshots where order_id = $1', [id], client),
     many('select * from public.photos where order_id = $1 order by created_at desc', [id], client),
-    many('select * from public.print_layouts where order_id = $1 order by created_at desc', [id], client),
+    many('select * from public.bo_cuc_in where don_hang_id = $1 order by ngay_tao desc', [id], client),
     one('select * from public.appointments where order_id = $1 order by created_at desc limit 1', [id], client)
   ]);
 
@@ -192,8 +192,8 @@ async function countApprovedPhotos(orderId, client) {
 async function countGeneratedLayouts(orderId, client) {
   const row = await one(
     `select count(*)::int as count
-     from public.print_layouts
-     where order_id = $1 and status = 'generated'`,
+     from public.bo_cuc_in
+     where don_hang_id = $1 and trang_thai = 'generated'`,
     [orderId],
     client
   );

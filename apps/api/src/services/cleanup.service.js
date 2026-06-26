@@ -25,14 +25,14 @@ async function purgeOldOrders() {
   }
 
   const oldLayouts = await many(
-    `select pl.id, pl.cloudinary_public_id
-     from public.print_layouts pl
-     join public.orders o on o.id = pl.order_id
-     where o.created_at < now() - interval '${PURGE_AFTER_DAYS} days' and pl.purged_at is null`
+    `select pl.id, pl.cloudinary_id
+     from public.bo_cuc_in pl
+     join public.orders o on o.id = pl.don_hang_id
+     where o.created_at < now() - interval '${PURGE_AFTER_DAYS} days' and pl.ngay_don_dep is null`
   );
   for (const l of oldLayouts) {
-    await assetService.destroyAsset(l.cloudinary_public_id);
-    await query('update public.print_layouts set purged_at = now() where id = $1', [l.id]);
+    await assetService.destroyAsset(l.cloudinary_id);
+    await query('update public.bo_cuc_in set ngay_don_dep = now() where id = $1', [l.id]);
     layouts += 1;
   }
 

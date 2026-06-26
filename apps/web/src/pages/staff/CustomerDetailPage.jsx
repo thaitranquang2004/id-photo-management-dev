@@ -196,16 +196,16 @@ export default function CustomerDetailPage() {
               <tbody>
                 {printLayouts.map((layout) => (
                   <tr key={layout.id}>
-                    <td>{layout.order_id}</td>
-                    <td>{layout.layout_type}</td>
-                    <td>{layout.paper_size}</td>
-                    <td>{layout.status}</td>
-                    <td>{formatDate(layout.created_at)}</td>
+                    <td>{layout.don_hang_id}</td>
+                    <td>{layout.kieu_bo_cuc}</td>
+                    <td>{layout.kho_giay}</td>
+                    <td>{layout.trang_thai}</td>
+                    <td>{formatDate(layout.ngay_tao)}</td>
                     <td className="text-end">
                       <Button
                         size="sm"
                         variant="outline-primary"
-                        disabled={downloadMutation.isPending || layout.status !== 'generated'}
+                        disabled={downloadMutation.isPending || layout.trang_thai !== 'generated'}
                         onClick={() => downloadMutation.mutate(layout.id)}
                       >
                         Tải signed URL
