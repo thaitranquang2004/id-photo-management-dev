@@ -64,7 +64,7 @@ async function createUser(body, context) {
       is_active: body.is_active,
       disabled_at: body.is_active ? null : new Date()
     }, client);
-    await writeAudit('user.created', 'profiles', profile.id, context, { new_data: profile }, client);
+    await writeAudit('user.created', 'nguoi_dung', profile.id, context, { new_data: profile }, client);
     return { user: data.user, profile };
   });
 }
@@ -78,7 +78,7 @@ async function updateUser(id, body, context) {
       disabled_at: body.is_active === false ? new Date() : body.disabled_at
     };
     const profile = await profilesRepository.updateProfile(id, patch, client);
-    await writeAudit('user.updated', 'profiles', id, context, { old_data: oldProfile, new_data: profile }, client);
+    await writeAudit('user.updated', 'nguoi_dung', id, context, { old_data: oldProfile, new_data: profile }, client);
     return { profile };
   });
 }
@@ -86,7 +86,7 @@ async function updateUser(id, body, context) {
 async function resetPassword(id, context) {
   const profile = await profilesRepository.findById(id);
   if (!profile) throw errors.notFound('Không tìm thấy nhân viên');
-  await writeAudit('user.password_reset_requested', 'profiles', id, context, { new_data: { id } });
+  await writeAudit('user.password_reset_requested', 'nguoi_dung', id, context, { new_data: { id } });
   return { message: 'Reset password cần email flow/Supabase template trong triển khai production' };
 }
 

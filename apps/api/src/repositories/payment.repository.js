@@ -12,9 +12,9 @@ async function create(data, client) {
 
 async function listByOrder(orderId, client) {
   return many(
-    `select p.*, pr.full_name as nguoi_thu_ten
+    `select p.*, pr.ho_ten as nguoi_thu_ten
      from public.thanh_toan p
-     left join public.profiles pr on pr.id = p.nguoi_thu
+     left join public.nguoi_dung pr on pr.id = p.nguoi_thu
      where p.don_hang_id = $1
      order by p.ngay_tao desc`,
     [orderId],

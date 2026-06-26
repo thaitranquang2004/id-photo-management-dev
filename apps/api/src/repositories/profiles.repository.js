@@ -1,14 +1,18 @@
 const { one, many } = require('../db/pool');
 
+// Alias cột nguoi_dung về tiếng Anh để auth.middleware + admin.service không phải đổi.
+const PROF_COLS = `id, ho_ten as full_name, so_dien_thoai as phone, vai_tro as role,
+  dang_hoat_dong as is_active, ngay_luu_tru as disabled_at, ngay_tao as created_at, ngay_cap_nhat as updated_at`;
+
 async function findById(id, client) {
-  return one('select * from public.profiles where id = $1', [id], client);
+  return one(`select ${PROF_COLS} from public.nguoi_dung where id = $1`, [id], client);
 }
 
 async function list({ limit, offset }, client) {
   const rows = await many(
-    `select *, count(*) over()::int as total
-     from public.profiles
-     order by created_at desc
+    `select ${PROF_COLS}, count(*) over()::int as total
+     from public.nguoi_dung
+     order by ngay_tao desc
      limit $1 offset $2`,
     [limit, offset],
     client
@@ -18,16 +22,16 @@ async function list({ limit, offset }, client) {
 
 async function upsertProfile(profile, client) {
   return one(
-    `insert into public.profiles (id, full_name, phone, role, is_active, disabled_at)
+    `insert into public.nguoi_dung (id, ho_ten, so_dien_thoai, vai_tro, dang_hoat_dong, ngay_luu_tru)
      values ($1, $2, $3, $4, $5, $6)
      on conflict (id) do update set
-       full_name = excluded.full_name,
-       phone = excluded.phone,
-       role = excluded.role,
-       is_active = excluded.is_active,
-       disabled_at = excluded.disabled_at,
-       updated_at = now()
-     returning *`,
+       ho_ten = excluded.ho_ten,
+       so_dien_thoai = excluded.so_dien_thoai,
+       vai_tro = excluded.vai_tro,
+       dang_hoat_dong = excluded.dang_hoat_dong,
+       ngay_luu_tru = excluded.ngay_luu_tru,
+       ngay_cap_nhat = now()
+     returning ${PROF_COLS}`,
     [
       profile.id,
       profile.full_name,
@@ -45,15 +49,15 @@ async function updateProfile(id, patch, client) {
   if (!current) return null;
 
   return one(
-    `update public.profiles
-     set full_name = coalesce($2, full_name),
-         phone = coalesce($3, phone),
-         role = coalesce($4, role),
-         is_active = coalesce($5, is_active),
-         disabled_at = $6,
-         updated_at = now()
+    `update public.nguoi_dung
+     set ho_ten = coalesce($2, ho_ten),
+         so_dien_thoai = coalesce($3, so_dien_thoai),
+         vai_tro = coalesce($4, vai_tro),
+         dang_hoat_dong = coalesce($5, dang_hoat_dong),
+         ngay_luu_tru = $6,
+         ngay_cap_nhat = now()
      where id = $1
-     returning *`,
+     returning ${PROF_COLS}`,
     [
       id,
       patch.full_name ?? null,
