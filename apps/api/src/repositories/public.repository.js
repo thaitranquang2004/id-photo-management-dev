@@ -3,12 +3,12 @@ const { one, many } = require('../db/pool');
 async function findOrderByTokenHash(tokenHash, client) {
   return one(
     `select o.*, ct.name as card_type_name
-     from public.customer_access_tokens cat
-     join public.orders o on o.id = cat.order_id
+     from public.ma_truy_cap_khach cat
+     join public.orders o on o.id = cat.don_hang_id
      join public.card_types ct on ct.id = o.card_type_id
-     where cat.token_hash = $1
-       and cat.revoked_at is null
-       and cat.expires_at > now()`,
+     where cat.ma_hash = $1
+       and cat.thu_hoi_luc is null
+       and cat.het_han_luc > now()`,
     [tokenHash],
     client
   );
@@ -16,7 +16,7 @@ async function findOrderByTokenHash(tokenHash, client) {
 
 async function createAccessToken(orderId, tokenHash, expiresAt, client) {
   return one(
-    `insert into public.customer_access_tokens (order_id, token_hash, expires_at)
+    `insert into public.ma_truy_cap_khach (don_hang_id, ma_hash, het_han_luc)
      values ($1, $2, $3)
      returning *`,
     [orderId, tokenHash, expiresAt],

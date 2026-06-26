@@ -66,7 +66,7 @@ async function createOrder(body, context) {
 
 // Mint a customer access token (store only the sha256 hash), flag ready_notified_at,
 // and build the photos_ready notification payload with a tokened lookup URL. This
-// closes the loop on the previously-unused customer_access_tokens table.
+// closes the loop on the previously-unused ma_truy_cap_khach table.
 async function prepareReadyNotification(order, client) {
   const customer = await customersRepository.findById(order.customer_id, client);
   const token = crypto.randomBytes(24).toString('hex');
