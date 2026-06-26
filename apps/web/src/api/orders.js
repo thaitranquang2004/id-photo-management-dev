@@ -20,10 +20,14 @@ export async function completeOrder(id, payload = {}) {
   return apiData(`/orders/${id}/complete`, { method: 'POST', body: payload });
 }
 
-export async function deliverOrder(id) {
-  return apiData(`/orders/${id}/deliver`, { method: 'POST', body: {} });
+export async function deliverOrder(id, payload = {}) {
+  return apiData(`/orders/${id}/deliver`, { method: 'POST', body: payload });
 }
 
 export async function cancelOrder(id, reason) {
   return apiData(`/orders/${id}/cancel`, { method: 'POST', body: { reason } });
+}
+
+export async function notifyOrderReady(id) {
+  return apiData(`/orders/${id}/notify-ready`, { method: 'POST', body: {} });
 }

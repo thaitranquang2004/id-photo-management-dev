@@ -12,6 +12,7 @@ import EmptyState from '../../components/feedback/EmptyState.jsx';
 import ErrorState from '../../components/feedback/ErrorState.jsx';
 import LoadingState from '../../components/feedback/LoadingState.jsx';
 import { formatCurrency } from '../../utils/format';
+import { useFormErrors } from '../../hooks/useFormErrors.js';
 
 const emptyForm = {
   name: '',
@@ -54,6 +55,7 @@ export default function CardTypesPage() {
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(emptyForm);
   const [formError, setFormError] = useState('');
+  const { errors, setErrors, clearError, validate } = useFormErrors();
   const query = useQuery({
     queryKey: ['card-types'],
     queryFn: listCardTypes
@@ -79,12 +81,19 @@ export default function CardTypesPage() {
     setEditing(cardType);
     setForm(toForm(cardType));
     setFormError('');
+    setErrors({});
     setShowModal(true);
   }
 
   function handleSubmit(event) {
     event.preventDefault();
     setFormError('');
+    if (!validate(form, {
+      name: 'Vui lòng nhập tên loại thẻ',
+      short_code: 'Vui lòng nhập short code',
+      width_mm: 'Vui lòng nhập chiều rộng',
+      height_mm: 'Vui lòng nhập chiều cao'
+    })) return;
     try {
       saveMutation.mutate(parsePayload(form));
     } catch (error) {
@@ -176,25 +185,47 @@ export default function CardTypesPage() {
               <Col md={6}>
                 <Form.Group>
                   <Form.Label>Tên</Form.Label>
-                  <Form.Control value={form.name} onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))} required />
+                  <Form.Control
+                    value={form.name}
+                    onChange={(event) => { setForm((current) => ({ ...current, name: event.target.value })); clearError('name'); }}
+                    isInvalid={!!errors.name}
+                  />
+                  <Form.Control.Feedback type="invalid">{errors.name}</Form.Control.Feedback>
                 </Form.Group>
               </Col>
               <Col md={6}>
                 <Form.Group>
                   <Form.Label>Short code</Form.Label>
-                  <Form.Control value={form.short_code} onChange={(event) => setForm((current) => ({ ...current, short_code: event.target.value }))} required />
+                  <Form.Control
+                    value={form.short_code}
+                    onChange={(event) => { setForm((current) => ({ ...current, short_code: event.target.value })); clearError('short_code'); }}
+                    isInvalid={!!errors.short_code}
+                  />
+                  <Form.Control.Feedback type="invalid">{errors.short_code}</Form.Control.Feedback>
                 </Form.Group>
               </Col>
               <Col md={4}>
                 <Form.Group>
                   <Form.Label>Rộng mm</Form.Label>
-                  <Form.Control type="number" value={form.width_mm} onChange={(event) => setForm((current) => ({ ...current, width_mm: event.target.value }))} required />
+                  <Form.Control
+                    type="number"
+                    value={form.width_mm}
+                    onChange={(event) => { setForm((current) => ({ ...current, width_mm: event.target.value })); clearError('width_mm'); }}
+                    isInvalid={!!errors.width_mm}
+                  />
+                  <Form.Control.Feedback type="invalid">{errors.width_mm}</Form.Control.Feedback>
                 </Form.Group>
               </Col>
               <Col md={4}>
                 <Form.Group>
                   <Form.Label>Cao mm</Form.Label>
-                  <Form.Control type="number" value={form.height_mm} onChange={(event) => setForm((current) => ({ ...current, height_mm: event.target.value }))} required />
+                  <Form.Control
+                    type="number"
+                    value={form.height_mm}
+                    onChange={(event) => { setForm((current) => ({ ...current, height_mm: event.target.value })); clearError('height_mm'); }}
+                    isInvalid={!!errors.height_mm}
+                  />
+                  <Form.Control.Feedback type="invalid">{errors.height_mm}</Form.Control.Feedback>
                 </Form.Group>
               </Col>
               <Col md={4}>

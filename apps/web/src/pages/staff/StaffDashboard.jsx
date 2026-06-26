@@ -1,15 +1,17 @@
 import { useQuery } from '@tanstack/react-query';
-import { ClipboardList, Plus } from 'lucide-react';
+import { ClipboardList, Inbox, Plus } from 'lucide-react';
 import { Button, Col, Row, Table } from 'react-bootstrap';
 import { Link } from 'react-router-dom';
 import { listCustomers } from '../../api/customers';
 import { listOrders } from '../../api/orders';
-import { apiRequest } from '../../api/client';
+import { listOnlineRequests } from '../../api/intake';
+import { listReprintRequests } from '../../api/reprints';
 import EmptyState from '../../components/feedback/EmptyState.jsx';
 import ErrorState from '../../components/feedback/ErrorState.jsx';
 import LoadingState from '../../components/feedback/LoadingState.jsx';
 import KpiCard from '../../components/layout/KpiCard.jsx';
 import OrderStatusBadge from '../../components/status/OrderStatusBadge.jsx';
+import PaymentStatusBadge from '../../components/status/PaymentStatusBadge.jsx';
 import { formatDate, thisMonthStart, todayRange } from '../../utils/format';
 
 function ordersFrom(result) {
@@ -32,19 +34,25 @@ export default function StaffDashboard() {
   });
   const reprintRequests = useQuery({
     queryKey: ['staff', 'reprints', 'new'],
-    queryFn: () => apiRequest('/reprint-requests', { query: { limit: 5 } })
+    queryFn: () => listReprintRequests({ limit: 5 })
+  });
+  const onlineRequests = useQuery({
+    queryKey: ['staff', 'online-requests', 'new'],
+    queryFn: () => listOnlineRequests({ status: 'new', limit: 5 })
   });
 
-  const loading = pendingOrders.isLoading || completedOrders.isLoading || monthlyCustomers.isLoading || reprintRequests.isLoading;
-  const error = pendingOrders.error || completedOrders.error || monthlyCustomers.error || reprintRequests.error;
+  const loading = pendingOrders.isLoading || completedOrders.isLoading || monthlyCustomers.isLoading || reprintRequests.isLoading || onlineRequests.isLoading;
+  const error = pendingOrders.error || completedOrders.error || monthlyCustomers.error || reprintRequests.error || onlineRequests.error;
   const pending = ordersFrom(pendingOrders.data);
   const completedTotal = completedOrders.data?.pagination?.total ?? ordersFrom(completedOrders.data).length;
   const customersThisMonth = (monthlyCustomers.data?.data?.customers || [])
     .filter((customer) => new Date(customer.created_at) >= thisMonthStart()).length;
-  const reprints = reprintRequests.data?.data?.requests || reprintRequests.data?.data?.reprint_requests || [];
+  const reprints = reprintRequests.data?.requests || [];
+  const newOnlineRequests = onlineRequests.data?.online_requests || [];
+  const newOnlineCount = onlineRequests.data?.total ?? newOnlineRequests.length;
 
   if (loading) return <LoadingState label="Đang tải dashboard staff..." />;
-  if (error) return <ErrorState error={error} onRetry={() => { pendingOrders.refetch(); completedOrders.refetch(); }} />;
+  if (error) return <ErrorState error={error} onRetry={() => { pendingOrders.refetch(); completedOrders.refetch(); monthlyCustomers.refetch(); reprintRequests.refetch(); onlineRequests.refetch(); }} />;
 
   return (
     <div className="page-stack">
@@ -62,7 +70,7 @@ export default function StaffDashboard() {
       <Row className="g-3">
         <Col sm={6} xl={3}><KpiCard label="Đơn chờ hôm nay" value={pendingOrders.data?.pagination?.total ?? pending.length} /></Col>
         <Col sm={6} xl={3}><KpiCard label="Đơn hoàn thành hôm nay" value={completedTotal} /></Col>
-        <Col sm={6} xl={3}><KpiCard label="Ảnh đã xử lý hôm nay" value="-" hint="Backend chưa có endpoint tổng hợp theo ngày" /></Col>
+        <Col sm={6} xl={3}><KpiCard label="Yêu cầu online mới" value={newOnlineCount} hint="Khách đặt lịch / gửi ảnh online" /></Col>
         <Col sm={6} xl={3}><KpiCard label="Khách mới tháng này" value={customersThisMonth} /></Col>
       </Row>
 
@@ -84,6 +92,7 @@ export default function StaffDashboard() {
                       <th>Khách</th>
                       <th>Loại thẻ</th>
                       <th>Trạng thái</th>
+                      <th>Thanh toán</th>
                       <th>Ngày tạo</th>
                       <th></th>
                     </tr>
@@ -98,6 +107,7 @@ export default function StaffDashboard() {
                         </td>
                         <td>{order.card_type_name}</td>
                         <td><OrderStatusBadge status={order.status} /></td>
+                        <td><PaymentStatusBadge total={order.total_amount} paid={order.amount_paid} /></td>
                         <td>{formatDate(order.created_at)}</td>
                         <td className="text-end">
                           <Button as={Link} to={`/staff/orders/${order.id}`} size="sm" variant="outline-primary">
@@ -113,6 +123,28 @@ export default function StaffDashboard() {
           </section>
         </Col>
         <Col xl={4}>
+          <section className="app-panel">
+            <div className="section-title">
+              <h2>Yêu cầu online mới</h2>
+              <Inbox size={20} aria-hidden="true" />
+            </div>
+            {newOnlineRequests.length === 0 ? (
+              <EmptyState title="Chưa có yêu cầu online" description="Yêu cầu từ trang Đặt online sẽ xuất hiện ở đây." />
+            ) : (
+              <div className="stack-list">
+                {newOnlineRequests.map((item) => (
+                  <div className="stack-list-item" key={item.id}>
+                    <div className="fw-semibold">{item.full_name} · {item.phone}</div>
+                    <div className="text-muted small">{item.card_type_name || 'Chưa chọn loại'} · {item.photo_count || 0} ảnh</div>
+                  </div>
+                ))}
+              </div>
+            )}
+            <Button as={Link} to="/staff/inbox" size="sm" variant="outline-primary" className="mt-2">
+              Mở hộp thư online
+            </Button>
+          </section>
+
           <section className="app-panel">
             <div className="section-title">
               <h2>Yêu cầu in lại mới</h2>

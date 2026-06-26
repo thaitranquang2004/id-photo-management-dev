@@ -26,8 +26,8 @@ async function reject(req, res) {
   return sendSuccess(res, await photoService.rejectPhoto(req.validated.params.id, req.validated.body, requestContext(req)));
 }
 
-async function override(req, res) {
-  return sendSuccess(res, await photoService.overridePhoto(req.validated.params.id, req.validated.body, requestContext(req)));
+async function requalify(req, res) {
+  return sendSuccess(res, await photoService.requalifyPhoto(req.validated.params.id, requestContext(req)));
 }
 
-module.exports = { create, batchProcess, getJob, get, approve, reject, override };
+module.exports = { create, batchProcess, getJob, get, approve, reject, requalify };

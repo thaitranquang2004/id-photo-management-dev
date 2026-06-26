@@ -3,6 +3,8 @@ const publicRepository = require('../repositories/public.repository');
 const ordersRepository = require('../repositories/orders.repository');
 const reprintRepository = require('../repositories/reprint.repository');
 const layoutsRepository = require('../repositories/layouts.repository');
+const catalogRepository = require('../repositories/catalog.repository');
+const customersRepository = require('../repositories/customers.repository');
 const { errors } = require('../utils/app-error');
 const { sha256 } = require('../utils/hash');
 const assetService = require('./asset.service');
@@ -54,6 +56,8 @@ async function customerLookup(query, req) {
 
     const photos = await publicRepository.approvedPhotos(order.id, client);
     const layouts = await publicRepository.generatedLayouts(order.id, client);
+    // Bộ sưu tập: toàn bộ ảnh đã duyệt của khách qua mọi đơn (không chỉ đơn đang tra).
+    const collectionPhotos = await customersRepository.approvedPhotos(order.customer_id, client);
 
     await publicRepository.logLookupEvent({
       order_id: order.id,
@@ -73,7 +77,8 @@ async function customerLookup(query, req) {
         return {
           id: photo.id,
           status: photo.status,
-          signed_url: signedOrNull(publicId, { format: 'jpg' }).signed_url
+          purged: Boolean(photo.purged_at),
+          signed_url: photo.purged_at ? null : signedOrNull(publicId, { format: 'jpg' }).signed_url
         };
       }),
       print_layouts: layouts.map((layout) => ({
@@ -81,11 +86,22 @@ async function customerLookup(query, req) {
         layout_type: layout.layout_type,
         paper_size: layout.paper_size,
         status: layout.status,
-        signed_url: signedOrNull(layout.cloudinary_public_id, {
+        purged: Boolean(layout.purged_at),
+        signed_url: layout.purged_at ? null : signedOrNull(layout.cloudinary_public_id, {
           format: layout.layout_asset_metadata?.format || 'png',
           attachment: true
         }).signed_url
-      }))
+      })),
+      collection: collectionPhotos.map((photo) => {
+        const publicId = photo.cloudinary_processed_public_id || photo.cloudinary_original_public_id;
+        return {
+          id: photo.id,
+          order_code: photo.order_code,
+          created_at: photo.created_at,
+          purged: Boolean(photo.purged_at),
+          signed_url: photo.purged_at ? null : signedOrNull(publicId, { format: 'jpg' }).signed_url
+        };
+      })
     };
   });
 }
@@ -109,6 +125,9 @@ async function photoDownloadUrl(photoId, body, req) {
         user_agent: req.get('user-agent')
       }, client);
       throw errors.notFound('Không tìm thấy ảnh approved');
+    }
+    if (photo.purged_at) {
+      throw errors.invalidState('Ảnh đã hết hạn lưu trữ (quá 6 tháng), không thể tải.');
     }
 
     const publicId = photo.cloudinary_processed_public_id || photo.cloudinary_original_public_id;
@@ -172,4 +191,21 @@ async function createReprintRequest(body, req) {
   });
 }
 
-module.exports = { customerLookup, photoDownloadUrl, createReprintRequest };
+// Trimmed, login-free catalog for the public booking page.
+async function listPublicCardTypes() {
+  const cardTypes = await catalogRepository.listCardTypes();
+  return {
+    card_types: cardTypes.map((cardType) => ({
+      id: cardType.id,
+      name: cardType.name,
+      short_code: cardType.short_code,
+      width_mm: cardType.width_mm,
+      height_mm: cardType.height_mm,
+      background_color: cardType.background_color,
+      requirements: cardType.requirements,
+      current_price_per_copy: cardType.current_price_per_copy ?? null
+    }))
+  };
+}
+
+module.exports = { customerLookup, photoDownloadUrl, createReprintRequest, listPublicCardTypes };

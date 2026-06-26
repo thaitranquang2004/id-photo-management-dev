@@ -14,6 +14,16 @@ async function findOrderByTokenHash(tokenHash, client) {
   );
 }
 
+async function createAccessToken(orderId, tokenHash, expiresAt, client) {
+  return one(
+    `insert into public.customer_access_tokens (order_id, token_hash, expires_at)
+     values ($1, $2, $3)
+     returning *`,
+    [orderId, tokenHash, expiresAt],
+    client
+  );
+}
+
 async function logLookupEvent(event, client) {
   return one(
     `insert into public.public_lookup_events (
@@ -72,6 +82,7 @@ async function generatedLayouts(orderId, client) {
 
 module.exports = {
   findOrderByTokenHash,
+  createAccessToken,
   logLookupEvent,
   approvedPhotoForPublic,
   approvedPhotos,

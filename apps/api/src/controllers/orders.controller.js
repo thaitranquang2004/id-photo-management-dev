@@ -24,7 +24,7 @@ async function complete(req, res) {
 }
 
 async function deliver(req, res) {
-  return sendSuccess(res, await orderService.changeStatus(req.validated.params.id, 'delivered', requestContext(req)));
+  return sendSuccess(res, await orderService.changeStatus(req.validated.params.id, 'delivered', requestContext(req), req.validated.body));
 }
 
 async function cancel(req, res) {
@@ -33,4 +33,8 @@ async function cancel(req, res) {
   }));
 }
 
-module.exports = { list, get, create, startProcessing, complete, deliver, cancel };
+async function notifyReady(req, res) {
+  return sendSuccess(res, await orderService.notifyReady(req.validated.params.id, requestContext(req)));
+}
+
+module.exports = { list, get, create, startProcessing, complete, deliver, cancel, notifyReady };

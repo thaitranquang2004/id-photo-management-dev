@@ -1,7 +1,8 @@
 import { useMutation } from '@tanstack/react-query';
-import { Download, Search, Send } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { CalendarPlus, CheckCircle2, Download, Hash, Phone, RotateCcw, Search, Send, TicketCheck } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Button, Col, Container, Form, Image, Row } from 'react-bootstrap';
+import { useSearchParams } from 'react-router-dom';
 import {
   createPublicReprintRequest,
   getPublicPhotoDownloadUrl,
@@ -10,12 +11,18 @@ import {
 import EmptyState from '../../components/feedback/EmptyState.jsx';
 import LoadingState from '../../components/feedback/LoadingState.jsx';
 import OrderStatusBadge from '../../components/status/OrderStatusBadge.jsx';
+import PublicFooter from '../../components/layout/PublicFooter.jsx';
 import { formatDateOnly } from '../../utils/format';
+import { useFormErrors } from '../../hooks/useFormErrors.js';
 
 export default function PublicLookupPage() {
+  const [searchParams] = useSearchParams();
+  const autoLookupDone = useRef(false);
   const [lookupForm, setLookupForm] = useState({ phone: '', order_code: '', token: '' });
   const [selectedPhotos, setSelectedPhotos] = useState([]);
   const [reprintForm, setReprintForm] = useState({ quantity: 1, reason: '', note: '' });
+  const { errors, setErrors, clearError, validate } = useFormErrors();
+  const [reprintError, setReprintError] = useState('');
   const lookupPayload = useMemo(() => (
     lookupForm.token.trim()
       ? { token: lookupForm.token.trim() }
@@ -50,13 +57,56 @@ export default function PublicLookupPage() {
   const result = lookupMutation.data;
   const photos = result?.photos || [];
   const orderInfo = result?.order_info;
+  const collection = result?.collection || [];
+  const hasToken = Boolean(lookupForm.token.trim());
+
+  // Khi mở link /tra-cuu?token=... thì tự điền mã tra cứu và tìm luôn.
+  // Defer + cleanup để tránh StrictMode (dev) mount/unmount 2 lần làm kẹt mutation.
+  useEffect(() => {
+    const token = (searchParams.get('token') || '').trim();
+    if (!token || autoLookupDone.current) return undefined;
+    const timer = setTimeout(() => {
+      autoLookupDone.current = true;
+      setLookupForm((current) => ({ ...current, token }));
+      lookupMutation.mutate({ token });
+    }, 0);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   function submitLookup(event) {
     event.preventDefault();
+    // Hợp lệ khi có mã tra cứu (token); nếu không thì bắt buộc cả SĐT + mã đơn.
+    const rules = hasToken ? {} : {
+      phone: 'Nhập số điện thoại (hoặc dùng mã tra cứu bên dưới)',
+      order_code: 'Nhập mã đơn (hoặc dùng mã tra cứu bên dưới)'
+    };
+    if (!validate(lookupForm, rules)) return;
     lookupMutation.mutate(lookupPayload);
   }
 
+  function submitReprint() {
+    if (selectedPhotos.length === 0) {
+      setReprintError('Vui lòng chọn ít nhất 1 ảnh để in lại.');
+      return;
+    }
+    setReprintError('');
+    reprintMutation.mutate();
+  }
+
+  function resetLookup() {
+    setLookupForm({ phone: '', order_code: '', token: '' });
+    setSelectedPhotos([]);
+    setReprintForm({ quantity: 1, reason: '', note: '' });
+    setErrors({});
+    setReprintError('');
+    lookupMutation.reset();
+    downloadMutation.reset();
+    reprintMutation.reset();
+  }
+
   function togglePhoto(photoId) {
+    setReprintError('');
     setSelectedPhotos((current) => current.includes(photoId)
       ? current.filter((id) => id !== photoId)
       : [...current, photoId]);
@@ -70,48 +120,82 @@ export default function PublicLookupPage() {
             <span className="brand-dot" />
             <span>Tiệm hình thẻ</span>
           </div>
-          <a href="/login">Staff/Admin</a>
+          <div className="d-flex gap-2">
+            <Button as="a" href="/dat-lich" variant="primary" size="sm">
+              <CalendarPlus size={15} aria-hidden="true" />
+              Đặt lịch online
+            </Button>
+            <Button as="a" href="/trang-thai" variant="outline-secondary" size="sm">
+              Trạng thái yêu cầu
+            </Button>
+            <Button as="a" href="/login" variant="outline-primary" size="sm">
+              Staff/Admin
+            </Button>
+          </div>
         </div>
 
         <Row className="g-4">
-          <Col lg={5}>
-            <section className="app-panel public-panel">
-              <h1>Tra cứu đơn</h1>
-              <p className="text-muted">Nhập số điện thoại và mã đơn, hoặc dùng mã tra cứu nếu cửa hàng đã gửi.</p>
+          <Col lg={5} className="d-flex flex-column">
+            <section className="app-panel public-panel flex-grow-1">
+              <div className="public-heading">
+                <span className="lookup-badge">Khách hàng</span>
+                <h1>Tra cứu đơn hình thẻ</h1>
+                <p>Nhập số điện thoại và mã đơn, hoặc dùng mã tra cứu nếu cửa hàng đã gửi.</p>
+              </div>
+
               <Form onSubmit={submitLookup}>
-                <Form.Group className="mb-3">
+                <Form.Group className="mb-3" controlId="lookup-phone">
                   <Form.Label>Số điện thoại</Form.Label>
                   <Form.Control
                     value={lookupForm.phone}
-                    onChange={(event) => setLookupForm((current) => ({ ...current, phone: event.target.value }))}
+                    onChange={(event) => { setLookupForm((current) => ({ ...current, phone: event.target.value })); clearError('phone'); }}
                     inputMode="tel"
-                    disabled={Boolean(lookupForm.token)}
+                    autoComplete="tel"
+                    placeholder="Ví dụ: 0901234567"
+                    disabled={hasToken}
+                    isInvalid={!!errors.phone}
                   />
+                  <Form.Control.Feedback type="invalid">{errors.phone}</Form.Control.Feedback>
                 </Form.Group>
-                <Form.Group className="mb-3">
+                <Form.Group className="mb-3" controlId="lookup-order-code">
                   <Form.Label>Mã đơn</Form.Label>
                   <Form.Control
                     value={lookupForm.order_code}
-                    onChange={(event) => setLookupForm((current) => ({ ...current, order_code: event.target.value }))}
-                    disabled={Boolean(lookupForm.token)}
+                    onChange={(event) => { setLookupForm((current) => ({ ...current, order_code: event.target.value })); clearError('order_code'); }}
+                    placeholder="Ví dụ: ORD-2026-001"
+                    disabled={hasToken}
+                    isInvalid={!!errors.order_code}
                   />
+                  <Form.Control.Feedback type="invalid">{errors.order_code}</Form.Control.Feedback>
                 </Form.Group>
                 <div className="public-divider">hoặc</div>
-                <Form.Group className="mb-3">
+                <Form.Group className="mb-3" controlId="lookup-token">
                   <Form.Label>Mã tra cứu</Form.Label>
                   <Form.Control
                     value={lookupForm.token}
                     onChange={(event) => setLookupForm((current) => ({ ...current, token: event.target.value }))}
+                    placeholder="Dán mã tra cứu tại đây"
                   />
+                  <Form.Text>Không cần nhập số điện thoại/mã đơn nếu đã có mã tra cứu.</Form.Text>
                 </Form.Group>
-                <Button
-                  type="submit"
-                  className="w-100"
-                  disabled={lookupMutation.isPending || (!lookupForm.token && (!lookupForm.phone || !lookupForm.order_code))}
-                >
-                  <Search size={17} aria-hidden="true" />
-                  Tra cứu
-                </Button>
+                <div className="lookup-form-actions">
+                  <Button
+                    type="submit"
+                    disabled={lookupMutation.isPending}
+                  >
+                    <Search size={17} aria-hidden="true" />
+                    {lookupMutation.isPending ? 'Đang tra cứu...' : 'Tra cứu'}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline-secondary"
+                    disabled={lookupMutation.isPending && !result}
+                    onClick={resetLookup}
+                  >
+                    <RotateCcw size={16} aria-hidden="true" />
+                    Xóa
+                  </Button>
+                </div>
               </Form>
               {lookupMutation.isPending ? <LoadingState label="Đang tra cứu..." /> : null}
               {lookupMutation.error ? (
@@ -119,19 +203,46 @@ export default function PublicLookupPage() {
                   Không tìm thấy đơn phù hợp. Vui lòng kiểm tra lại thông tin hoặc liên hệ cửa hàng.
                 </Alert>
               ) : null}
+
+              <div className="lookup-tips" aria-label="Quy trình tra cứu">
+                <div className="lookup-tip">
+                  <span className="lookup-tip-icon"><Phone size={16} aria-hidden="true" /></span>
+                  <div>
+                    <strong>1. Nhập thông tin</strong>
+                    <span>Số điện thoại + mã đơn hoặc mã tra cứu.</span>
+                  </div>
+                </div>
+                <div className="lookup-tip">
+                  <span className="lookup-tip-icon"><CheckCircle2 size={16} aria-hidden="true" /></span>
+                  <div>
+                    <strong>2. Xem ảnh duyệt</strong>
+                    <span>Chỉ ảnh đã duyệt mới hiện ở trang này.</span>
+                  </div>
+                </div>
+                <div className="lookup-tip">
+                  <span className="lookup-tip-icon"><TicketCheck size={16} aria-hidden="true" /></span>
+                  <div>
+                    <strong>3. Tải hoặc in lại</strong>
+                    <span>Link tải có thời hạn và có thể lấy lại.</span>
+                  </div>
+                </div>
+              </div>
             </section>
           </Col>
 
-          <Col lg={7}>
-            <section className="app-panel public-panel">
+          <Col lg={7} className="d-flex flex-column">
+            <section className="app-panel public-panel flex-grow-1">
               {!result ? (
                 <EmptyState title="Chưa có kết quả" description="Thông tin đơn và ảnh đã duyệt sẽ hiển thị sau khi tra cứu đúng." />
               ) : (
                 <div className="public-result">
                   <div className="public-order-header">
                     <div>
-                      <span className="text-muted">Mã đơn</span>
-                      <h2>{orderInfo.order_code}</h2>
+                      <span className="text-muted d-block mb-1" style={{ fontSize: '0.8rem' }}>Mã đơn</span>
+                      <h2 className="d-flex align-items-center gap-2 m-0" style={{ fontSize: '1.45rem' }}>
+                        <Hash size={20} className="text-primary" aria-hidden="true" />
+                        <span>{orderInfo.order_code}</span>
+                      </h2>
                     </div>
                     <OrderStatusBadge status={orderInfo.status} />
                   </div>
@@ -157,21 +268,29 @@ export default function PublicLookupPage() {
                     <div className="public-photo-grid">
                       {photos.map((photo) => (
                         <div className="public-photo" key={photo.id}>
-                          {photo.signed_url ? <Image src={photo.signed_url} alt="Ảnh đã duyệt" fluid /> : <div className="photo-placeholder">No preview</div>}
+                          {photo.purged ? (
+                            <div className="photo-placeholder">Ảnh đã hết hạn lưu trữ (quá 6 tháng)</div>
+                          ) : photo.signed_url ? (
+                            <Image src={photo.signed_url} alt="Ảnh đã duyệt" fluid />
+                          ) : (
+                            <div className="photo-placeholder">No preview</div>
+                          )}
                           <div className="public-photo-actions">
                             <Form.Check
+                              className="d-flex align-items-center gap-2 m-0"
                               checked={selectedPhotos.includes(photo.id)}
                               onChange={() => togglePhoto(photo.id)}
                               label="In lại"
+                              disabled={photo.purged}
                             />
                             <Button
                               size="sm"
                               variant="outline-primary"
-                              disabled={downloadMutation.isPending}
+                              disabled={photo.purged || (downloadMutation.isPending && downloadMutation.variables === photo.id)}
                               onClick={() => downloadMutation.mutate(photo.id)}
                             >
                               <Download size={15} aria-hidden="true" />
-                              Tải
+                              {downloadMutation.isPending && downloadMutation.variables === photo.id ? 'Đang lấy link' : 'Tải'}
                             </Button>
                           </div>
                         </div>
@@ -217,23 +336,48 @@ export default function PublicLookupPage() {
                         </Form.Group>
                       </Col>
                     </Row>
+                    {reprintError ? <Alert variant="danger" className="mt-3">{reprintError}</Alert> : null}
                     {reprintMutation.error ? <Alert variant="danger" className="mt-3">{reprintMutation.error.message}</Alert> : null}
                     {reprintMutation.data ? <Alert variant="success" className="mt-3">Đã gửi yêu cầu in lại.</Alert> : null}
                     <Button
                       className="mt-3"
-                      disabled={reprintMutation.isPending || selectedPhotos.length === 0}
-                      onClick={() => reprintMutation.mutate()}
+                      disabled={reprintMutation.isPending}
+                      onClick={submitReprint}
                     >
                       <Send size={17} aria-hidden="true" />
-                      Gửi yêu cầu
+                      {reprintMutation.isPending ? 'Đang gửi...' : `Gửi yêu cầu${selectedPhotos.length ? ` (${selectedPhotos.length})` : ''}`}
                     </Button>
                   </div>
+
+                  {collection.length > 0 ? (
+                    <div className="mt-4">
+                      <h3>Bộ sưu tập ảnh thẻ của bạn</h3>
+                      <p className="text-muted small">Tất cả ảnh thẻ đã duyệt của bạn qua các lần chụp.</p>
+                      <div className="public-photo-grid">
+                        {collection.map((photo) => (
+                          <div className="public-photo" key={photo.id}>
+                            {photo.purged ? (
+                              <div className="photo-placeholder">Ảnh đã hết hạn lưu trữ (quá 6 tháng)</div>
+                            ) : photo.signed_url ? (
+                              <Image src={photo.signed_url} alt="Ảnh thẻ đã duyệt" fluid />
+                            ) : (
+                              <div className="photo-placeholder">No preview</div>
+                            )}
+                            <div className="public-photo-actions">
+                              <span className="small text-muted">{photo.order_code} · {formatDateOnly(photo.created_at)}</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
                 </div>
               )}
             </section>
           </Col>
         </Row>
       </Container>
+      <PublicFooter />
     </div>
   );
 }

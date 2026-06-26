@@ -14,24 +14,107 @@ function mmToPx(mm, dpi = DEFAULT_DPI) {
   return Math.max(1, Math.round((Number(mm) / 25.4) * dpi));
 }
 
-function processedPrompt(cardType) {
-  return [
-    'Edit the supplied image into a professional ID photo.',
-    'Preserve the person identity and realistic facial features.',
-    'Use a plain studio background matching the requested card background color.',
-    'Center the face and shoulders, keep a neutral expression, sharp lighting, no text, no watermark.',
-    `Requested card type: ${cardType.name}.`,
-    `Background color: ${cardType.background_color || '#FFFFFF'}.`
-  ].join(' ');
+function qcIssue(code, severity, message, value = null, threshold = null) {
+  return { code, severity, message, value, threshold };
 }
 
+function aspectWithinTolerance(a, b, tolerance) {
+  if (!a || !b) return true;
+  return Math.abs(a - b) / b <= tolerance;
+}
+
+// Combine deterministic checks (resolution/aspect from Sharp) with best-effort AI
+// findings into structured warnings. QC never blocks on its own in non-strict mode —
+// staff always reviews. In strict mode a `fail` rollup rejects the photo.
+function computeQc({ sourceWidthPx, sourceHeightPx, cardType, aiFindings }) {
+  const issues = [];
+  const targetWidth = mmToPx(cardType.width_mm);
+  const targetHeight = mmToPx(cardType.height_mm);
+
+  if (sourceWidthPx && sourceHeightPx) {
+    const minRatio = Math.min(sourceWidthPx / targetWidth, sourceHeightPx / targetHeight);
+    if (minRatio < 0.6) {
+      issues.push(qcIssue('low_resolution', 'fail',
+        `Ảnh gốc ${sourceWidthPx}x${sourceHeightPx}px quá nhỏ so với khổ in ${targetWidth}x${targetHeight}px @${DEFAULT_DPI}dpi`,
+        Number(minRatio.toFixed(2)), 0.6));
+    } else if (minRatio < 1) {
+      issues.push(qcIssue('low_resolution', 'warn',
+        'Ảnh gốc nhỏ hơn khổ in mục tiêu, có thể bị mờ khi phóng to',
+        Number(minRatio.toFixed(2)), 1));
+    }
+
+    const srcAspect = sourceWidthPx / sourceHeightPx;
+    const cardAspect = targetWidth / targetHeight;
+    if (!aspectWithinTolerance(srcAspect, cardAspect, 0.15)) {
+      issues.push(qcIssue('wrong_aspect', 'warn',
+        'Tỉ lệ ảnh gốc khác tỉ lệ thẻ; ảnh sẽ có viền nền khi chuẩn hoá (không cắt vào mặt)',
+        Number(srcAspect.toFixed(2)), Number(cardAspect.toFixed(2))));
+    }
+  }
+
+  if (aiFindings) {
+    const req = cardType.requirements || {};
+    if (aiFindings.face_detected === false || aiFindings.face_count === 0) {
+      issues.push(qcIssue('no_face', 'fail', 'Không phát hiện khuôn mặt trong ảnh'));
+    }
+    if (typeof aiFindings.face_count === 'number' && aiFindings.face_count > 1) {
+      issues.push(qcIssue('multiple_faces', 'warn', `Phát hiện ${aiFindings.face_count} khuôn mặt`));
+    }
+    if (aiFindings.face_centered === false) {
+      issues.push(qcIssue('face_not_centered', 'warn', 'Khuôn mặt chưa được căn giữa'));
+    }
+    if (typeof aiFindings.face_height_ratio === 'number') {
+      const minR = Number(req.min_face_ratio) || 0.5;
+      const maxR = Number(req.max_face_ratio) || 0.8;
+      if (aiFindings.face_height_ratio < minR || aiFindings.face_height_ratio > maxR) {
+        issues.push(qcIssue('face_ratio_out_of_range', 'warn',
+          `Tỉ lệ khuôn mặt ${(aiFindings.face_height_ratio * 100).toFixed(0)}% ngoài khoảng ${minR}-${maxR}`,
+          Number(aiFindings.face_height_ratio.toFixed(2)), `${minR}-${maxR}`));
+      }
+    }
+    if (aiFindings.background_uniform === false) {
+      issues.push(qcIssue('background_not_uniform', 'warn', 'Nền chưa đồng nhất'));
+    }
+    if (aiFindings.background_matches_required_color === false) {
+      issues.push(qcIssue('background_wrong_color', 'warn',
+        `Nền chưa đúng màu yêu cầu (${cardType.background_color || '#FFFFFF'})`));
+    }
+    if (aiFindings.glare_or_strong_shadow === true) {
+      issues.push(qcIssue('glare_or_shadow', 'warn', 'Có loá sáng hoặc bóng đổ mạnh'));
+    }
+    if (aiFindings.eyes_open === false) {
+      issues.push(qcIssue('eyes_closed', 'warn', 'Mắt có thể đang nhắm'));
+    }
+    if (aiFindings.neutral_expression === false) {
+      issues.push(qcIssue('non_neutral_expression', 'warn', 'Biểu cảm chưa trung tính'));
+    }
+    if (aiFindings.sufficient_sharpness === false) {
+      issues.push(qcIssue('low_sharpness', 'warn', 'Ảnh chưa đủ sắc nét'));
+    }
+  }
+
+  const hasFail = issues.some((item) => item.severity === 'fail');
+  const hasWarn = issues.some((item) => item.severity === 'warn');
+  const penalty = issues.reduce((sum, item) => sum + (item.severity === 'fail' ? 40 : 10), 0);
+
+  return {
+    qc_status: hasFail ? 'fail' : hasWarn ? 'warn' : 'pass',
+    quality_score: Math.max(0, Math.min(100, 100 - penalty)),
+    quality_issues: issues
+  };
+}
+
+// The AI step recomposes to a standard head-and-shoulders ID portrait at the card
+// ratio. Here we only fit to the exact card dimensions, padding with the uniform card
+// background color so any small ratio mismatch is invisible. `contain` never cuts the head.
 async function normalizeIdPhoto(buffer, cardType) {
   const width = mmToPx(cardType.width_mm);
   const height = mmToPx(cardType.height_mm);
+  const background = cardType.background_color || '#FFFFFF';
   return sharp(buffer)
     .rotate()
-    .resize(width, height, { fit: 'cover', position: 'attention' })
-    .flatten({ background: cardType.background_color || '#FFFFFF' })
+    .resize(width, height, { fit: 'contain', position: 'centre', background })
+    .flatten({ background })
     .jpeg({ quality: 92, mozjpeg: true })
     .toBuffer();
 }
@@ -81,15 +164,26 @@ async function createPhotos(body, files, context) {
 async function processPhoto(photo, order, cardType, job, client) {
   try {
     const original = await assetService.downloadBuffer(photo.cloudinary_original_public_id);
+    const sourceMeta = await sharp(original.buffer).metadata();
     let sourceBuffer = original.buffer;
-    let providerMetadata = { provider: job.provider };
+    let providerMetadata = { provider: job.provider, processing_mode: job.processing_mode };
+    const aiAssist = {
+      ai_edited: false,
+      background: false,
+      lighting: false,
+      straighten: false,
+      identity_preserved: true
+    };
 
-    if (job.provider === 'google_ai' || job.provider === 'hybrid') {
+    const useAi = job.processing_mode === 'safe_assist'
+      && (job.provider === 'google_ai' || job.provider === 'hybrid');
+
+    if (useAi) {
       try {
         const aiResult = await googleAiService.editImage({
           imageBuffer: original.buffer,
           mimeType: original.content_type,
-          prompt: processedPrompt(cardType)
+          prompt: googleAiService.buildSafeAssistPrompt(cardType)
         });
         sourceBuffer = aiResult.buffer;
         providerMetadata = {
@@ -97,12 +191,11 @@ async function processPhoto(photo, order, cardType, job, client) {
           google_ai_model: aiResult.model,
           google_ai_mime_type: aiResult.mime_type
         };
+        Object.assign(aiAssist, { ai_edited: true, background: true, lighting: true, straighten: true });
       } catch (error) {
         if (job.strict_quality_check) throw error;
-        providerMetadata = {
-          ...providerMetadata,
-          google_ai_fallback_reason: error.message
-        };
+        providerMetadata = { ...providerMetadata, google_ai_fallback_reason: error.message };
+        aiAssist.fallback_reason = error.message;
       }
     }
 
@@ -114,18 +207,45 @@ async function processPhoto(photo, order, cardType, job, client) {
       format: 'jpg'
     });
 
-    return photosRepository.markProcessed(photo.id, {
+    const aiFindings = await googleAiService.assessQuality({
+      imageBuffer: processedBuffer,
+      mimeType: 'image/jpeg',
+      cardType
+    });
+
+    const qc = computeQc({
+      sourceWidthPx: sourceMeta.width || photo.width_px,
+      sourceHeightPx: sourceMeta.height || photo.height_px,
+      cardType,
+      aiFindings
+    });
+
+    const processed = await photosRepository.markProcessed(photo.id, {
       cloudinary_processed_public_id: upload.public_id,
       processed_asset_metadata: {
         ...assetService.cloudinaryMetadata(upload),
         ...providerMetadata,
         target_width_mm: Number(cardType.width_mm),
         target_height_mm: Number(cardType.height_mm),
-        dpi: DEFAULT_DPI
+        dpi: DEFAULT_DPI,
+        ai_safe_assist: aiAssist,
+        qc_findings: aiFindings || null
       },
-      quality_score: 90,
-      quality_issues: []
+      quality_score: qc.quality_score,
+      quality_issues: qc.quality_issues,
+      qc_status: qc.qc_status,
+      ai_assist_applied: aiAssist
     }, client);
+
+    if (job.strict_quality_check && qc.qc_status === 'fail') {
+      const reason = `QC thất bại: ${qc.quality_issues
+        .filter((item) => item.severity === 'fail')
+        .map((item) => item.message)
+        .join('; ')}`;
+      return photosRepository.updateStatus(photo.id, 'rejected', { processing_error: reason }, client);
+    }
+
+    return processed;
   } catch (error) {
     return photosRepository.markProcessingFailed(photo.id, error.message, client);
   }
@@ -224,7 +344,7 @@ async function rejectPhoto(id, body, context) {
     const oldPhoto = await photosRepository.findById(id, client);
     if (!oldPhoto) throw errors.notFound('Không tìm thấy ảnh');
     if (oldPhoto.status === 'approved') {
-      throw errors.invalidState('Không thể reject ảnh đã approved nếu chưa override quy trình', { status: oldPhoto.status });
+      throw errors.invalidState('Không thể từ chối ảnh đã được duyệt.', { status: oldPhoto.status });
     }
     const photo = await photosRepository.updateStatus(id, 'rejected', { processing_error: body.reason }, client);
     await writeAudit('photo.rejected', 'photos', id, context, { old_data: oldPhoto, new_data: photo }, client);
@@ -232,13 +352,35 @@ async function rejectPhoto(id, body, context) {
   });
 }
 
-async function overridePhoto(id, body, context) {
+// Re-run QC only (no AI editing) on the current best asset. Mode quality_check_only.
+async function requalifyPhoto(id, context) {
   return withTransaction(async (client) => {
-    const oldPhoto = await photosRepository.findById(id, client);
-    if (!oldPhoto) throw errors.notFound('Không tìm thấy ảnh');
-    const photo = await photosRepository.overrideProcessed(id, body, client);
-    await writeAudit('photo.override', 'photos', id, context, { old_data: oldPhoto, new_data: photo }, client);
-    return { photo };
+    const photo = await photosRepository.findById(id, client);
+    if (!photo) throw errors.notFound('Không tìm thấy ảnh');
+
+    const publicId = photo.cloudinary_processed_public_id || photo.cloudinary_original_public_id;
+    if (!publicId) throw errors.invalidState('Ảnh chưa có asset để kiểm tra QC');
+
+    const order = await ordersRepository.findById(photo.order_id, client);
+    const cardType = await catalogRepository.findCardType(order.card_type_id, client);
+
+    const asset = await assetService.downloadBuffer(publicId);
+    const aiFindings = await googleAiService.assessQuality({
+      imageBuffer: asset.buffer,
+      mimeType: asset.content_type,
+      cardType
+    });
+
+    const qc = computeQc({
+      sourceWidthPx: photo.width_px,
+      sourceHeightPx: photo.height_px,
+      cardType,
+      aiFindings
+    });
+
+    const updated = await photosRepository.updateQc(id, qc, client);
+    await writeAudit('photo.requalified', 'photos', id, context, { old_data: photo, new_data: updated }, client);
+    return { photo: updated };
   });
 }
 
@@ -249,5 +391,5 @@ module.exports = {
   getPhoto,
   approvePhoto,
   rejectPhoto,
-  overridePhoto
+  requalifyPhoto
 };

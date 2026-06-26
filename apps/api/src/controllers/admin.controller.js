@@ -16,14 +16,6 @@ async function ordersReportCsv(req, res) {
   return res.send(csv);
 }
 
-async function createExport(req, res) {
-  return sendSuccess(res, await adminService.createExportJob(req.validated.body, requestContext(req)), null, 201);
-}
-
-async function getExportJob(req, res) {
-  return sendSuccess(res, await adminService.getExportJob(req.validated.params.id));
-}
-
 async function listUsers(req, res) {
   const result = await adminService.listUsers(req.validated.query);
   return sendSuccess(res, result.data, result.pagination);
@@ -46,15 +38,18 @@ async function auditLogs(req, res) {
   return sendSuccess(res, result.data, result.pagination);
 }
 
+async function purgeAssets(req, res) {
+  return sendSuccess(res, await adminService.purgeOldAssets());
+}
+
 module.exports = {
   dashboard,
   ordersReport,
   ordersReportCsv,
-  createExport,
-  getExportJob,
   listUsers,
   createUser,
   updateUser,
   resetPassword,
-  auditLogs
+  auditLogs,
+  purgeAssets
 };

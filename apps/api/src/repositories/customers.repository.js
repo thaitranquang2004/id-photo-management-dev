@@ -28,6 +28,17 @@ async function findById(id, client) {
   return one('select * from public.customers where id = $1', [id], client);
 }
 
+async function findByPhone(phone, client) {
+  return one(
+    `select * from public.customers
+     where phone = $1 and is_active = true
+     order by created_at desc
+     limit 1`,
+    [phone],
+    client
+  );
+}
+
 async function create(data, actorId, client) {
   return one(
     `insert into public.customers (full_name, phone, email, notes, created_by)
@@ -84,6 +95,23 @@ async function recentOrders(customerId, client) {
   );
 }
 
+// Tất cả ảnh đã duyệt của 1 khách qua mọi đơn (mới nhất trước). Kèm order_code để biết ảnh thuộc đơn nào.
+async function approvedPhotos(customerId, client) {
+  return many(
+    `select p.id, p.status, p.created_at, p.purged_at,
+            p.cloudinary_processed_public_id, p.cloudinary_original_public_id,
+            p.processed_asset_metadata, p.original_asset_metadata,
+            o.order_code
+     from public.photos p
+     join public.orders o on o.id = p.order_id
+     where o.customer_id = $1 and p.status = 'approved'
+     order by p.created_at desc
+     limit 100`,
+    [customerId],
+    client
+  );
+}
+
 async function printLayouts(customerId, { limit, offset }, client) {
   const rows = await many(
     `select pl.*, count(*) over()::int as total
@@ -101,10 +129,12 @@ async function printLayouts(customerId, { limit, offset }, client) {
 module.exports = {
   list,
   findById,
+  findByPhone,
   create,
   update,
   archive,
   countOrders,
   recentOrders,
+  approvedPhotos,
   printLayouts
 };

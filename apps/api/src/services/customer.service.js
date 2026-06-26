@@ -49,6 +49,13 @@ async function archiveCustomer(id, context) {
   });
 }
 
+async function customerPhotos(id) {
+  const customer = await customersRepository.findById(id);
+  if (!customer) throw errors.notFound('Không tìm thấy khách hàng');
+  const photos = await customersRepository.approvedPhotos(id);
+  return { data: { photos } };
+}
+
 async function customerPrintLayouts(id, query) {
   const customer = await customersRepository.findById(id);
   if (!customer) throw errors.notFound('Không tìm thấy khách hàng');
@@ -66,5 +73,6 @@ module.exports = {
   createCustomer,
   updateCustomer,
   archiveCustomer,
+  customerPhotos,
   customerPrintLayouts
 };

@@ -10,6 +10,7 @@ import EmptyState from '../../components/feedback/EmptyState.jsx';
 import ErrorState from '../../components/feedback/ErrorState.jsx';
 import LoadingState from '../../components/feedback/LoadingState.jsx';
 import { formatCurrency } from '../../utils/format';
+import { useFormErrors } from '../../hooks/useFormErrors.js';
 
 const steps = ['Khách hàng', 'Thông tin đơn', 'Xác nhận'];
 
@@ -24,8 +25,12 @@ export default function NewOrderPage() {
     card_type_id: '',
     quantity: 4,
     pickup_date: '',
-    notes: ''
+    notes: '',
+    delivery_method: 'pickup'
   });
+  const searchErrors = useFormErrors();
+  const customerErrors = useFormErrors();
+  const [stepError, setStepError] = useState('');
 
   const cardTypesQuery = useQuery({
     queryKey: ['card-types'],
@@ -64,15 +69,29 @@ export default function NewOrderPage() {
 
   function handleSearch(event) {
     event.preventDefault();
+    if (!searchErrors.validate({ phone }, { phone: 'Vui lòng nhập số điện thoại để tìm' })) return;
     const value = phone.trim();
-    if (!value) return;
     setCustomerForm((current) => ({ ...current, phone: value }));
     searchMutation.mutate(value);
   }
 
   function submitCustomer(event) {
     event.preventDefault();
+    if (!customerErrors.validate(customerForm, { full_name: 'Vui lòng nhập họ tên', phone: 'Vui lòng nhập số điện thoại' })) return;
     createCustomerMutation.mutate(customerForm);
+  }
+
+  function goToConfirm() {
+    if (!selectedCardType) {
+      setStepError('Vui lòng chọn một loại thẻ.');
+      return;
+    }
+    if (Number(orderForm.quantity) < 4) {
+      setStepError('Số lượng tối thiểu là 4 tấm/đơn.');
+      return;
+    }
+    setStepError('');
+    setStep(2);
   }
 
   function submitOrder() {
@@ -82,7 +101,8 @@ export default function NewOrderPage() {
       card_type_id: selectedCardType.id,
       quantity: Number(orderForm.quantity),
       pickup_date: orderForm.pickup_date || undefined,
-      notes: orderForm.notes || undefined
+      notes: orderForm.notes || undefined,
+      delivery_method: orderForm.delivery_method
     });
   }
 
@@ -115,20 +135,25 @@ export default function NewOrderPage() {
             <section className="app-panel">
               <h2>Tìm khách bằng SĐT</h2>
               <Form onSubmit={handleSearch}>
-                <InputGroup className="mb-3">
+                <InputGroup className="mb-1" hasValidation>
                   <Form.Control
                     value={phone}
-                    onChange={(event) => setPhone(event.target.value)}
+                    onChange={(event) => { setPhone(event.target.value); searchErrors.clearError('phone'); }}
                     placeholder="Nhập số điện thoại"
+                    isInvalid={!!searchErrors.errors.phone}
                   />
-                  <Button type="submit" disabled={!phone.trim() || searchMutation.isPending}>
+                  <Button type="submit" disabled={searchMutation.isPending}>
                     <Search size={17} aria-hidden="true" />
                     Tìm
                   </Button>
+                  <Form.Control.Feedback type="invalid">{searchErrors.errors.phone}</Form.Control.Feedback>
                 </InputGroup>
+                <div className="mb-3" />
               </Form>
               {searchMutation.isPending ? <LoadingState label="Đang tìm khách..." /> : null}
-              {searchMutation.error ? <ErrorState error={searchMutation.error} /> : null}
+              {searchMutation.error ? (
+                <Alert variant="warning" className="mb-0">Không tìm được khách. Vui lòng kiểm tra lại số điện thoại hoặc tạo khách mới.</Alert>
+              ) : null}
               {customers.length > 0 ? (
                 <ListGroup className="selection-list">
                   {customers.map((customer) => (
@@ -163,9 +188,10 @@ export default function NewOrderPage() {
                       <Form.Label>Họ tên</Form.Label>
                       <Form.Control
                         value={customerForm.full_name}
-                        onChange={(event) => setCustomerForm((current) => ({ ...current, full_name: event.target.value }))}
-                        required
+                        onChange={(event) => { setCustomerForm((current) => ({ ...current, full_name: event.target.value })); customerErrors.clearError('full_name'); }}
+                        isInvalid={!!customerErrors.errors.full_name}
                       />
+                      <Form.Control.Feedback type="invalid">{customerErrors.errors.full_name}</Form.Control.Feedback>
                     </Form.Group>
                   </Col>
                   <Col md={6}>
@@ -173,9 +199,10 @@ export default function NewOrderPage() {
                       <Form.Label>Số điện thoại</Form.Label>
                       <Form.Control
                         value={customerForm.phone}
-                        onChange={(event) => setCustomerForm((current) => ({ ...current, phone: event.target.value }))}
-                        required
+                        onChange={(event) => { setCustomerForm((current) => ({ ...current, phone: event.target.value })); customerErrors.clearError('phone'); }}
+                        isInvalid={!!customerErrors.errors.phone}
                       />
+                      <Form.Control.Feedback type="invalid">{customerErrors.errors.phone}</Form.Control.Feedback>
                     </Form.Group>
                   </Col>
                   <Col md={6}>
@@ -202,7 +229,7 @@ export default function NewOrderPage() {
                 <Button
                   type="submit"
                   className="mt-3 button-nowrap"
-                  disabled={createCustomerMutation.isPending || !customerForm.full_name || !customerForm.phone}
+                  disabled={createCustomerMutation.isPending}
                 >
                   <UserPlus size={17} aria-hidden="true" />
                   Thêm khách
@@ -240,7 +267,7 @@ export default function NewOrderPage() {
                             type="radio"
                             name="card-type"
                             checked={orderForm.card_type_id === cardType.id}
-                            onChange={() => setOrderForm((current) => ({ ...current, card_type_id: cardType.id }))}
+                            onChange={() => { setOrderForm((current) => ({ ...current, card_type_id: cardType.id })); setStepError(''); }}
                             aria-label={`Chọn ${cardType.name}`}
                           />
                         </td>
@@ -267,13 +294,27 @@ export default function NewOrderPage() {
                     <Form.Label>Số lượng</Form.Label>
                     <Form.Control
                       type="number"
-                      min="1"
+                      min="4"
                       value={orderForm.quantity}
-                      onChange={(event) => setOrderForm((current) => ({ ...current, quantity: event.target.value }))}
+                      onChange={(event) => { setOrderForm((current) => ({ ...current, quantity: event.target.value })); setStepError(''); }}
+                      isInvalid={Number(orderForm.quantity) < 4}
                     />
+                    <Form.Text muted>Tối thiểu 4 tấm/đơn.</Form.Text>
                   </Form.Group>
                 </Col>
-                <Col md={4}>
+                <Col md={3}>
+                  <Form.Group>
+                    <Form.Label>Hình thức giao</Form.Label>
+                    <Form.Select
+                      value={orderForm.delivery_method}
+                      onChange={(event) => setOrderForm((current) => ({ ...current, delivery_method: event.target.value }))}
+                    >
+                      <option value="pickup">Lấy tại quầy</option>
+                      <option value="online">Khách tải online</option>
+                    </Form.Select>
+                  </Form.Group>
+                </Col>
+                <Col md={3}>
                   <Form.Group>
                     <Form.Label>Ngày hẹn lấy</Form.Label>
                     <Form.Control
@@ -283,7 +324,7 @@ export default function NewOrderPage() {
                     />
                   </Form.Group>
                 </Col>
-                <Col md={5}>
+                <Col md={3}>
                   <Form.Group>
                     <Form.Label>Ghi chú đơn</Form.Label>
                     <Form.Control
@@ -293,9 +334,10 @@ export default function NewOrderPage() {
                   </Form.Group>
                 </Col>
               </Row>
+              {stepError ? <Alert variant="danger" className="mt-3 mb-0">{stepError}</Alert> : null}
               <div className="panel-actions">
                 <Button variant="outline-secondary" onClick={() => setStep(0)}>Quay lại</Button>
-                <Button onClick={() => setStep(2)} disabled={!selectedCardType || !orderForm.quantity}>Tiếp tục</Button>
+                <Button onClick={goToConfirm} disabled={cardTypes.length === 0}>Tiếp tục</Button>
               </div>
             </>
           ) : null}

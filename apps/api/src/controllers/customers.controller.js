@@ -23,9 +23,14 @@ async function archive(req, res) {
   return sendSuccess(res, await customerService.archiveCustomer(req.validated.params.id, requestContext(req)));
 }
 
+async function photos(req, res) {
+  const result = await customerService.customerPhotos(req.validated.params.id);
+  return sendSuccess(res, result.data);
+}
+
 async function printLayouts(req, res) {
   const result = await customerService.customerPrintLayouts(req.validated.params.id, req.validated.query);
   return sendSuccess(res, result.data, result.pagination);
 }
 
-module.exports = { list, get, create, update, archive, printLayouts };
+module.exports = { list, get, create, update, archive, photos, printLayouts };

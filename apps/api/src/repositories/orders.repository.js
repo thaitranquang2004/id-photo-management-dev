@@ -12,6 +12,10 @@ async function list(filters, { limit, offset }, client) {
     params.push(filters.created_by);
     where.push(`o.created_by = $${params.length}`);
   }
+  if (filters.intake_source) {
+    params.push(filters.intake_source);
+    where.push(`o.intake_source = $${params.length}`);
+  }
   if (filters.date_from) {
     params.push(filters.date_from);
     where.push(`o.created_at >= $${params.length}`);
@@ -52,7 +56,8 @@ async function findByCodeAndPhone(orderCode, phone, client) {
      from public.orders o
      join public.customers c on c.id = o.customer_id
      join public.card_types ct on ct.id = o.card_type_id
-     where o.order_code = $1 and c.phone = $2`,
+     where o.order_code = $1
+       and regexp_replace(c.phone, '[^0-9]', '', 'g') = regexp_replace($2, '[^0-9]', '', 'g')`,
     [orderCode, phone],
     client
   );
@@ -71,32 +76,64 @@ async function details(id, client) {
   );
   if (!order) return null;
 
-  const [pricingSnapshot, photos, printLayouts] = await Promise.all([
+  const [pricingSnapshot, photos, printLayouts, appointment] = await Promise.all([
     one('select * from public.pricing_snapshots where order_id = $1', [id], client),
     many('select * from public.photos where order_id = $1 order by created_at desc', [id], client),
-    many('select * from public.print_layouts where order_id = $1 order by created_at desc', [id], client)
+    many('select * from public.print_layouts where order_id = $1 order by created_at desc', [id], client),
+    one('select * from public.appointments where order_id = $1 order by created_at desc limit 1', [id], client)
   ]);
 
-  return { order, pricing_snapshot: pricingSnapshot, photos, print_layouts: printLayouts };
+  return { order, pricing_snapshot: pricingSnapshot, photos, print_layouts: printLayouts, appointment };
 }
 
-async function createOrder(data, orderCode, actorId, totalAmount, client) {
+// Order code format: IN-T{month}{year}-{seq3}, e.g. IN-T62026-001. The sequence
+// restarts each month. Advisory lock serializes allocation so there are no gaps/collisions.
+async function createOrder(data, actorId, totalAmount, client) {
+  await client.query("select pg_advisory_xact_lock(hashtext('id_photo_order_code'))");
   return one(
-    `insert into public.orders (
-       order_code, customer_id, card_type_id, created_by, status, total_amount, quantity, pickup_date, notes
+    `with px as (
+       select 'IN-T' || extract(month from now())::int || extract(year from now())::int || '-' as prefix
      )
-     values ($1, $2, $3, $4, 'pending', $5, $6, $7, $8)
+     insert into public.orders (
+       order_code, customer_id, card_type_id, created_by, status, total_amount, quantity,
+       pickup_date, notes, intake_source, delivery_method
+     )
+     select
+       (select prefix from px) || lpad(
+         (coalesce(
+            (select max(substring(o.order_code from '[0-9]+$')::int)
+             from public.orders o
+             where o.order_code like (select prefix from px) || '%'),
+            0) + 1)::text, 3, '0'),
+       $1, $2, $3, 'pending', $4, $5, $6, $7, $8, $9
      returning *`,
     [
-      orderCode,
       data.customer_id,
       data.card_type_id,
       actorId,
       totalAmount,
       data.quantity,
       data.pickup_date || null,
-      data.notes || null
+      data.notes || null,
+      data.intake_source || 'walk_in',
+      data.delivery_method || 'pickup'
     ],
+    client
+  );
+}
+
+async function markReadyNotified(id, client) {
+  return one(
+    `update public.orders set ready_notified_at = now(), updated_at = now() where id = $1 returning *`,
+    [id],
+    client
+  );
+}
+
+async function setAmountPaid(id, amountPaid, client) {
+  return one(
+    `update public.orders set amount_paid = $2, updated_at = now() where id = $1 returning *`,
+    [id, amountPaid],
     client
   );
 }
@@ -170,6 +207,8 @@ module.exports = {
   findByCodeAndPhone,
   details,
   createOrder,
+  markReadyNotified,
+  setAmountPaid,
   createPricingSnapshot,
   updateStatus,
   countApprovedPhotos,

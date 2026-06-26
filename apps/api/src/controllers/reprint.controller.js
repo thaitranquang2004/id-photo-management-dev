@@ -15,4 +15,13 @@ async function updateStatus(req, res) {
   return sendSuccess(res, await reprintService.updateStatus(req.validated.params.id, req.validated.body, requestContext(req)));
 }
 
-module.exports = { list, get, updateStatus };
+async function convert(req, res) {
+  return sendSuccess(
+    res,
+    await reprintService.convertToOrder(req.validated.params.id, req.validated.body, requestContext(req)),
+    null,
+    201
+  );
+}
+
+module.exports = { list, get, updateStatus, convert };

@@ -32,6 +32,23 @@ test('batch processing defaults to Google AI provider', () => {
   assert.equal(body.provider, 'google_ai');
 });
 
+test('batch processing defaults to safe_assist mode (AI must not alter identity)', () => {
+  const body = schemas.batchProcessBody.parse({
+    order_id: '20000000-0000-4000-8000-000000000001',
+    photo_ids: ['30000000-0000-4000-8000-000000000001']
+  });
+
+  assert.equal(body.processing_mode, 'safe_assist');
+});
+
+test('batch processing rejects unknown processing_mode', () => {
+  assert.throws(() => schemas.batchProcessBody.parse({
+    order_id: '20000000-0000-4000-8000-000000000001',
+    photo_ids: ['30000000-0000-4000-8000-000000000001'],
+    processing_mode: 'beautify'
+  }));
+});
+
 test('batch processing rejects Banana.dev provider value', () => {
   assert.throws(() => schemas.batchProcessBody.parse({
     order_id: '20000000-0000-4000-8000-000000000001',

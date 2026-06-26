@@ -82,4 +82,18 @@ async function updateStatus(id, data, actorId, client) {
   );
 }
 
-module.exports = { list, findById, details, create, updateStatus };
+async function linkOrder(id, orderId, actorId, client) {
+  return one(
+    `update public.public_reprint_requests
+     set status = 'accepted',
+         reprint_order_id = $2,
+         reviewed_by = $3,
+         reviewed_at = now()
+     where id = $1
+     returning *`,
+    [id, orderId, actorId],
+    client
+  );
+}
+
+module.exports = { list, findById, details, create, updateStatus, linkOrder };

@@ -1,14 +1,15 @@
-import { useQuery } from '@tanstack/react-query';
-import { Col, Row, Table, Button } from 'react-bootstrap';
+import { useMutation, useQuery } from '@tanstack/react-query';
+import { Alert, Col, Row, Table, Button } from 'react-bootstrap';
 import { Link } from 'react-router-dom';
-import { apiRequest } from '../../api/client';
-import { getAdminDashboard } from '../../api/admin';
+import { getAdminDashboard, purgeOldAssets } from '../../api/admin';
 import { listOrders } from '../../api/orders';
+import { listReprintRequests } from '../../api/reprints';
 import EmptyState from '../../components/feedback/EmptyState.jsx';
 import ErrorState from '../../components/feedback/ErrorState.jsx';
 import LoadingState from '../../components/feedback/LoadingState.jsx';
 import KpiCard from '../../components/layout/KpiCard.jsx';
 import OrderStatusBadge from '../../components/status/OrderStatusBadge.jsx';
+import PaymentStatusBadge from '../../components/status/PaymentStatusBadge.jsx';
 import { formatCurrency, formatDate } from '../../utils/format';
 
 export default function AdminDashboard() {
@@ -22,17 +23,18 @@ export default function AdminDashboard() {
   });
   const reprintsQuery = useQuery({
     queryKey: ['admin', 'reprints', 'new'],
-    queryFn: () => apiRequest('/reprint-requests', { query: { limit: 5 } })
+    queryFn: () => listReprintRequests({ limit: 5 })
   });
+  const purgeMutation = useMutation({ mutationFn: purgeOldAssets });
 
   const loading = dashboardQuery.isLoading || ordersQuery.isLoading || reprintsQuery.isLoading;
   const error = dashboardQuery.error || ordersQuery.error || reprintsQuery.error;
   if (loading) return <LoadingState label="Đang tải dashboard admin..." />;
-  if (error) return <ErrorState error={error} onRetry={() => { dashboardQuery.refetch(); ordersQuery.refetch(); }} />;
+  if (error) return <ErrorState error={error} onRetry={() => { dashboardQuery.refetch(); ordersQuery.refetch(); reprintsQuery.refetch(); }} />;
 
   const dashboard = dashboardQuery.data?.dashboard || {};
   const orders = ordersQuery.data?.data?.orders || [];
-  const reprints = reprintsQuery.data?.data?.requests || [];
+  const reprints = reprintsQuery.data?.requests || [];
 
   return (
     <div className="page-stack">
@@ -42,10 +44,25 @@ export default function AdminDashboard() {
           <p>Tổng quan vận hành, doanh thu và các cấu hình cần theo dõi.</p>
         </div>
         <div className="header-actions">
+          <Button
+            variant="outline-secondary"
+            disabled={purgeMutation.isPending}
+            onClick={() => { if (window.confirm('Xoá ảnh Cloudinary của các đơn cũ hơn 6 tháng? Hành động không hoàn tác.')) purgeMutation.mutate(); }}
+          >
+            {purgeMutation.isPending ? 'Đang dọn...' : 'Dọn ảnh cũ'}
+          </Button>
           <Button as={Link} to="/admin/reports" variant="outline-primary">Báo cáo</Button>
+          <Button as={Link} to="/admin/users" variant="outline-primary">Nhân viên</Button>
           <Button as={Link} to="/admin/card-types" variant="primary">Cấu hình loại thẻ</Button>
         </div>
       </div>
+
+      {purgeMutation.data?.result ? (
+        <Alert variant="success" dismissible onClose={() => purgeMutation.reset()}>
+          Đã dọn: {purgeMutation.data.result.photos} ảnh đơn, {purgeMutation.data.result.layouts} layout, {purgeMutation.data.result.request_photos} ảnh yêu cầu online.
+        </Alert>
+      ) : null}
+      {purgeMutation.error ? <Alert variant="danger" dismissible onClose={() => purgeMutation.reset()}>{purgeMutation.error.message}</Alert> : null}
 
       <Row className="g-3">
         <Col sm={6} xl={3}><KpiCard label="Tổng đơn" value={dashboard.orders_total ?? 0} hint="Backend dashboard hiện trả tổng số" /></Col>
@@ -69,6 +86,7 @@ export default function AdminDashboard() {
                       <th>Khách</th>
                       <th>Loại thẻ</th>
                       <th>Trạng thái</th>
+                      <th>Thanh toán</th>
                       <th>Ngày tạo</th>
                       <th></th>
                     </tr>
@@ -80,6 +98,7 @@ export default function AdminDashboard() {
                         <td>{order.customer_name}</td>
                         <td>{order.card_type_name}</td>
                         <td><OrderStatusBadge status={order.status} /></td>
+                        <td><PaymentStatusBadge total={order.total_amount} paid={order.amount_paid} /></td>
                         <td>{formatDate(order.created_at)}</td>
                         <td className="text-end">
                           <Button as={Link} to={`/staff/orders/${order.id}`} size="sm" variant="outline-primary">

@@ -5,6 +5,7 @@ const profilesRepository = require('../repositories/profiles.repository');
 const { parsePagination, buildPagination } = require('../utils/pagination');
 const { errors } = require('../utils/app-error');
 const { writeAudit } = require('./audit.service');
+const cleanupService = require('./cleanup.service');
 
 async function dashboard() {
   return { dashboard: await adminRepository.dashboard() };
@@ -15,7 +16,7 @@ async function orderReport(query) {
 }
 
 function ordersCsv(rows) {
-  const header = ['order_code', 'status', 'total_amount', 'quantity', 'created_at', 'customer_name', 'customer_phone', 'card_type_name'];
+  const header = ['order_code', 'status', 'total_amount', 'amount_paid', 'quantity', 'created_at', 'customer_name', 'customer_phone', 'card_type_name', 'staff_name'];
   const lines = rows.map((row) => header.map((key) => JSON.stringify(row[key] ?? '')).join(','));
   return [header.join(','), ...lines].join('\n');
 }
@@ -23,20 +24,6 @@ function ordersCsv(rows) {
 async function orderReportCsv(query) {
   const rows = await adminRepository.orderReport(query);
   return ordersCsv(rows);
-}
-
-async function createExportJob(body, context) {
-  return withTransaction(async (client) => {
-    const job = await adminRepository.createExportJob(body, context.user.id, client);
-    await writeAudit('export_job.created', 'export_jobs', job.id, context, { new_data: job }, client);
-    return { export_job: job };
-  });
-}
-
-async function getExportJob(id) {
-  const job = await adminRepository.findExportJob(id);
-  if (!job) throw errors.notFound('Không tìm thấy export job');
-  return { export_job: job };
 }
 
 async function listUsers(query) {
@@ -120,15 +107,18 @@ async function auditLogs(query) {
   };
 }
 
+async function purgeOldAssets() {
+  return { result: await cleanupService.purgeOldOrders() };
+}
+
 module.exports = {
   dashboard,
   orderReport,
   orderReportCsv,
-  createExportJob,
-  getExportJob,
   listUsers,
   createUser,
   updateUser,
   resetPassword,
-  auditLogs
+  auditLogs,
+  purgeOldAssets
 };

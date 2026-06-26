@@ -11,3 +11,7 @@ export async function getPublicPhotoDownloadUrl(photoId, payload) {
 export async function createPublicReprintRequest(payload) {
   return apiData('/public/reprint-requests', { method: 'POST', body: payload });
 }
+
+export async function getPublicCardTypes() {
+  return apiData('/public/card-types');
+}

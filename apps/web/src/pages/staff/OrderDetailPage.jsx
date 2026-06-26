@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Check, Download, FileImage, RotateCcw, Upload, X } from 'lucide-react';
+import { Check, FileImage, RefreshCw, Send, ShieldCheck, Upload, WandSparkles, X } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import {
   Alert,
@@ -8,6 +8,7 @@ import {
   Col,
   Form,
   Image,
+  InputGroup,
   Modal,
   ProgressBar,
   Row,
@@ -16,97 +17,119 @@ import {
   Tab
 } from 'react-bootstrap';
 import { Link, useParams } from 'react-router-dom';
-import { getOrder, completeOrder, deliverOrder, startOrderProcessing } from '../../api/orders';
+import { getOrder, completeOrder, deliverOrder, startOrderProcessing, notifyOrderReady, cancelOrder } from '../../api/orders';
+import { listNotifications } from '../../api/notifications';
 import {
   approvePhoto,
   batchProcessPhotos,
   getProcessingJob,
   rejectPhoto,
   uploadPhotos,
-  overridePhoto
+  requalifyPhoto
 } from '../../api/photos';
-import { generateLayout, getLayoutDownloadUrl, previewLayout, validateLayoutConfig } from '../../api/layouts';
+import { listPayments, recordPayment } from '../../api/payments';
 import EmptyState from '../../components/feedback/EmptyState.jsx';
 import ErrorState from '../../components/feedback/ErrorState.jsx';
 import LoadingState from '../../components/feedback/LoadingState.jsx';
 import OrderStatusBadge from '../../components/status/OrderStatusBadge.jsx';
 import PhotoStatusBadge from '../../components/status/PhotoStatusBadge.jsx';
+import QcStatusBadge from '../../components/status/QcStatusBadge.jsx';
+import PaymentStatusBadge from '../../components/status/PaymentStatusBadge.jsx';
+import LayoutComposer from '../../components/layout/LayoutComposer.jsx';
 import { formatCurrency, formatDate } from '../../utils/format';
+
+const PAYMENT_KIND_LABEL = { deposit: 'Đặt cọc', balance: 'Thanh toán', refund: 'Hoàn tiền' };
 
 const terminalJobStatuses = new Set(['completed', 'failed', 'cancelled']);
 
 function orderData(queryData) {
-  return queryData || { order: null, pricing_snapshot: null, photos: [], print_layouts: [] };
+  return queryData || { order: null, pricing_snapshot: null, photos: [], print_layouts: [], appointment: null };
 }
 
-function createLayoutPayload(orderId, selectedPhotoIds, config) {
-  const layoutConfig = {
-    copies_per_page: Number(config.copies_per_page),
-    margin_mm: Number(config.margin_mm || 5),
-    gap_mm: Number(config.gap_mm || 2)
-  };
-  if (config.paper_size === 'Custom') {
-    layoutConfig.paper_width_mm = Number(config.paper_width_mm || 210);
-    layoutConfig.paper_height_mm = Number(config.paper_height_mm || 297);
-  }
-  return {
-    order_id: orderId,
-    photo_ids: selectedPhotoIds,
-    layout_type: 'grid',
-    paper_size: config.paper_size === 'Custom' ? 'A4' : config.paper_size,
-    add_text: config.add_text,
-    layout_config: layoutConfig
-  };
+function photoPreviewUrl(photo) {
+  if (photo.purged_at) return null;
+  return photo.processed_asset_metadata?.secure_url
+    || photo.original_asset_metadata?.secure_url
+    || null;
 }
 
 export default function OrderDetailPage() {
   const { id } = useParams();
   const queryClient = useQueryClient();
   const [selectedFiles, setSelectedFiles] = useState([]);
+  const [selectedPreviews, setSelectedPreviews] = useState([]);
   const [activeJobId, setActiveJobId] = useState(null);
-  const [selectedLayoutPhotos, setSelectedLayoutPhotos] = useState([]);
-  const [layoutConfig, setLayoutConfig] = useState({
-    paper_size: 'A4',
-    copies_per_page: 8,
-    margin_mm: 5,
-    gap_mm: 2,
-    paper_width_mm: 210,
-    paper_height_mm: 297,
-    add_text: true
-  });
-  const [previewUrl, setPreviewUrl] = useState('');
-  const [overrideTarget, setOverrideTarget] = useState(null);
-  const [overrideForm, setOverrideForm] = useState({ cloudinary_processed_public_id: '', notes: '' });
   const [rejectTarget, setRejectTarget] = useState(null);
   const [rejectReason, setRejectReason] = useState('');
+  const [previewPhoto, setPreviewPhoto] = useState(null);
+  const [lookupUrl, setLookupUrl] = useState('');
+  const [showCancel, setShowCancel] = useState(false);
+  const [cancelReason, setCancelReason] = useState('');
+  const [showPayment, setShowPayment] = useState(false);
+  const [paymentForm, setPaymentForm] = useState({ loai: 'balance', so_tien: '', hinh_thuc: 'cash', ghi_chu: '' });
+  const [refundConfirmed, setRefundConfirmed] = useState(false);
+  const [showDeliver, setShowDeliver] = useState(false);
+  const [deliverReason, setDeliverReason] = useState('');
 
   const orderQuery = useQuery({
     queryKey: ['orders', id],
     queryFn: () => getOrder(id)
   });
 
-  const { order, pricing_snapshot: pricingSnapshot, photos, print_layouts: printLayouts } = orderData(orderQuery.data);
-  const approvedPhotos = useMemo(() => photos.filter((photo) => photo.status === 'approved'), [photos]);
-  const processablePhotos = useMemo(() => photos.filter((photo) => ['raw', 'processed'].includes(photo.status)), [photos]);
+  const { order, pricing_snapshot: pricingSnapshot, photos, appointment } = orderData(orderQuery.data);
 
-  const uploadMutation = useMutation({
-    mutationFn: () => uploadPhotos(id, selectedFiles),
-    onSuccess: () => {
-      setSelectedFiles([]);
-      queryClient.invalidateQueries({ queryKey: ['orders', id] });
-    }
+  const notificationsQuery = useQuery({
+    queryKey: ['notifications', 'order', id],
+    queryFn: () => listNotifications({ order_id: id, limit: 20 })
   });
+  const approvedPhotos = useMemo(() => photos.filter((photo) => photo.status === 'approved'), [photos]);
+  const pendingAiPhotos = useMemo(() => photos.filter((photo) => photo.status === 'raw'), [photos]);
+
+  useEffect(() => {
+    const previews = selectedFiles.map((file) => ({
+      name: file.name,
+      size: file.size,
+      url: URL.createObjectURL(file)
+    }));
+    setSelectedPreviews(previews);
+    return () => previews.forEach((preview) => URL.revokeObjectURL(preview.url));
+  }, [selectedFiles]);
 
   const processMutation = useMutation({
     mutationFn: () => batchProcessPhotos({
       order_id: id,
-      photo_ids: processablePhotos.map((photo) => photo.id),
+      photo_ids: pendingAiPhotos.map((photo) => photo.id),
       provider: 'google_ai',
       strict_quality_check: false
     }),
     onSuccess: (result) => {
       if (result.job?.id) setActiveJobId(result.job.id);
       queryClient.invalidateQueries({ queryKey: ['orders', id] });
+    }
+  });
+
+  const autoProcessMutation = useMutation({
+    mutationFn: (photoIds) => batchProcessPhotos({
+      order_id: id,
+      photo_ids: photoIds,
+      provider: 'google_ai',
+      strict_quality_check: false
+    }),
+    onSuccess: (result) => {
+      if (result.job?.id) setActiveJobId(result.job.id);
+      queryClient.invalidateQueries({ queryKey: ['orders', id] });
+    }
+  });
+
+  const uploadMutation = useMutation({
+    mutationFn: () => uploadPhotos(id, selectedFiles),
+    onSuccess: (result) => {
+      const uploadedPhotos = result.photos || [];
+      setSelectedFiles([]);
+      queryClient.invalidateQueries({ queryKey: ['orders', id] });
+      if (uploadedPhotos.length > 0) {
+        autoProcessMutation.mutate(uploadedPhotos.map((photo) => photo.id));
+      }
     }
   });
 
@@ -141,13 +164,10 @@ export default function OrderDetailPage() {
     }
   });
 
-  const overrideMutation = useMutation({
-    mutationFn: ({ photoId, payload }) => overridePhoto(photoId, payload),
-    onSuccess: () => {
-      setOverrideTarget(null);
-      setOverrideForm({ cloudinary_processed_public_id: '', notes: '' });
-      queryClient.invalidateQueries({ queryKey: ['orders', id] });
-    }
+
+  const requalifyMutation = useMutation({
+    mutationFn: (photoId) => requalifyPhoto(photoId),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['orders', id] })
   });
 
   const startMutation = useMutation({
@@ -156,37 +176,56 @@ export default function OrderDetailPage() {
   });
 
   const completeMutation = useMutation({
-    mutationFn: () => completeOrder(id),
+    mutationFn: () => completeOrder(id, { skip_layout_reason: 'In/tải layout A4 trực tiếp từ trình duyệt' }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['orders', id] })
   });
 
   const deliverMutation = useMutation({
-    mutationFn: () => deliverOrder(id),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['orders', id] })
-  });
-
-  const validateLayoutMutation = useMutation({
-    mutationFn: (payload) => validateLayoutConfig(payload)
-  });
-
-  const previewMutation = useMutation({
-    mutationFn: (payload) => previewLayout(payload),
-    onSuccess: (result) => setPreviewUrl(result.preview_signed_url || '')
-  });
-
-  const generateMutation = useMutation({
-    mutationFn: (payload) => generateLayout(payload),
+    mutationFn: () => deliverOrder(id, balance > 0 ? { allow_unpaid_reason: deliverReason } : {}),
     onSuccess: () => {
-      setPreviewUrl('');
+      setShowDeliver(false);
+      setDeliverReason('');
+      queryClient.invalidateQueries({ queryKey: ['orders', id] });
+      queryClient.invalidateQueries({ queryKey: ['notifications', 'order', id] });
+    }
+  });
+
+  const notifyReadyMutation = useMutation({
+    mutationFn: () => notifyOrderReady(id),
+    onSuccess: (result) => {
+      if (result?.lookup_url) setLookupUrl(result.lookup_url);
+      queryClient.invalidateQueries({ queryKey: ['orders', id] });
+      queryClient.invalidateQueries({ queryKey: ['notifications', 'order', id] });
+    }
+  });
+
+  const cancelMutation = useMutation({
+    mutationFn: () => cancelOrder(id, cancelReason),
+    onSuccess: () => {
+      setShowCancel(false);
+      setCancelReason('');
       queryClient.invalidateQueries({ queryKey: ['orders', id] });
     }
   });
 
-  const downloadMutation = useMutation({
-    mutationFn: (layoutId) => getLayoutDownloadUrl(layoutId),
-    onSuccess: (result) => {
-      const url = result.layout_signed_url || result.signed_url;
-      if (url) window.open(url, '_blank', 'noopener,noreferrer');
+  const paymentsQuery = useQuery({
+    queryKey: ['payments', id],
+    queryFn: () => listPayments(id)
+  });
+
+  const paymentMutation = useMutation({
+    mutationFn: () => recordPayment(id, {
+      loai: paymentForm.loai,
+      so_tien: Number(paymentForm.so_tien),
+      hinh_thuc: paymentForm.hinh_thuc,
+      ghi_chu: paymentForm.ghi_chu || undefined
+    }),
+    onSuccess: () => {
+      setShowPayment(false);
+      setPaymentForm({ loai: 'balance', so_tien: '', hinh_thuc: 'cash', ghi_chu: '' });
+      setRefundConfirmed(false);
+      queryClient.invalidateQueries({ queryKey: ['orders', id] });
+      queryClient.invalidateQueries({ queryKey: ['payments', id] });
     }
   });
 
@@ -194,18 +233,21 @@ export default function OrderDetailPage() {
   if (orderQuery.error) return <ErrorState error={orderQuery.error} onRetry={orderQuery.refetch} />;
   if (!order) return <EmptyState title="Không tìm thấy đơn" />;
 
-  const layoutPayload = createLayoutPayload(id, selectedLayoutPhotos, layoutConfig);
-  const canComplete = approvedPhotos.length > 0 && printLayouts.some((layout) => layout.status === 'generated');
+  const canComplete = approvedPhotos.length > 0;
+  const payments = paymentsQuery.data?.payments || [];
+  const totalAmount = Number(order.total_amount || 0);
+  const amountPaid = Number(order.amount_paid || 0);
+  const balance = totalAmount - amountPaid;
+  const isAiProcessing = autoProcessMutation.isPending || processMutation.isPending;
+  const isPhotoPipelineActive = uploadMutation.isPending || isAiProcessing;
+  const progressValue = uploadMutation.isPending ? 35 : isAiProcessing ? 82 : 100;
+  const progressLabel = uploadMutation.isPending ? 'Đang upload ảnh...' : isAiProcessing ? 'AI đang xử lý ảnh...' : 'Hoàn tất';
 
-  function toggleLayoutPhoto(photoId) {
-    setSelectedLayoutPhotos((current) => (
-      current.includes(photoId) ? current.filter((idValue) => idValue !== photoId) : [...current, photoId]
-    ));
-  }
-
-  async function runPreview() {
-    const validation = await validateLayoutMutation.mutateAsync(layoutPayload);
-    if (validation.valid) previewMutation.mutate(layoutPayload);
+  // Mở modal thanh toán với gợi ý sẵn: chưa thu đồng nào → đặt cọc; đã có tiền → thanh toán.
+  function openPayment() {
+    setPaymentForm({ loai: amountPaid <= 0 ? 'deposit' : 'balance', so_tien: '', hinh_thuc: 'cash', ghi_chu: '' });
+    setRefundConfirmed(false);
+    setShowPayment(true);
   }
 
   return (
@@ -219,6 +261,14 @@ export default function OrderDetailPage() {
           </div>
           <h1>Đơn {order.order_code}</h1>
           <p>{order.customer_name} · {order.customer_phone} · {order.card_type_name}</p>
+          <div className="d-flex gap-2 mt-1">
+            <Badge bg={order.intake_source === 'online' ? 'info' : 'secondary'} text={order.intake_source === 'online' ? 'dark' : undefined}>
+              {order.intake_source === 'online' ? 'Đơn online' : 'Tại quầy'}
+            </Badge>
+            <Badge bg="light" text="dark">
+              {order.delivery_method === 'online' ? 'Giao online' : 'Lấy tại quầy'}
+            </Badge>
+          </div>
         </div>
         <div className="header-actions">
           <OrderStatusBadge status={order.status} />
@@ -238,10 +288,17 @@ export default function OrderDetailPage() {
           </Button>
           <Button
             variant="outline-secondary"
-            onClick={() => deliverMutation.mutate()}
+            onClick={() => { if (balance > 0) setShowDeliver(true); else deliverMutation.mutate(); }}
             disabled={deliverMutation.isPending || order.status !== 'completed'}
           >
             Đã giao
+          </Button>
+          <Button
+            variant="outline-danger"
+            onClick={() => setShowCancel(true)}
+            disabled={order.status === 'delivered' || order.status === 'cancelled'}
+          >
+            Huỷ đơn
           </Button>
         </div>
       </div>
@@ -252,6 +309,44 @@ export default function OrderDetailPage() {
         <Col md={3}><div className="summary-box"><span>Ngày hẹn</span><strong>{order.pickup_date ? formatDate(order.pickup_date) : '-'}</strong></div></Col>
         <Col md={3}><div className="summary-box"><span>Ngày tạo</span><strong>{formatDate(order.created_at)}</strong></div></Col>
       </Row>
+
+      <section className="app-panel">
+        <div className="section-title">
+          <h2>Thanh toán</h2>
+          <PaymentStatusBadge total={totalAmount} paid={amountPaid} />
+        </div>
+        <Row className="g-3">
+          <Col sm={4}><div className="summary-box"><span>Tổng tiền</span><strong>{formatCurrency(totalAmount)}</strong></div></Col>
+          <Col sm={4}><div className="summary-box"><span>Đã thu</span><strong>{formatCurrency(amountPaid)}</strong></div></Col>
+          <Col sm={4}><div className="summary-box"><span>Còn lại</span><strong>{formatCurrency(balance)}</strong></div></Col>
+        </Row>
+        <div className="mt-3">
+          <Button variant="outline-primary" onClick={openPayment}>Ghi nhận thanh toán</Button>
+        </div>
+        {payments.length > 0 ? (
+          <div className="table-responsive mt-3">
+            <Table hover className="align-middle data-table">
+              <thead>
+                <tr><th>Thời gian</th><th>Loại</th><th>Số tiền</th><th>Hình thức</th><th>Ghi chú</th><th>Người thu</th></tr>
+              </thead>
+              <tbody>
+                {payments.map((pmt) => (
+                  <tr key={pmt.id}>
+                    <td className="text-nowrap">{formatDate(pmt.ngay_tao)}</td>
+                    <td>{PAYMENT_KIND_LABEL[pmt.loai] || pmt.loai}</td>
+                    <td className={pmt.loai === 'refund' ? 'text-danger' : ''}>
+                      {pmt.loai === 'refund' ? '-' : ''}{formatCurrency(pmt.so_tien)}
+                    </td>
+                    <td>{pmt.hinh_thuc === 'transfer' ? 'Chuyển khoản' : 'Tiền mặt'}</td>
+                    <td>{pmt.ghi_chu || '-'}</td>
+                    <td>{pmt.nguoi_thu_ten || '-'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </Table>
+          </div>
+        ) : null}
+      </section>
 
       {(startMutation.error || completeMutation.error || deliverMutation.error) ? (
         <Alert variant="danger">
@@ -267,6 +362,14 @@ export default function OrderDetailPage() {
               <Badge bg="light" text="dark">{photos.length} ảnh</Badge>
             </div>
 
+            <Alert variant="info" className="d-flex gap-2 align-items-start">
+              <ShieldCheck size={18} aria-hidden="true" className="mt-1 flex-shrink-0" />
+              <span>
+                <strong>AI chỉ hỗ trợ an toàn:</strong> tách/đổi nền, căn chỉnh khung và chuẩn sáng.
+                Khuôn mặt và nhận dạng được giữ nguyên (yêu cầu pháp lý với ảnh thẻ). Nhân viên luôn duyệt lại trước khi dùng.
+              </span>
+            </Alert>
+
             <Row className="g-3 align-items-end">
               <Col lg={7}>
                 <Form.Group controlId="photo-upload">
@@ -276,31 +379,57 @@ export default function OrderDetailPage() {
                     accept="image/*"
                     multiple
                     onChange={(event) => setSelectedFiles(Array.from(event.target.files || []))}
+                    disabled={isPhotoPipelineActive}
                   />
                 </Form.Group>
               </Col>
               <Col lg={5} className="d-flex gap-2 flex-wrap">
                 <Button
                   onClick={() => uploadMutation.mutate()}
-                  disabled={uploadMutation.isPending || selectedFiles.length === 0}
+                  disabled={isPhotoPipelineActive || selectedFiles.length === 0}
                 >
                   <Upload size={17} aria-hidden="true" />
-                  Upload ảnh
+                  Upload & xử lý AI
                 </Button>
-                <Button
-                  variant="primary"
-                  onClick={() => processMutation.mutate()}
-                  disabled={processMutation.isPending || processablePhotos.length === 0}
-                >
-                  <RotateCcw size={17} aria-hidden="true" />
-                  Xử lý AI
-                </Button>
+                {pendingAiPhotos.length > 0 ? (
+                  <Button
+                    variant="outline-primary"
+                    onClick={() => processMutation.mutate()}
+                    disabled={isPhotoPipelineActive || pendingAiPhotos.length === 0}
+                  >
+                    <WandSparkles size={17} aria-hidden="true" />
+                    Xử lý ảnh còn lại
+                  </Button>
+                ) : null}
               </Col>
             </Row>
 
-            {uploadMutation.isPending ? <ProgressBar animated now={65} className="mt-3" label="Đang upload" /> : null}
+            {selectedPreviews.length > 0 ? (
+              <div className="selected-preview-grid">
+                {selectedPreviews.map((preview) => (
+                  <div className="selected-preview" key={`${preview.name}-${preview.size}`}>
+                    <img src={preview.url} alt={`Preview ${preview.name}`} />
+                    <span>{preview.name}</span>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+
+            {isPhotoPipelineActive ? (
+              <div className="pipeline-progress">
+                <div>
+                  <strong>{progressLabel}</strong>
+                  <span>Không cần bấm xử lý AI sau khi upload. Hệ thống sẽ refetch đơn khi xong.</span>
+                </div>
+                <ProgressBar animated now={progressValue} label={`${progressValue}%`} />
+              </div>
+            ) : null}
             {uploadMutation.error ? <Alert variant="danger" className="mt-3">{uploadMutation.error.message}</Alert> : null}
-            {processMutation.error ? <Alert variant="danger" className="mt-3">{processMutation.error.message}</Alert> : null}
+            {(autoProcessMutation.error || processMutation.error) ? (
+              <Alert variant="danger" className="mt-3">
+                {(autoProcessMutation.error || processMutation.error).message}
+              </Alert>
+            ) : null}
             {jobQuery.data?.job ? (
               <Alert variant={jobQuery.data.job.status === 'failed' ? 'danger' : 'info'} className="mt-3">
                 Job xử lý ảnh: <strong>{jobQuery.data.job.status}</strong>
@@ -310,63 +439,72 @@ export default function OrderDetailPage() {
             {photos.length === 0 ? (
               <EmptyState title="Chưa có ảnh" description="Upload ảnh gốc để bắt đầu xử lý AI." />
             ) : (
-              <div className="table-responsive mt-3">
-                <Table hover className="align-middle data-table">
-                  <thead>
-                    <tr>
-                      <th>Ảnh</th>
-                      <th>Trạng thái</th>
-                      <th>File</th>
-                      <th>Lỗi xử lý</th>
-                      <th className="text-end">Thao tác</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {photos.map((photo) => (
-                      <tr key={photo.id}>
-                        <td><FileImage size={20} aria-hidden="true" /></td>
-                        <td><PhotoStatusBadge status={photo.status} /></td>
-                        <td>
-                          <div>{photo.original_filename || photo.id}</div>
-                          <div className="text-muted small">{photo.width_px || '-'} x {photo.height_px || '-'} px</div>
-                        </td>
-                        <td className="text-danger small">{photo.processing_error || '-'}</td>
-                        <td className="text-end">
-                          <div className="table-actions">
-                            <Button
-                              size="sm"
-                              variant="outline-success"
-                              disabled={approveMutation.isPending || !['processed', 'approved'].includes(photo.status)}
-                              onClick={() => approveMutation.mutate(photo.id)}
-                            >
-                              <Check size={15} aria-hidden="true" />
-                              Duyệt
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline-danger"
-                              disabled={rejectMutation.isPending || photo.status === 'rejected'}
-                              onClick={() => setRejectTarget(photo)}
-                            >
-                              <X size={15} aria-hidden="true" />
-                              Từ chối
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline-secondary"
-                              onClick={() => {
-                                setOverrideTarget(photo);
-                                setOverrideForm({ cloudinary_processed_public_id: '', notes: '' });
-                              }}
-                            >
-                              Override
-                            </Button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </Table>
+              <div className="photo-card-grid mt-3">
+                {photos.map((photo) => (
+                  <div className="photo-card" key={photo.id}>
+                    {photoPreviewUrl(photo) ? (
+                      <button
+                        type="button"
+                        className="photo-card-media"
+                        onClick={() => setPreviewPhoto(photo)}
+                        aria-label={`Xem ảnh ${photo.original_filename || photo.id}`}
+                      >
+                        <img src={photoPreviewUrl(photo)} alt={photo.original_filename || 'Ảnh đơn'} />
+                      </button>
+                    ) : (
+                      <div className="photo-card-media placeholder-thumb"><FileImage size={30} aria-hidden="true" /></div>
+                    )}
+                    <div className="photo-card-body">
+                      <div className="photo-card-badges">
+                        <PhotoStatusBadge status={photo.status} />
+                        <QcStatusBadge status={photo.qc_status} />
+                      </div>
+                      <div className="photo-card-file" title={photo.original_filename || photo.id}>
+                        {photo.original_filename || photo.id}
+                      </div>
+                      <div className="text-muted small">
+                        {photo.width_px || '-'} x {photo.height_px || '-'} px
+                        {photo.quality_score != null ? ` · QC ${Math.round(Number(photo.quality_score))}` : ''}
+                      </div>
+                      {Array.isArray(photo.quality_issues) && photo.quality_issues.length > 0 ? (
+                        <ul className="photo-card-issues">
+                          {photo.quality_issues.map((issue, index) => (
+                            <li key={issue.code || index} className={issue.severity === 'fail' ? 'text-danger' : 'text-warning-emphasis'}>
+                              {issue.message}
+                            </li>
+                          ))}
+                        </ul>
+                      ) : null}
+                      {photo.processing_error ? <div className="text-danger small">{photo.processing_error}</div> : null}
+                    </div>
+                    <div className="photo-card-actions">
+                      <Button
+                        size="sm"
+                        variant="outline-success"
+                        disabled={approveMutation.isPending || !['processed', 'approved'].includes(photo.status)}
+                        onClick={() => approveMutation.mutate(photo.id)}
+                      >
+                        <Check size={15} aria-hidden="true" /> Duyệt
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline-danger"
+                        disabled={rejectMutation.isPending || photo.status === 'rejected'}
+                        onClick={() => setRejectTarget(photo)}
+                      >
+                        <X size={15} aria-hidden="true" /> Từ chối
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline-info"
+                        disabled={requalifyMutation.isPending || photo.status === 'processing' || isPhotoPipelineActive}
+                        onClick={() => requalifyMutation.mutate(photo.id)}
+                      >
+                        <RefreshCw size={15} aria-hidden="true" /> QC
+                      </Button>
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
           </section>
@@ -375,193 +513,18 @@ export default function OrderDetailPage() {
         <Tab eventKey="layout" title="Layout in">
           <section className="app-panel">
             <div className="section-title">
-              <h2>Tạo layout in</h2>
+              <h2>Sắp xếp &amp; In layout (A4)</h2>
               <Badge bg="success">{approvedPhotos.length} ảnh approved</Badge>
             </div>
 
             {approvedPhotos.length === 0 ? (
-              <EmptyState title="Chưa có ảnh approved" description="Chỉ ảnh đã duyệt mới được chọn để tạo layout." />
+              <EmptyState title="Chưa có ảnh approved" description="Chỉ ảnh đã duyệt mới được dàn lên layout." />
             ) : (
-              <>
-                <Row className="g-3">
-                  <Col lg={7}>
-                    <div className="table-responsive">
-                      <Table hover className="align-middle data-table">
-                        <thead>
-                          <tr>
-                            <th>Chọn</th>
-                            <th>Ảnh</th>
-                            <th>Trạng thái</th>
-                            <th>Ngày tạo</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {approvedPhotos.map((photo) => (
-                            <tr key={photo.id}>
-                              <td>
-                                <Form.Check
-                                  checked={selectedLayoutPhotos.includes(photo.id)}
-                                  onChange={() => toggleLayoutPhoto(photo.id)}
-                                  aria-label={`Chọn ảnh ${photo.id}`}
-                                />
-                              </td>
-                              <td>{photo.original_filename || photo.id}</td>
-                              <td><PhotoStatusBadge status={photo.status} /></td>
-                              <td>{formatDate(photo.created_at)}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </Table>
-                    </div>
-                  </Col>
-                  <Col lg={5}>
-                    <div className="layout-config">
-                      <Form.Group className="mb-3">
-                        <Form.Label>Khổ giấy</Form.Label>
-                        <Form.Select
-                          value={layoutConfig.paper_size}
-                          onChange={(event) => setLayoutConfig((current) => ({ ...current, paper_size: event.target.value }))}
-                        >
-                          <option value="10x15">10x15</option>
-                          <option value="A4">A4</option>
-                          <option value="Custom">Custom</option>
-                        </Form.Select>
-                      </Form.Group>
-                      {layoutConfig.paper_size === 'Custom' ? (
-                        <Row className="g-2">
-                          <Col>
-                            <Form.Group className="mb-3">
-                              <Form.Label>Rộng mm</Form.Label>
-                              <Form.Control
-                                type="number"
-                                value={layoutConfig.paper_width_mm}
-                                onChange={(event) => setLayoutConfig((current) => ({ ...current, paper_width_mm: event.target.value }))}
-                              />
-                            </Form.Group>
-                          </Col>
-                          <Col>
-                            <Form.Group className="mb-3">
-                              <Form.Label>Cao mm</Form.Label>
-                              <Form.Control
-                                type="number"
-                                value={layoutConfig.paper_height_mm}
-                                onChange={(event) => setLayoutConfig((current) => ({ ...current, paper_height_mm: event.target.value }))}
-                              />
-                            </Form.Group>
-                          </Col>
-                        </Row>
-                      ) : null}
-                      <Form.Group className="mb-3">
-                        <Form.Label>Số ảnh/trang</Form.Label>
-                        <Form.Select
-                          value={layoutConfig.copies_per_page}
-                          onChange={(event) => setLayoutConfig((current) => ({ ...current, copies_per_page: event.target.value }))}
-                        >
-                          {[4, 6, 8, 9, 12].map((count) => <option value={count} key={count}>{count}</option>)}
-                        </Form.Select>
-                      </Form.Group>
-                      <Row className="g-2">
-                        <Col>
-                          <Form.Group className="mb-3">
-                            <Form.Label>Lề mm</Form.Label>
-                            <Form.Control
-                              type="number"
-                              value={layoutConfig.margin_mm}
-                              onChange={(event) => setLayoutConfig((current) => ({ ...current, margin_mm: event.target.value }))}
-                            />
-                          </Form.Group>
-                        </Col>
-                        <Col>
-                          <Form.Group className="mb-3">
-                            <Form.Label>Khoảng cách mm</Form.Label>
-                            <Form.Control
-                              type="number"
-                              value={layoutConfig.gap_mm}
-                              onChange={(event) => setLayoutConfig((current) => ({ ...current, gap_mm: event.target.value }))}
-                            />
-                          </Form.Group>
-                        </Col>
-                      </Row>
-                      <Form.Check
-                        className="mb-3"
-                        checked={layoutConfig.add_text}
-                        onChange={(event) => setLayoutConfig((current) => ({ ...current, add_text: event.target.checked }))}
-                        label="In mã đơn dưới ảnh"
-                      />
-                      {validateLayoutMutation.data?.warnings?.length ? (
-                        <Alert variant="warning">{validateLayoutMutation.data.warnings.join(', ')}</Alert>
-                      ) : null}
-                      {(validateLayoutMutation.error || previewMutation.error || generateMutation.error) ? (
-                        <Alert variant="danger">
-                          {(validateLayoutMutation.error || previewMutation.error || generateMutation.error).message}
-                        </Alert>
-                      ) : null}
-                      <div className="panel-actions compact">
-                        <Button
-                          variant="outline-primary"
-                          onClick={runPreview}
-                          disabled={selectedLayoutPhotos.length === 0 || previewMutation.isPending}
-                        >
-                          Preview
-                        </Button>
-                        <Button
-                          onClick={() => generateMutation.mutate(layoutPayload)}
-                          disabled={selectedLayoutPhotos.length === 0 || generateMutation.isPending}
-                        >
-                          Generate layout
-                        </Button>
-                      </div>
-                    </div>
-                  </Col>
-                </Row>
-                {previewUrl ? (
-                  <div className="layout-preview">
-                    <Image src={previewUrl} alt="Preview layout in" fluid />
-                  </div>
-                ) : null}
-              </>
-            )}
-
-            <div className="section-title mt-4">
-              <h2>Layout đã tạo</h2>
-            </div>
-            {printLayouts.length === 0 ? (
-              <EmptyState title="Chưa có layout" description="Layout generated sẽ xuất hiện sau khi tạo thành công." />
-            ) : (
-              <div className="table-responsive">
-                <Table hover className="align-middle data-table">
-                  <thead>
-                    <tr>
-                      <th>Loại</th>
-                      <th>Khổ giấy</th>
-                      <th>Trạng thái</th>
-                      <th>Ngày tạo</th>
-                      <th className="text-end">Tải</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {printLayouts.map((layout) => (
-                      <tr key={layout.id}>
-                        <td>{layout.layout_type}</td>
-                        <td>{layout.paper_size}</td>
-                        <td><Badge bg={layout.status === 'generated' ? 'success' : 'secondary'}>{layout.status}</Badge></td>
-                        <td>{formatDate(layout.created_at)}</td>
-                        <td className="text-end">
-                          <Button
-                            size="sm"
-                            variant="outline-primary"
-                            disabled={downloadMutation.isPending || layout.status !== 'generated'}
-                            onClick={() => downloadMutation.mutate(layout.id)}
-                          >
-                            <Download size={15} aria-hidden="true" />
-                            Download
-                          </Button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </Table>
-              </div>
+              <LayoutComposer
+                photos={approvedPhotos.map((p) => ({ id: p.id, url: photoPreviewUrl(p) }))}
+                widthMm={pricingSnapshot?.width_mm}
+                heightMm={pricingSnapshot?.height_mm}
+              />
             )}
           </section>
         </Tab>
@@ -591,6 +554,62 @@ export default function OrderDetailPage() {
                 </Table>
               </Col>
             </Row>
+
+            <hr />
+            <h2 className="h5">Giao ảnh &amp; thông báo</h2>
+            <Row className="g-3">
+              <Col md={6}>
+                <Table className="detail-table">
+                  <tbody>
+                    <tr><th>Nguồn đơn</th><td>{order.intake_source === 'online' ? 'Online' : 'Tại quầy'}</td></tr>
+                    <tr><th>Hình thức giao</th><td>{order.delivery_method === 'online' ? 'Khách tải online' : 'Lấy tại quầy'}</td></tr>
+                    {appointment ? (
+                      <tr><th>Lịch hẹn</th><td>{formatDate(appointment.preferred_date)} · {appointment.time_slot} · {appointment.status}</td></tr>
+                    ) : null}
+                    <tr><th>Đã báo sẵn sàng</th><td>{order.ready_notified_at ? formatDate(order.ready_notified_at) : 'Chưa'}</td></tr>
+                  </tbody>
+                </Table>
+              </Col>
+              <Col md={6}>
+                <Button
+                  variant="outline-primary"
+                  disabled={notifyReadyMutation.isPending}
+                  onClick={() => notifyReadyMutation.mutate()}
+                >
+                  <Send size={16} aria-hidden="true" />
+                  Gửi link cho khách
+                </Button>
+                <p className="text-muted small mt-2">Tạo link tra cứu kèm token và gửi email/Zalo (mô phỏng) cho khách.</p>
+                {lookupUrl ? (
+                  <Alert variant="success" className="mt-2">
+                    Link tra cứu: <a href={lookupUrl} target="_blank" rel="noopener noreferrer">{lookupUrl}</a>
+                  </Alert>
+                ) : null}
+                {notifyReadyMutation.error ? <Alert variant="danger" className="mt-2">{notifyReadyMutation.error.message}</Alert> : null}
+              </Col>
+            </Row>
+
+            <h3 className="h6 mt-3">Thông báo đã gửi</h3>
+            {notificationsQuery.data?.notifications?.length ? (
+              <div className="table-responsive">
+                <Table className="data-table align-middle">
+                  <thead>
+                    <tr><th>Thời gian</th><th>Kênh</th><th>Sự kiện</th><th>Người nhận</th><th>Trạng thái</th></tr>
+                  </thead>
+                  <tbody>
+                    {notificationsQuery.data.notifications.map((item) => (
+                      <tr key={item.id}>
+                        <td>{formatDate(item.created_at)}</td>
+                        <td>{item.channel}</td>
+                        <td>{item.event_type}</td>
+                        <td>{item.recipient}</td>
+                        <td>{item.status}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </Table>
+              </div>
+            ) : <p className="text-muted">Chưa có thông báo cho đơn này.</p>}
           </section>
         </Tab>
       </Tabs>
@@ -624,36 +643,195 @@ export default function OrderDetailPage() {
         </Modal.Footer>
       </Modal>
 
-      <Modal show={Boolean(overrideTarget)} onHide={() => setOverrideTarget(null)} centered>
+      <Modal show={showCancel} onHide={() => setShowCancel(false)} centered>
         <Modal.Header closeButton>
-          <Modal.Title>Override ảnh xử lý</Modal.Title>
+          <Modal.Title>Huỷ đơn {order.order_code}</Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          <Form.Group className="mb-3">
-            <Form.Label>Cloudinary processed public ID</Form.Label>
-            <Form.Control
-              value={overrideForm.cloudinary_processed_public_id}
-              onChange={(event) => setOverrideForm((current) => ({ ...current, cloudinary_processed_public_id: event.target.value }))}
-            />
-          </Form.Group>
+          {amountPaid > 0 ? (
+            <Alert variant="warning">
+              Đơn đã thu <strong>{formatCurrency(amountPaid)}</strong>. Sau khi huỷ, nhớ <strong>hoàn tiền</strong> cho khách
+              (ghi nhận bằng mục Thanh toán → loại “Hoàn tiền”).
+            </Alert>
+          ) : null}
           <Form.Group>
-            <Form.Label>Ghi chú</Form.Label>
+            <Form.Label>Lý do huỷ</Form.Label>
             <Form.Control
-              value={overrideForm.notes}
-              onChange={(event) => setOverrideForm((current) => ({ ...current, notes: event.target.value }))}
+              as="textarea"
+              rows={3}
+              value={cancelReason}
+              onChange={(event) => setCancelReason(event.target.value)}
+              autoFocus
             />
           </Form.Group>
-          {overrideMutation.error ? <Alert variant="danger" className="mt-3">{overrideMutation.error.message}</Alert> : null}
+          {cancelMutation.error ? <Alert variant="danger" className="mt-3">{cancelMutation.error.message}</Alert> : null}
         </Modal.Body>
         <Modal.Footer>
-          <Button variant="outline-secondary" onClick={() => setOverrideTarget(null)}>Đóng</Button>
+          <Button variant="outline-secondary" onClick={() => setShowCancel(false)}>Đóng</Button>
           <Button
-            disabled={!overrideForm.cloudinary_processed_public_id || overrideMutation.isPending}
-            onClick={() => overrideMutation.mutate({ photoId: overrideTarget.id, payload: overrideForm })}
+            variant="danger"
+            disabled={!cancelReason.trim() || cancelMutation.isPending}
+            onClick={() => cancelMutation.mutate()}
           >
-            Lưu override
+            Xác nhận huỷ
           </Button>
         </Modal.Footer>
+      </Modal>
+
+      <Modal show={showDeliver} onHide={() => setShowDeliver(false)} centered>
+        <Modal.Header closeButton>
+          <Modal.Title>Giao đơn khi chưa thu đủ</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <Alert variant="warning">
+            Đơn còn nợ <strong>{formatCurrency(balance)}</strong> (đã thu {formatCurrency(amountPaid)}/{formatCurrency(totalAmount)}).
+            Nhập lý do giao nợ để tiếp tục, hoặc đóng lại để thu thêm tiền trước.
+          </Alert>
+          <Form.Group>
+            <Form.Label>Lý do giao nợ</Form.Label>
+            <Form.Control
+              as="textarea"
+              rows={2}
+              value={deliverReason}
+              onChange={(event) => setDeliverReason(event.target.value)}
+              autoFocus
+            />
+          </Form.Group>
+          {deliverMutation.error ? <Alert variant="danger" className="mt-3">{deliverMutation.error.message}</Alert> : null}
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="outline-secondary" onClick={() => setShowDeliver(false)}>Đóng</Button>
+          <Button
+            variant="secondary"
+            disabled={!deliverReason.trim() || deliverMutation.isPending}
+            onClick={() => deliverMutation.mutate()}
+          >
+            Xác nhận giao nợ
+          </Button>
+        </Modal.Footer>
+      </Modal>
+
+      <Modal show={showPayment} onHide={() => setShowPayment(false)} centered>
+        <Modal.Header closeButton>
+          <Modal.Title>Ghi nhận thanh toán</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <Row className="g-3">
+            <Col md={6}>
+              <Form.Group>
+                <Form.Label>Loại</Form.Label>
+                <Form.Select
+                  value={paymentForm.loai}
+                  onChange={(e) => { setPaymentForm((c) => ({ ...c, loai: e.target.value })); setRefundConfirmed(false); }}
+                >
+                  <option value="deposit">Đặt cọc</option>
+                  <option value="balance">Thanh toán</option>
+                  <option value="refund">Hoàn tiền</option>
+                </Form.Select>
+              </Form.Group>
+            </Col>
+            <Col md={6}>
+              <Form.Group>
+                <Form.Label>Hình thức</Form.Label>
+                <Form.Select value={paymentForm.hinh_thuc} onChange={(e) => setPaymentForm((c) => ({ ...c, hinh_thuc: e.target.value }))}>
+                  <option value="cash">Tiền mặt</option>
+                  <option value="transfer">Chuyển khoản</option>
+                </Form.Select>
+              </Form.Group>
+            </Col>
+            <Col xs={12}>
+              <Form.Group>
+                <Form.Label>Số tiền</Form.Label>
+                <InputGroup>
+                  <Form.Control
+                    type="number"
+                    min="0"
+                    value={paymentForm.so_tien}
+                    onChange={(e) => setPaymentForm((c) => ({ ...c, so_tien: e.target.value }))}
+                    autoFocus
+                  />
+                  {balance > 0 && paymentForm.loai !== 'refund' ? (
+                    <Button variant="outline-secondary" onClick={() => setPaymentForm((c) => ({ ...c, so_tien: String(balance) }))}>
+                      Thu đủ
+                    </Button>
+                  ) : null}
+                </InputGroup>
+                {balance > 0 ? <Form.Text>Còn lại: {formatCurrency(balance)}</Form.Text> : null}
+              </Form.Group>
+            </Col>
+            {paymentForm.loai === 'refund' ? (
+              <Col xs={12}>
+                <Alert variant="warning" className="mb-0 py-2">
+                  Đây là <strong>hoàn tiền</strong> (trừ vào số đã thu). Vui lòng xác nhận.
+                </Alert>
+                <Form.Check
+                  className="mt-2"
+                  label="Tôi xác nhận hoàn tiền cho khách"
+                  checked={refundConfirmed}
+                  onChange={(e) => setRefundConfirmed(e.target.checked)}
+                />
+              </Col>
+            ) : null}
+            <Col xs={12}>
+              <Form.Group>
+                <Form.Label>Ghi chú</Form.Label>
+                <Form.Control as="textarea" rows={2} value={paymentForm.ghi_chu} onChange={(e) => setPaymentForm((c) => ({ ...c, ghi_chu: e.target.value }))} />
+              </Form.Group>
+            </Col>
+          </Row>
+          {paymentMutation.error ? <Alert variant="danger" className="mt-3">{paymentMutation.error.message}</Alert> : null}
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="outline-secondary" onClick={() => setShowPayment(false)}>Đóng</Button>
+          <Button disabled={!(Number(paymentForm.so_tien) > 0) || paymentMutation.isPending || (paymentForm.loai === 'refund' && !refundConfirmed)} onClick={() => paymentMutation.mutate()}>
+            {paymentMutation.isPending ? 'Đang lưu...' : 'Lưu'}
+          </Button>
+        </Modal.Footer>
+      </Modal>
+
+      <Modal show={Boolean(previewPhoto)} onHide={() => setPreviewPhoto(null)} size="lg" centered>
+        <Modal.Header closeButton>
+          <Modal.Title>Xem ảnh đơn hàng</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          {previewPhoto ? (
+            <div className="photo-preview-modal">
+              <Row className="g-3">
+                <Col md={6}>
+                  <div className="text-muted small mb-1">Ảnh gốc</div>
+                  {previewPhoto.original_asset_metadata?.secure_url ? (
+                    <Image src={previewPhoto.original_asset_metadata.secure_url} alt="Ảnh gốc" fluid />
+                  ) : <span className="text-muted">-</span>}
+                </Col>
+                <Col md={6}>
+                  <div className="text-muted small mb-1">Đã xử lý (giữ nguyên khuôn mặt)</div>
+                  {previewPhoto.processed_asset_metadata?.secure_url ? (
+                    <Image src={previewPhoto.processed_asset_metadata.secure_url} alt="Ảnh đã xử lý" fluid />
+                  ) : <span className="text-muted">Chưa xử lý</span>}
+                </Col>
+              </Row>
+              <div className="photo-preview-meta mt-3">
+                <strong>{previewPhoto.original_filename || previewPhoto.id}</strong>
+                <span className="d-inline-flex gap-2">
+                  <PhotoStatusBadge status={previewPhoto.status} />
+                  <QcStatusBadge status={previewPhoto.qc_status} />
+                </span>
+              </div>
+              {Array.isArray(previewPhoto.quality_issues) && previewPhoto.quality_issues.length > 0 ? (
+                <ul className="small mt-2 mb-0 ps-3">
+                  {previewPhoto.quality_issues.map((issue, index) => (
+                    <li
+                      key={issue.code || index}
+                      className={issue.severity === 'fail' ? 'text-danger' : 'text-warning-emphasis'}
+                    >
+                      {issue.message}
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+            </div>
+          ) : null}
+        </Modal.Body>
       </Modal>
     </div>
   );

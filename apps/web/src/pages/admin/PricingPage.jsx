@@ -7,6 +7,7 @@ import EmptyState from '../../components/feedback/EmptyState.jsx';
 import ErrorState from '../../components/feedback/ErrorState.jsx';
 import LoadingState from '../../components/feedback/LoadingState.jsx';
 import { formatCurrency, formatDateOnly } from '../../utils/format';
+import { useFormErrors } from '../../hooks/useFormErrors.js';
 
 const today = new Date().toISOString().slice(0, 10);
 
@@ -21,6 +22,7 @@ export default function PricingPage() {
     effective_from: today,
     effective_to: ''
   });
+  const { errors, setErrors, clearError, validate } = useFormErrors();
 
   const cardTypesQuery = useQuery({ queryKey: ['card-types'], queryFn: listCardTypes });
   const pricingQuery = useQuery({
@@ -47,11 +49,17 @@ export default function PricingPage() {
 
   function openModal() {
     setForm((current) => ({ ...current, card_type_id: cardTypeId || cardTypes[0]?.id || '' }));
+    setErrors({});
     setShowModal(true);
   }
 
   function submit(event) {
     event.preventDefault();
+    if (!validate(form, {
+      card_type_id: 'Vui lòng chọn loại thẻ',
+      price_per_copy: 'Vui lòng nhập giá mỗi bản',
+      effective_from: 'Vui lòng chọn ngày áp dụng'
+    })) return;
     createMutation.mutate({
       ...form,
       price_per_copy: Number(form.price_per_copy),
@@ -128,15 +136,28 @@ export default function PricingPage() {
           <Modal.Body>
             <Form.Group className="mb-3">
               <Form.Label>Loại thẻ</Form.Label>
-              <Form.Select value={form.card_type_id} onChange={(event) => setForm((current) => ({ ...current, card_type_id: event.target.value }))} required>
+              <Form.Select
+                value={form.card_type_id}
+                onChange={(event) => { setForm((current) => ({ ...current, card_type_id: event.target.value })); clearError('card_type_id'); }}
+                isInvalid={!!errors.card_type_id}
+              >
+                <option value="">-- Chọn loại thẻ --</option>
                 {cardTypes.map((cardType) => <option key={cardType.id} value={cardType.id}>{cardType.name}</option>)}
               </Form.Select>
+              <Form.Control.Feedback type="invalid">{errors.card_type_id}</Form.Control.Feedback>
             </Form.Group>
             <Row className="g-3">
               <Col md={6}>
                 <Form.Group>
                   <Form.Label>Giá mỗi bản</Form.Label>
-                  <Form.Control type="number" min="0" value={form.price_per_copy} onChange={(event) => setForm((current) => ({ ...current, price_per_copy: event.target.value }))} required />
+                  <Form.Control
+                    type="number"
+                    min="0"
+                    value={form.price_per_copy}
+                    onChange={(event) => { setForm((current) => ({ ...current, price_per_copy: event.target.value })); clearError('price_per_copy'); }}
+                    isInvalid={!!errors.price_per_copy}
+                  />
+                  <Form.Control.Feedback type="invalid">{errors.price_per_copy}</Form.Control.Feedback>
                 </Form.Group>
               </Col>
               <Col md={6}>
@@ -148,7 +169,13 @@ export default function PricingPage() {
               <Col md={6}>
                 <Form.Group>
                   <Form.Label>Áp dụng từ</Form.Label>
-                  <Form.Control type="date" value={form.effective_from} onChange={(event) => setForm((current) => ({ ...current, effective_from: event.target.value }))} required />
+                  <Form.Control
+                    type="date"
+                    value={form.effective_from}
+                    onChange={(event) => { setForm((current) => ({ ...current, effective_from: event.target.value })); clearError('effective_from'); }}
+                    isInvalid={!!errors.effective_from}
+                  />
+                  <Form.Control.Feedback type="invalid">{errors.effective_from}</Form.Control.Feedback>
                 </Form.Group>
               </Col>
               <Col md={6}>
@@ -162,7 +189,7 @@ export default function PricingPage() {
           </Modal.Body>
           <Modal.Footer>
             <Button variant="outline-secondary" onClick={() => setShowModal(false)}>Đóng</Button>
-            <Button type="submit" disabled={createMutation.isPending || !form.card_type_id || !form.price_per_copy}>Lưu giá</Button>
+            <Button type="submit" disabled={createMutation.isPending}>Lưu giá</Button>
           </Modal.Footer>
         </Form>
       </Modal>

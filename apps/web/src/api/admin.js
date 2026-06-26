@@ -52,13 +52,6 @@ export async function downloadOrdersReportCsv(params = {}) {
   return apiRequest('/admin/reports/orders.csv', { query: params, raw: true });
 }
 
-export async function createOrdersExport(filters) {
-  return apiData('/admin/reports/orders/export', {
-    method: 'POST',
-    body: { report_type: 'orders', filters }
-  });
-}
-
-export async function getExportJob(id) {
-  return apiData(`/admin/export-jobs/${id}`);
+export async function purgeOldAssets() {
+  return apiData('/admin/maintenance/purge-assets', { method: 'POST', body: {} });
 }

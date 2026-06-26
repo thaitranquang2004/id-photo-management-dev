@@ -80,6 +80,21 @@ async function downloadBuffer(publicId, options = {}) {
   };
 }
 
+// Best-effort delete of a Cloudinary asset. Never throws (returns status) so a
+// cleanup run keeps going even if one asset is missing/already gone.
+async function destroyAsset(publicId, options = {}) {
+  if (!publicId) return { result: 'skipped' };
+  try {
+    ensureCloudinaryConfigured();
+    return await cloudinary.uploader.destroy(publicId, {
+      resource_type: options.resource_type || 'image',
+      invalidate: true
+    });
+  } catch (error) {
+    return { result: 'error', error: error.message };
+  }
+}
+
 function cloudinaryMetadata(result) {
   return {
     public_id: result.public_id,
@@ -96,5 +111,6 @@ module.exports = {
   signedDownloadUrl,
   uploadBuffer,
   downloadBuffer,
+  destroyAsset,
   cloudinaryMetadata
 };

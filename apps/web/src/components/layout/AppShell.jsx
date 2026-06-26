@@ -1,5 +1,23 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Camera, LayoutDashboard, LogOut, Search, Settings, ShieldCheck, UserRoundPlus } from 'lucide-react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import {
+  BarChart3,
+  Bell,
+  CalendarClock,
+  Camera,
+  Inbox,
+  LayoutDashboard,
+  LogOut,
+  Menu,
+  Printer,
+  ReceiptText,
+  Search,
+  Settings,
+  ShieldCheck,
+  Tags,
+  UserCog,
+  UserRoundPlus,
+  ChevronLeft
+} from 'lucide-react';
 import { useState } from 'react';
 import {
   Alert,
@@ -13,14 +31,49 @@ import {
 } from 'react-bootstrap';
 import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { searchCustomersByPhone } from '../../api/customers';
+import { listOnlineRequests, listAppointments } from '../../api/intake';
 import { useAuth } from '../../hooks/useAuth.jsx';
+
+const staffNavItems = [
+  { to: '/staff', end: true, label: 'Vận hành', icon: LayoutDashboard },
+  { to: '/staff/orders/new', label: 'Tạo đơn', icon: UserRoundPlus },
+  { to: '/staff/inbox', label: 'Hộp thư online', icon: Inbox },
+  { to: '/staff/appointments', label: 'Lịch hẹn', icon: CalendarClock },
+  { to: '/staff/reprints', label: 'Yêu cầu in lại', icon: Printer }
+];
+
+const adminNavItems = [
+  { to: '/admin', end: true, label: 'Admin', icon: ShieldCheck },
+  { to: '/admin/card-types', label: 'Loại thẻ', icon: Settings },
+  { to: '/admin/pricing', label: 'Giá', icon: Tags },
+  { to: '/admin/users', label: 'Nhân viên', icon: UserCog },
+  { to: '/admin/notifications', label: 'Thông báo', icon: Bell },
+  { to: '/admin/reports', label: 'Báo cáo', icon: BarChart3 }
+];
 
 export default function AppShell() {
   const { role, profile, logout } = useAuth();
   const [phone, setPhone] = useState('');
   const [searchError, setSearchError] = useState('');
+  const [showSidebar, setShowSidebar] = useState(false);
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+
+  // Poll for new online requests / appointments to show a red dot on the sidebar.
+  const newInboxQuery = useQuery({
+    queryKey: ['sidebar', 'inbox-new'],
+    queryFn: () => listOnlineRequests({ status: 'new', limit: 1 }),
+    refetchInterval: 30000
+  });
+  const newApptQuery = useQuery({
+    queryKey: ['sidebar', 'appt-new'],
+    queryFn: () => listAppointments({ status: 'requested', limit: 1 }),
+    refetchInterval: 30000
+  });
+  const navDots = {
+    '/staff/inbox': (newInboxQuery.data?.total || 0) > 0,
+    '/staff/appointments': (newApptQuery.data?.total || 0) > 0
+  };
 
   const searchMutation = useMutation({
     mutationFn: searchCustomersByPhone,
@@ -53,86 +106,160 @@ export default function AppShell() {
 
   return (
     <div className="app-shell">
-      <Navbar expand="lg" className="app-navbar" sticky="top">
-        <Container fluid>
-          <Navbar.Brand as={Link} to={role === 'admin' ? '/admin' : '/staff'} className="brand-mark">
-            <Camera size={24} aria-hidden="true" />
-            <span>Tiệm hình thẻ</span>
-          </Navbar.Brand>
-          <Navbar.Toggle aria-controls="main-nav" />
-          <Navbar.Collapse id="main-nav">
-            <Nav className="me-auto nav-main">
-              <Nav.Link as={NavLink} to="/staff" end>
-                <LayoutDashboard size={17} aria-hidden="true" />
-                Staff
-              </Nav.Link>
-              <Nav.Link as={NavLink} to="/staff/orders/new">
-                <UserRoundPlus size={17} aria-hidden="true" />
-                Tạo đơn
-              </Nav.Link>
-              {role === 'admin' ? (
-                <>
-                  <Nav.Link as={NavLink} to="/admin" end>
-                    <ShieldCheck size={17} aria-hidden="true" />
-                    Admin
-                  </Nav.Link>
-                  <Nav.Link as={NavLink} to="/admin/card-types">
-                    <Settings size={17} aria-hidden="true" />
-                    Cấu hình
-                  </Nav.Link>
-                </>
-              ) : null}
-            </Nav>
+      {/* Mobile Header */}
+      <header className="mobile-header d-lg-none">
+        <Button
+          variant="light"
+          className="mobile-toggle-btn"
+          onClick={() => setShowSidebar(true)}
+          aria-label="Mở menu"
+        >
+          <Menu size={20} />
+        </Button>
+        <Link to={role === 'admin' ? '/admin' : '/staff'} className="brand-mark">
+          <span className="brand-dot" />
+          <span>Tiệm hình thẻ</span>
+        </Link>
+        <Dropdown align="end">
+          <Dropdown.Toggle variant="light" size="sm" className="account-toggle border-0 py-1">
+            <ReceiptText size={16} />
+          </Dropdown.Toggle>
+          <Dropdown.Menu>
+            <Dropdown.Header>{profile?.full_name || role}</Dropdown.Header>
+            <Dropdown.Divider />
+            <Dropdown.Item onClick={handleLogout}>
+              <LogOut size={16} />
+              Đăng xuất
+            </Dropdown.Item>
+          </Dropdown.Menu>
+        </Dropdown>
+      </header>
 
-            <Form className="global-search" onSubmit={handleSearch}>
-              <InputGroup size="sm">
-                <Form.Control
-                  value={phone}
-                  onChange={(event) => setPhone(event.target.value)}
-                  placeholder="Tìm khách bằng SĐT"
-                  aria-label="Tìm khách bằng số điện thoại"
-                />
-                <Button
-                  type="submit"
-                  variant="outline-primary"
-                  disabled={!phone.trim() || searchMutation.isPending}
-                  aria-label="Tìm khách"
-                >
-                  <Search size={17} aria-hidden="true" />
-                </Button>
-              </InputGroup>
-            </Form>
-
-            <Dropdown align="end" className="ms-lg-3 mt-2 mt-lg-0">
-              <Dropdown.Toggle variant="light" size="sm" className="account-toggle">
-                {profile?.full_name || role || 'Tài khoản'}
-              </Dropdown.Toggle>
-              <Dropdown.Menu>
-                <Dropdown.Header>{role === 'admin' ? 'Admin' : 'Staff'}</Dropdown.Header>
-                <Dropdown.Divider />
-                <Dropdown.Item onClick={handleLogout}>
-                  <LogOut size={16} aria-hidden="true" />
-                  Đăng xuất
-                </Dropdown.Item>
-              </Dropdown.Menu>
-            </Dropdown>
-          </Navbar.Collapse>
-        </Container>
-      </Navbar>
-
-      {searchError ? (
-        <Container fluid className="pt-3">
-          <Alert variant="warning" dismissible onClose={() => setSearchError('')} className="mb-0">
-            {searchError}
-          </Alert>
-        </Container>
+      {/* Mobile Drawer Backdrop */}
+      {showSidebar ? (
+        <div className="sidebar-backdrop d-lg-none" onClick={() => setShowSidebar(false)} />
       ) : null}
 
-      <main className="app-main">
-        <Container fluid>
-          <Outlet />
-        </Container>
-      </main>
+      {/* Left Vertical Sidebar */}
+      <aside className={`app-sidebar ${showSidebar ? 'show' : ''}`}>
+        <div className="sidebar-header">
+          <Link to={role === 'admin' ? '/admin' : '/staff'} className="brand-mark" onClick={() => setShowSidebar(false)}>
+            <Camera size={22} className="text-primary" />
+            <span>Tiệm hình thẻ</span>
+          </Link>
+          <Button
+            variant="link"
+            className="sidebar-close-btn d-lg-none"
+            onClick={() => setShowSidebar(false)}
+            aria-label="Đóng menu"
+          >
+            <ChevronLeft size={22} />
+          </Button>
+        </div>
+
+        {/* Global Search integrated in Sidebar */}
+        <div className="sidebar-search">
+          <Form onSubmit={handleSearch}>
+            <InputGroup size="sm">
+              <Form.Control
+                value={phone}
+                onChange={(event) => setPhone(event.target.value)}
+                placeholder="Tìm khách bằng SĐT..."
+                aria-label="Tìm khách bằng số điện thoại"
+              />
+              <Button
+                type="submit"
+                variant="outline-primary"
+                disabled={!phone.trim() || searchMutation.isPending}
+                aria-label="Tìm khách"
+              >
+                <Search size={16} aria-hidden="true" />
+              </Button>
+            </InputGroup>
+          </Form>
+        </div>
+
+        {/* Navigation Section */}
+        <nav className="sidebar-nav">
+          <div className="nav-section-title">Vận hành</div>
+          {staffNavItems.map((item) => {
+            const Icon = item.icon;
+            return (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                end={item.end}
+                className={({ isActive }) => `nav-item-link ${isActive ? 'active' : ''}`}
+                onClick={() => setShowSidebar(false)}
+              >
+                <Icon size={18} aria-hidden="true" />
+                <span>{item.label}</span>
+                {navDots[item.to] ? <span className="nav-dot" aria-label="Có mục mới" /> : null}
+              </NavLink>
+            );
+          })}
+
+          {role === 'admin' ? (
+            <>
+              <div className="nav-section-title mt-4">Quản trị</div>
+              {adminNavItems.map((item) => {
+                const Icon = item.icon;
+                return (
+                  <NavLink
+                    key={item.to}
+                    to={item.to}
+                    end={item.end}
+                    className={({ isActive }) => `nav-item-link ${isActive ? 'active' : ''}`}
+                    onClick={() => setShowSidebar(false)}
+                  >
+                    <Icon size={18} aria-hidden="true" />
+                    <span>{item.label}</span>
+                  </NavLink>
+                );
+              })}
+            </>
+          ) : null}
+        </nav>
+
+        {/* Sidebar Profile & Footer */}
+        <div className="sidebar-footer">
+          <div className="user-profile">
+            <div className="user-avatar">
+              {(profile?.full_name || role || 'U').charAt(0).toUpperCase()}
+            </div>
+            <div className="user-info">
+              <span className="user-name">{profile?.full_name || role || 'Tài khoản'}</span>
+              <span className="user-role">{role === 'admin' ? 'Quản trị viên' : 'Nhân viên'}</span>
+            </div>
+          </div>
+          <Button
+            variant="outline-danger"
+            size="sm"
+            className="w-100 logout-btn mt-3"
+            onClick={handleLogout}
+          >
+            <LogOut size={16} aria-hidden="true" />
+            <span>Đăng xuất</span>
+          </Button>
+        </div>
+      </aside>
+
+      {/* Right Content Area */}
+      <div className="app-main-content">
+        {searchError ? (
+          <Container fluid className="pt-3 px-4">
+            <Alert variant="warning" dismissible onClose={() => setSearchError('')} className="mb-0">
+              {searchError}
+            </Alert>
+          </Container>
+        ) : null}
+
+        <main className="app-content-body">
+          <Container fluid className="px-4">
+            <Outlet />
+          </Container>
+        </main>
+      </div>
     </div>
   );
 }

@@ -23,6 +23,6 @@ export async function rejectPhoto(id, reason) {
   return apiData(`/photos/${id}/reject`, { method: 'POST', body: { reason } });
 }
 
-export async function overridePhoto(id, payload) {
-  return apiData(`/photos/${id}/override`, { method: 'POST', body: payload });
+export async function requalifyPhoto(id) {
+  return apiData(`/photos/${id}/requalify`, { method: 'POST', body: {} });
 }

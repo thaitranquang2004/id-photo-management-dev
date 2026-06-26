@@ -1,9 +1,8 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { Download, FileDown } from 'lucide-react';
+import { Download } from 'lucide-react';
 import { useState } from 'react';
 import { Alert, Button, Col, Form, Row, Table } from 'react-bootstrap';
 import {
-  createOrdersExport,
   downloadOrdersReportCsv,
   getOrdersReport,
   listCardTypes
@@ -15,12 +14,13 @@ import OrderStatusBadge from '../../components/status/OrderStatusBadge.jsx';
 import { formatCurrency, formatDate } from '../../utils/format';
 
 function reportTotals(rows) {
-  const uniqueCustomers = new Set(rows.map((row) => row.customer_phone).filter(Boolean));
+  const revenue = rows.reduce((sum, row) => sum + Number(row.total_amount || 0), 0);
+  const paid = rows.reduce((sum, row) => sum + Number(row.amount_paid || 0), 0);
   return {
     orders: rows.length,
-    revenue: rows.reduce((sum, row) => sum + Number(row.total_amount || 0), 0),
-    processedPhotos: '-',
-    customers: uniqueCustomers.size
+    revenue,
+    paid,
+    debt: revenue - paid
   };
 }
 
@@ -33,20 +33,22 @@ export default function ReportsPage() {
     status: ''
   });
 
+  const reportParams = {
+    date_from: filters.date_from || undefined,
+    date_to: filters.date_to || undefined,
+    card_type_id: filters.card_type_id || undefined,
+    staff_id: filters.staff_id || undefined,
+    status: filters.status || undefined
+  };
+
   const reportQuery = useQuery({
-    queryKey: ['admin', 'reports', filters.date_from, filters.date_to],
-    queryFn: () => getOrdersReport({
-      date_from: filters.date_from || undefined,
-      date_to: filters.date_to || undefined
-    })
+    queryKey: ['admin', 'reports', reportParams],
+    queryFn: () => getOrdersReport(reportParams)
   });
   const cardTypesQuery = useQuery({ queryKey: ['card-types'], queryFn: listCardTypes });
 
   const csvMutation = useMutation({
-    mutationFn: () => downloadOrdersReportCsv({
-      date_from: filters.date_from || undefined,
-      date_to: filters.date_to || undefined
-    }),
+    mutationFn: () => downloadOrdersReportCsv(reportParams),
     onSuccess: async (response) => {
       const blob = await response.blob();
       const url = URL.createObjectURL(blob);
@@ -56,10 +58,6 @@ export default function ReportsPage() {
       link.click();
       URL.revokeObjectURL(url);
     }
-  });
-
-  const exportMutation = useMutation({
-    mutationFn: () => createOrdersExport(filters)
   });
 
   if (reportQuery.isLoading || cardTypesQuery.isLoading) return <LoadingState label="Đang tải báo cáo..." />;
@@ -74,16 +72,12 @@ export default function ReportsPage() {
       <div className="page-header">
         <div>
           <h1>Báo cáo đơn hàng</h1>
-          <p>Lọc theo thời gian và xuất CSV phục vụ nghiệm thu/vận hành.</p>
+          <p>Lọc theo thời gian, loại thẻ, nhân viên, trạng thái và xuất CSV phục vụ nghiệm thu/vận hành.</p>
         </div>
         <div className="header-actions">
           <Button variant="outline-primary" onClick={() => csvMutation.mutate()} disabled={csvMutation.isPending}>
             <Download size={17} aria-hidden="true" />
             Export CSV
-          </Button>
-          <Button variant="primary" onClick={() => exportMutation.mutate()} disabled={exportMutation.isPending}>
-            <FileDown size={17} aria-hidden="true" />
-            Tạo export job
           </Button>
         </div>
       </div>
@@ -131,23 +125,17 @@ export default function ReportsPage() {
             </Form.Group>
           </Col>
         </Row>
-        <div className="text-muted small mt-2">
-          Backend report hiện áp dụng filter thời gian; các filter loại thẻ, nhân viên, trạng thái đã có UI để nối tiếp khi API bổ sung.
-        </div>
       </section>
 
-      {(csvMutation.error || exportMutation.error) ? (
-        <Alert variant="danger">{(csvMutation.error || exportMutation.error).message}</Alert>
-      ) : null}
-      {exportMutation.data?.export_job ? (
-        <Alert variant="info">Export job: {exportMutation.data.export_job.id} · {exportMutation.data.export_job.status}</Alert>
+      {csvMutation.error ? (
+        <Alert variant="danger">{csvMutation.error.message}</Alert>
       ) : null}
 
       <Row className="g-3">
         <Col sm={6} xl={3}><div className="summary-box"><span>Tổng đơn</span><strong>{totals.orders}</strong></div></Col>
         <Col sm={6} xl={3}><div className="summary-box"><span>Tổng doanh thu</span><strong>{formatCurrency(totals.revenue)}</strong></div></Col>
-        <Col sm={6} xl={3}><div className="summary-box"><span>Ảnh xử lý</span><strong>{totals.processedPhotos}</strong></div></Col>
-        <Col sm={6} xl={3}><div className="summary-box"><span>Khách unique</span><strong>{totals.customers}</strong></div></Col>
+        <Col sm={6} xl={3}><div className="summary-box"><span>Đã thu</span><strong>{formatCurrency(totals.paid)}</strong></div></Col>
+        <Col sm={6} xl={3}><div className="summary-box"><span>Công nợ</span><strong>{formatCurrency(totals.debt)}</strong></div></Col>
       </Row>
 
       <section className="app-panel">
@@ -161,9 +149,11 @@ export default function ReportsPage() {
                   <th>Mã đơn</th>
                   <th>Khách</th>
                   <th>Loại thẻ</th>
+                  <th>Nhân viên</th>
                   <th>Trạng thái</th>
                   <th>Số lượng</th>
                   <th>Doanh thu</th>
+                  <th>Đã thu</th>
                   <th>Ngày tạo</th>
                 </tr>
               </thead>
@@ -176,9 +166,11 @@ export default function ReportsPage() {
                       <div className="text-muted small">{order.customer_phone}</div>
                     </td>
                     <td>{order.card_type_name}</td>
+                    <td>{order.staff_name || '—'}</td>
                     <td><OrderStatusBadge status={order.status} /></td>
                     <td>{order.quantity}</td>
                     <td>{formatCurrency(order.total_amount)}</td>
+                    <td>{formatCurrency(order.amount_paid)}</td>
                     <td>{formatDate(order.created_at)}</td>
                   </tr>
                 ))}

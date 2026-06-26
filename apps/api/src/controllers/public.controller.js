@@ -13,4 +13,8 @@ async function createReprintRequest(req, res) {
   return sendSuccess(res, await publicService.createReprintRequest(req.validated.body, req), null, 201);
 }
 
-module.exports = { customerLookup, photoDownloadUrl, createReprintRequest };
+async function cardTypes(req, res) {
+  return sendSuccess(res, await publicService.listPublicCardTypes());
+}
+
+module.exports = { customerLookup, photoDownloadUrl, createReprintRequest, cardTypes };

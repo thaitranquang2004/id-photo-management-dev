@@ -12,8 +12,11 @@ function ensureGoogleAiConfigured() {
 
 async function listModels() {
   ensureGoogleAiConfigured();
-  const url = `${GEMINI_MODELS_ENDPOINT}?key=${encodeURIComponent(env.GEMINI_API_KEY)}`;
-  const response = await fetch(url);
+  // Pass the key as a header (not a query param) so it never leaks into request logs,
+  // proxies or browser history — consistent with editImage/assessQuality below.
+  const response = await fetch(GEMINI_MODELS_ENDPOINT, {
+    headers: { 'x-goog-api-key': env.GEMINI_API_KEY }
+  });
   const text = await response.text();
   let payload;
 
@@ -104,9 +107,103 @@ async function editImage({ imageBuffer, mimeType, prompt, model = env.GEMINI_IMA
   };
 }
 
+// Safe-assist prompt: the AI is only allowed to touch background, lighting and
+// straightening. It must NEVER alter the face/identity — legal requirement for
+// ID/passport photos. Cropping/resizing to exact card size is done by Sharp, not here.
+function buildSafeAssistPrompt(cardType) {
+  const requirements = cardType.requirements ? JSON.stringify(cardType.requirements) : '{}';
+  const background = cardType.background_color || '#FFFFFF';
+  const w = Number(cardType.width_mm);
+  const h = Number(cardType.height_mm);
+  return [
+    `You are producing an official ID/passport photo (${cardType.name}, ${w}x${h} mm, portrait orientation). This is a legal identity document.`,
+    'Recompose the supplied photo into a STANDARD head-and-shoulders ID portrait:',
+    '- Frame to the head and the top of the shoulders / upper chest ONLY. Remove the full body, crossed arms, waist and legs — do not keep a far/zoomed-out shot.',
+    '- The person must be centered horizontally and face straight toward the camera; straighten any head tilt.',
+    '- The head (from the top of the hair down to the chin) should fill about 70% of the photo height. Leave a small, even gap of empty background above the hair, and show the tops of the shoulders along the bottom edge.',
+    `- Replace the background with a clean, uniform, solid ${background}; remove every object/clutter behind the person.`,
+    '- Apply even, neutral, studio-style lighting with correct exposure and white balance. No harsh shadows, glare, vignette, reflections, text, border or watermark.',
+    `- Output ONE realistic photograph (not an illustration/cartoon) in portrait aspect ratio ${w}:${h}.`,
+    'ABSOLUTE IDENTITY RULE: keep the face 100% faithful to the input. Do NOT beautify, retouch, smooth skin, slim, reshape, change age/weight/expression, or modify eyes/nose/mouth/jaw/ears/eyebrows/hairstyle/glasses/clothing or any facial geometry. You may ONLY change framing/zoom, background and lighting. If a requirement would force altering the face, skip it — preserving identity always wins.',
+    `Card requirements JSON (context only, never at the cost of identity): ${requirements}.`
+  ].join('\n');
+}
+
+function buildQualityCheckPrompt(cardType) {
+  const requirements = cardType.requirements ? JSON.stringify(cardType.requirements) : '{}';
+  return [
+    'You are a strict compliance checker for official ID/passport photos. Analyze the supplied image and report findings ONLY as a single minified JSON object. No markdown, no code fences, no commentary.',
+    'Use exactly these keys with boolean/number values:',
+    '{"face_detected":true,"face_count":1,"face_centered":true,"face_height_ratio":0.65,"background_uniform":true,"background_matches_required_color":true,"glare_or_strong_shadow":false,"eyes_open":true,"neutral_expression":true,"sufficient_sharpness":true}',
+    'face_height_ratio = approximate head/face height divided by total image height (0..1).',
+    `Required background color: ${cardType.background_color || '#FFFFFF'}. Card type: ${cardType.name}. Requirements JSON: ${requirements}.`,
+    'Respond with JSON only.'
+  ].join(' ');
+}
+
+function parseJsonLoose(text) {
+  if (!text) return null;
+  try {
+    return JSON.parse(text);
+  } catch {
+    const match = text.match(/\{[\s\S]*\}/);
+    if (!match) return null;
+    try {
+      return JSON.parse(match[0]);
+    } catch {
+      return null;
+    }
+  }
+}
+
+// Best-effort AI quality check. Returns structured findings or null on any failure
+// (missing key, HTTP error, unparseable output) so deterministic QC can still run.
+async function assessQuality({ imageBuffer, mimeType, cardType, model = env.GEMINI_ANALYSIS_MODEL }) {
+  if (!env.GEMINI_API_KEY) return null;
+
+  try {
+    const response = await fetch(`${GEMINI_GENERATE_ENDPOINT}/${model}:generateContent`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-goog-api-key': env.GEMINI_API_KEY
+      },
+      body: JSON.stringify({
+        contents: [{
+          role: 'user',
+          parts: [
+            { text: buildQualityCheckPrompt(cardType) },
+            {
+              inlineData: {
+                mimeType: mimeType || 'image/jpeg',
+                data: imageBuffer.toString('base64')
+              }
+            }
+          ]
+        }],
+        generationConfig: { responseModalities: ['TEXT'], temperature: 0 }
+      })
+    });
+
+    if (!response.ok) return null;
+
+    const payload = await response.json().catch(() => null);
+    const text = (payload?.candidates?.[0]?.content?.parts || [])
+      .map((part) => part.text || '')
+      .join('')
+      .trim();
+
+    return parseJsonLoose(text);
+  } catch (_error) {
+    return null;
+  }
+}
+
 module.exports = {
   ensureGoogleAiConfigured,
   listModels,
   assertImageModelAvailable,
-  editImage
+  editImage,
+  buildSafeAssistPrompt,
+  assessQuality
 };

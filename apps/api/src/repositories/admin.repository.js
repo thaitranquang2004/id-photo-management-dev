@@ -27,14 +27,28 @@ async function orderReport(filters, client) {
     params.push(filters.date_to);
     where.push(`o.created_at <= $${params.length}`);
   }
+  if (filters.card_type_id) {
+    params.push(filters.card_type_id);
+    where.push(`o.card_type_id = $${params.length}`);
+  }
+  if (filters.staff_id) {
+    params.push(filters.staff_id);
+    where.push(`o.created_by = $${params.length}`);
+  }
+  if (filters.status) {
+    params.push(filters.status);
+    where.push(`o.status = $${params.length}`);
+  }
 
   return many(
-    `select o.order_code, o.status, o.total_amount, o.quantity, o.created_at,
+    `select o.order_code, o.status, o.total_amount, o.amount_paid, o.quantity, o.created_at,
             c.full_name as customer_name, c.phone as customer_phone,
-            ct.name as card_type_name
+            ct.name as card_type_name,
+            p.full_name as staff_name
      from public.orders o
      join public.customers c on c.id = o.customer_id
      join public.card_types ct on ct.id = o.card_type_id
+     join public.profiles p on p.id = o.created_by
      where ${where.join(' and ')}
      order by o.created_at desc`,
     params,
@@ -42,18 +56,4 @@ async function orderReport(filters, client) {
   );
 }
 
-async function createExportJob(data, actorId, client) {
-  return one(
-    `insert into public.export_jobs (requested_by, report_type, filters, status)
-     values ($1, $2, $3, 'queued')
-     returning *`,
-    [actorId, data.report_type || 'orders', data.filters || {}],
-    client
-  );
-}
-
-async function findExportJob(id, client) {
-  return one('select * from public.export_jobs where id = $1', [id], client);
-}
-
-module.exports = { dashboard, orderReport, createExportJob, findExportJob };
+module.exports = { dashboard, orderReport };

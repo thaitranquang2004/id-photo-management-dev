@@ -45,11 +45,10 @@ async function updateStatus(id, status, patch, client) {
      set status = $2,
          approved_at = case when $2 = 'approved' then now() else approved_at end,
          processing_error = coalesce($3, processing_error),
-         override_notes = coalesce($4, override_notes),
          updated_at = now()
      where id = $1
      returning *`,
-    [id, status, patch?.processing_error || null, patch?.override_notes || null],
+    [id, status, patch?.processing_error || null],
     client
   );
 }
@@ -62,6 +61,9 @@ async function markProcessed(id, data, client) {
          processed_asset_metadata = $3,
          quality_score = $4,
          quality_issues = $5,
+         qc_status = coalesce($6, qc_status),
+         qc_checked_at = now(),
+         ai_assist_applied = coalesce($7::jsonb, ai_assist_applied),
          processing_error = null,
          processed_at = now(),
          updated_at = now()
@@ -72,8 +74,25 @@ async function markProcessed(id, data, client) {
       data.cloudinary_processed_public_id,
       data.processed_asset_metadata || {},
       data.quality_score ?? null,
-      JSON.stringify(data.quality_issues || [])
+      JSON.stringify(data.quality_issues || []),
+      data.qc_status || null,
+      data.ai_assist_applied || null
     ],
+    client
+  );
+}
+
+async function updateQc(id, data, client) {
+  return one(
+    `update public.photos
+     set quality_score = $2,
+         quality_issues = $3,
+         qc_status = $4,
+         qc_checked_at = now(),
+         updated_at = now()
+     where id = $1
+     returning *`,
+    [id, data.quality_score ?? null, JSON.stringify(data.quality_issues || []), data.qc_status],
     client
   );
 }
@@ -91,35 +110,19 @@ async function markProcessingFailed(id, message, client) {
   );
 }
 
-async function overrideProcessed(id, data, client) {
-  return one(
-    `update public.photos
-     set cloudinary_processed_public_id = $2,
-         processed_asset_metadata = coalesce($3, processed_asset_metadata),
-         manual_override = true,
-         override_notes = $4,
-         status = 'processed',
-         processed_at = now(),
-         updated_at = now()
-     where id = $1
-     returning *`,
-    [id, data.cloudinary_processed_public_id, data.processed_asset_metadata || null, data.notes || null],
-    client
-  );
-}
-
 async function createProcessingJob(data, actorId, client) {
   return one(
     `insert into public.processing_jobs (
-       order_id, requested_by, provider, status, strict_quality_check, photo_count
+       order_id, requested_by, provider, status, strict_quality_check, processing_mode, photo_count
      )
-     values ($1, $2, $3, 'queued', $4, $5)
+     values ($1, $2, $3, 'queued', $4, $5, $6)
      returning *`,
     [
       data.order_id,
       actorId,
       data.provider || 'google_ai',
       data.strict_quality_check || false,
+      data.processing_mode || 'safe_assist',
       data.photo_ids.length
     ],
     client
@@ -195,8 +198,8 @@ module.exports = {
   findApprovedByOrder,
   updateStatus,
   markProcessed,
+  updateQc,
   markProcessingFailed,
-  overrideProcessed,
   createProcessingJob,
   markPhotosProcessing,
   findProcessingJob,

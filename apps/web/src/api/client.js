@@ -63,7 +63,8 @@ export async function apiRequest(path, options = {}) {
     method,
     headers: requestHeaders,
     body: isFormData ? body : body !== undefined && body !== null ? JSON.stringify(body) : undefined,
-    signal
+    signal,
+    cache: 'no-store'
   });
 
   if (raw) {
