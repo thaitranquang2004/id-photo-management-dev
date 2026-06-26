@@ -136,7 +136,7 @@ async function acceptRequest(id, context) {
       throw errors.invalidState('Chỉ yêu cầu mới (new) mới được tiếp nhận', { status: request.status });
     }
     const next = await onlineRepository.updateRequestStatus(id, { status: 'accepted' }, context.user.id, client);
-    await writeAudit('online_request.accepted', 'online_requests', id, context, { old_data: request, new_data: next }, client);
+    await writeAudit('online_request.accepted', 'yeu_cau_online', id, context, { old_data: request, new_data: next }, client);
     return next;
   });
   await notificationService.notifyEvent('online_request_accepted', {
@@ -156,7 +156,7 @@ async function rejectRequest(id, body, context) {
       throw errors.invalidState('Yêu cầu đã chuyển thành đơn, không thể từ chối', { status: request.status });
     }
     const next = await onlineRepository.updateRequestStatus(id, { status: 'rejected', note: body.note }, context.user.id, client);
-    await writeAudit('online_request.rejected', 'online_requests', id, context, { old_data: request, new_data: next }, client);
+    await writeAudit('online_request.rejected', 'yeu_cau_online', id, context, { old_data: request, new_data: next }, client);
     return next;
   });
   await notificationService.notifyEvent('online_request_rejected', {
@@ -234,7 +234,7 @@ async function convertToOrder(id, body, context) {
     }
 
     const updatedRequest = await onlineRepository.linkConverted(id, { order_id: order.id, customer_id: customer.id }, client);
-    await writeAudit('online_request.converted', 'online_requests', id, context, {
+    await writeAudit('online_request.converted', 'yeu_cau_online', id, context, {
       old_data: request,
       new_data: { request: updatedRequest, order_id: order.id, customer_id: customer.id }
     }, client);
@@ -263,7 +263,7 @@ async function createAppointment(body, context) {
       note: body.note,
       confirmed_by: context.user.id
     }, client);
-    await writeAudit('appointment.created', 'appointments', appointment.id, context, { new_data: appointment }, client);
+    await writeAudit('appointment.created', 'lich_hen',appointment.id, context, { new_data: appointment }, client);
     return { appointment };
   });
 }
@@ -273,7 +273,7 @@ async function updateAppointmentStatus(id, body, context) {
     const appointment = await onlineRepository.findAppointmentById(id, client);
     if (!appointment) throw errors.notFound('Không tìm thấy lịch hẹn');
     const next = await onlineRepository.updateAppointmentStatus(id, { status: body.status, note: body.note }, context.user.id, client);
-    await writeAudit('appointment.status_changed', 'appointments', id, context, { old_data: appointment, new_data: next }, client);
+    await writeAudit('appointment.status_changed', 'lich_hen',id, context, { old_data: appointment, new_data: next }, client);
     return next;
   });
   if (updated.status === 'confirmed') {

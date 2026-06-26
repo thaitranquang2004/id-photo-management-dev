@@ -81,7 +81,10 @@ async function details(id, client) {
     one('select * from public.ban_luu_gia where don_hang_id = $1', [id], client),
     many(`select ${PHOTO_COLS} from public.anh where don_hang_id = $1 order by ngay_tao desc`, [id], client),
     many('select * from public.bo_cuc_in where don_hang_id = $1 order by ngay_tao desc', [id], client),
-    one('select * from public.appointments where order_id = $1 order by created_at desc limit 1', [id], client)
+    one(`select id, yeu_cau_online_id as online_request_id, don_hang_id as order_id, ten_khach as customer_name,
+                so_dien_thoai as phone, ngay_hen as preferred_date, khung_gio as time_slot, trang_thai as status,
+                ghi_chu as note, nguoi_xac_nhan as confirmed_by, ngay_tao as created_at, ngay_cap_nhat as updated_at
+         from public.lich_hen where don_hang_id = $1 order by ngay_tao desc limit 1`, [id], client)
   ]);
 
   return { order, pricing_snapshot: pricingSnapshot, photos, print_layouts: printLayouts, appointment };

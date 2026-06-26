@@ -37,14 +37,14 @@ async function purgeOldOrders() {
   }
 
   const oldRequestPhotos = await many(
-    `select rp.id, rp.cloudinary_original_public_id
-     from public.online_request_photos rp
-     join public.online_requests r on r.id = rp.online_request_id
-     where r.created_at < now() - interval '${PURGE_AFTER_DAYS} days' and rp.purged_at is null`
+    `select rp.id, rp.cloudinary_anh_goc_id as cloudinary_original_public_id
+     from public.anh_yeu_cau_online rp
+     join public.yeu_cau_online r on r.id = rp.yeu_cau_online_id
+     where r.ngay_tao < now() - interval '${PURGE_AFTER_DAYS} days' and rp.ngay_don_dep is null`
   );
   for (const rp of oldRequestPhotos) {
     await assetService.destroyAsset(rp.cloudinary_original_public_id);
-    await query('update public.online_request_photos set purged_at = now() where id = $1', [rp.id]);
+    await query('update public.anh_yeu_cau_online set ngay_don_dep = now() where id = $1', [rp.id]);
     requestPhotos += 1;
   }
 
