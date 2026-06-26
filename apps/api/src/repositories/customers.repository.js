@@ -1,21 +1,26 @@
 const { one, many } = require('../db/pool');
 
+// Alias cột khach_hang về tiếng Anh để customer.service + frontend không phải đổi.
+const CUST_COLS = `id, ho_ten as full_name, so_dien_thoai as phone, email, ghi_chu as notes,
+  dang_hoat_dong as is_active, ngay_luu_tru as archived_at, nguoi_tao as created_by,
+  ngay_tao as created_at, ngay_cap_nhat as updated_at`;
+
 async function list({ phone, limit, offset }, client) {
   const params = [];
-  const where = ['is_active = true'];
+  const where = ['dang_hoat_dong = true'];
 
   if (phone) {
     params.push(`%${phone}%`);
-    where.push(`phone ilike $${params.length}`);
+    where.push(`so_dien_thoai ilike $${params.length}`);
   }
 
   params.push(limit, offset);
 
   const rows = await many(
-    `select *, count(*) over()::int as total
-     from public.customers
+    `select ${CUST_COLS}, count(*) over()::int as total
+     from public.khach_hang
      where ${where.join(' and ')}
-     order by created_at desc
+     order by ngay_tao desc
      limit $${params.length - 1} offset $${params.length}`,
     params,
     client
@@ -25,14 +30,14 @@ async function list({ phone, limit, offset }, client) {
 }
 
 async function findById(id, client) {
-  return one('select * from public.customers where id = $1', [id], client);
+  return one(`select ${CUST_COLS} from public.khach_hang where id = $1`, [id], client);
 }
 
 async function findByPhone(phone, client) {
   return one(
-    `select * from public.customers
-     where phone = $1 and is_active = true
-     order by created_at desc
+    `select ${CUST_COLS} from public.khach_hang
+     where so_dien_thoai = $1 and dang_hoat_dong = true
+     order by ngay_tao desc
      limit 1`,
     [phone],
     client
@@ -41,9 +46,9 @@ async function findByPhone(phone, client) {
 
 async function create(data, actorId, client) {
   return one(
-    `insert into public.customers (full_name, phone, email, notes, created_by)
+    `insert into public.khach_hang (ho_ten, so_dien_thoai, email, ghi_chu, nguoi_tao)
      values ($1, $2, $3, $4, $5)
-     returning *`,
+     returning ${CUST_COLS}`,
     [data.full_name, data.phone, data.email || null, data.notes || null, actorId],
     client
   );
@@ -51,14 +56,14 @@ async function create(data, actorId, client) {
 
 async function update(id, patch, client) {
   return one(
-    `update public.customers
-     set full_name = coalesce($2, full_name),
-         phone = coalesce($3, phone),
+    `update public.khach_hang
+     set ho_ten = coalesce($2, ho_ten),
+         so_dien_thoai = coalesce($3, so_dien_thoai),
          email = coalesce($4, email),
-         notes = coalesce($5, notes),
-         updated_at = now()
+         ghi_chu = coalesce($5, ghi_chu),
+         ngay_cap_nhat = now()
      where id = $1
-     returning *`,
+     returning ${CUST_COLS}`,
     [id, patch.full_name ?? null, patch.phone ?? null, patch.email ?? null, patch.notes ?? null],
     client
   );
@@ -66,12 +71,12 @@ async function update(id, patch, client) {
 
 async function archive(id, client) {
   return one(
-    `update public.customers
-     set is_active = false,
-         archived_at = now(),
-         updated_at = now()
+    `update public.khach_hang
+     set dang_hoat_dong = false,
+         ngay_luu_tru = now(),
+         ngay_cap_nhat = now()
      where id = $1
-     returning *`,
+     returning ${CUST_COLS}`,
     [id],
     client
   );

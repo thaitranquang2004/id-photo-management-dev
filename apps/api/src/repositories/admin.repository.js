@@ -4,7 +4,7 @@ async function dashboard(client) {
   const [orders, revenue, customers, photos] = await Promise.all([
     one('select count(*)::int as total from public.orders', [], client),
     one("select coalesce(sum(total_amount), 0)::numeric as total from public.orders where status in ('completed', 'delivered')", [], client),
-    one("select count(*)::int as total from public.customers where created_at >= now() - interval '30 days'", [], client),
+    one("select count(*)::int as total from public.khach_hang where ngay_tao >= now() - interval '30 days'", [], client),
     one("select count(*)::int as total from public.anh where trang_thai in ('processed', 'approved')", [], client)
   ]);
 
@@ -42,11 +42,11 @@ async function orderReport(filters, client) {
 
   return many(
     `select o.order_code, o.status, o.total_amount, o.amount_paid, o.quantity, o.created_at,
-            c.full_name as customer_name, c.phone as customer_phone,
+            c.ho_ten as customer_name, c.so_dien_thoai as customer_phone,
             ct.ten as card_type_name,
             p.full_name as staff_name
      from public.orders o
-     join public.customers c on c.id = o.customer_id
+     join public.khach_hang c on c.id = o.customer_id
      join public.loai_the ct on ct.id = o.card_type_id
      join public.profiles p on p.id = o.created_by
      where ${where.join(' and ')}

@@ -23,7 +23,7 @@ async function getCustomer(id) {
 async function createCustomer(body, context) {
   return withTransaction(async (client) => {
     const customer = await customersRepository.create(body, context.user.id, client);
-    await writeAudit('customer.created', 'customers', customer.id, context, { new_data: customer }, client);
+    await writeAudit('customer.created', 'khach_hang',customer.id, context, { new_data: customer }, client);
     return { customer };
   });
 }
@@ -33,7 +33,7 @@ async function updateCustomer(id, body, context) {
     const oldCustomer = await customersRepository.findById(id, client);
     if (!oldCustomer) throw errors.notFound('Không tìm thấy khách hàng');
     const customer = await customersRepository.update(id, body, client);
-    await writeAudit('customer.updated', 'customers', id, context, { old_data: oldCustomer, new_data: customer }, client);
+    await writeAudit('customer.updated', 'khach_hang',id, context, { old_data: oldCustomer, new_data: customer }, client);
     return { customer };
   });
 }
@@ -44,7 +44,7 @@ async function archiveCustomer(id, context) {
     if (!oldCustomer) throw errors.notFound('Không tìm thấy khách hàng');
     const customer = await customersRepository.archive(id, client);
     const orderCount = await customersRepository.countOrders(id, client);
-    await writeAudit('customer.archived', 'customers', id, context, { old_data: oldCustomer, new_data: customer }, client);
+    await writeAudit('customer.archived', 'khach_hang',id, context, { old_data: oldCustomer, new_data: customer }, client);
     return { customer, order_count: orderCount };
   });
 }

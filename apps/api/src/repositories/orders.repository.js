@@ -29,10 +29,10 @@ async function list(filters, { limit, offset }, client) {
   params.push(limit, offset);
 
   const rows = await many(
-    `select o.*, c.full_name as customer_name, c.phone as customer_phone,
+    `select o.*, c.ho_ten as customer_name, c.so_dien_thoai as customer_phone,
             ct.ten as card_type_name, count(*) over()::int as total
      from public.orders o
-     join public.customers c on c.id = o.customer_id
+     join public.khach_hang c on c.id = o.customer_id
      join public.loai_the ct on ct.id = o.card_type_id
      where ${where.join(' and ')}
      order by o.created_at desc
@@ -55,10 +55,10 @@ async function findByCodeAndPhone(orderCode, phone, client) {
   return one(
     `select o.*, ct.ten as card_type_name
      from public.orders o
-     join public.customers c on c.id = o.customer_id
+     join public.khach_hang c on c.id = o.customer_id
      join public.loai_the ct on ct.id = o.card_type_id
      where o.order_code = $1
-       and regexp_replace(c.phone, '[^0-9]', '', 'g') = regexp_replace($2, '[^0-9]', '', 'g')`,
+       and regexp_replace(c.so_dien_thoai, '[^0-9]', '', 'g') = regexp_replace($2, '[^0-9]', '', 'g')`,
     [orderCode, phone],
     client
   );
@@ -66,10 +66,10 @@ async function findByCodeAndPhone(orderCode, phone, client) {
 
 async function details(id, client) {
   const order = await one(
-    `select o.*, c.full_name as customer_name, c.phone as customer_phone,
+    `select o.*, c.ho_ten as customer_name, c.so_dien_thoai as customer_phone,
             ct.ten as card_type_name, ct.ma_viet_tat as card_type_short_code
      from public.orders o
-     join public.customers c on c.id = o.customer_id
+     join public.khach_hang c on c.id = o.customer_id
      join public.loai_the ct on ct.id = o.card_type_id
      where o.id = $1`,
     [id],
