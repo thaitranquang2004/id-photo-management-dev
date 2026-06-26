@@ -56,7 +56,7 @@ async function createOrderCore(body, context, client) {
   const order = await ordersRepository.createOrder(body, context.user.id, totalAmount, client);
 
   const pricingSnapshot = await ordersRepository.createPricingSnapshot(order, pricing, totalAmount, client);
-  await writeAudit('order.created', 'orders', order.id, context, { new_data: { order, pricing_snapshot: pricingSnapshot } }, client);
+  await writeAudit('order.created', 'don_hang', order.id, context, { new_data: { order, pricing_snapshot: pricingSnapshot } }, client);
   return { order, pricing_snapshot: pricingSnapshot };
 }
 
@@ -149,7 +149,7 @@ async function changeStatus(id, nextStatus, context, options = {}) {
       cancelled_reason: options.reason || null
     }, client);
 
-    await writeAudit('order.status_changed', 'orders', id, context, {
+    await writeAudit('order.status_changed', 'don_hang', id, context, {
       old_data: order,
       new_data: { order: updated, reason: options.reason, skip_layout_reason: options.skip_layout_reason }
     }, client);
@@ -179,7 +179,7 @@ async function notifyReady(id, context) {
     const order = await ordersRepository.findByIdForUpdate(id, client);
     if (!order) throw errors.notFound('Không tìm thấy đơn hàng');
     const notify = await prepareReadyNotification(order, client);
-    await writeAudit('order.notify_ready', 'orders', id, context, { new_data: { lookup_url: notify.lookup_url } }, client);
+    await writeAudit('order.notify_ready', 'don_hang', id, context, { new_data: { lookup_url: notify.lookup_url } }, client);
     return { order, notify };
   });
 

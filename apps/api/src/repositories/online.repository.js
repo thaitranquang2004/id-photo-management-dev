@@ -90,10 +90,10 @@ async function findRequestById(id, client) {
 async function findPublicStatus(requestId, phone, client) {
   return one(
     `select r.id, r.trang_thai as status, r.loai_yeu_cau as request_type, r.ngay_tao as created_at,
-            o.order_code as converted_order_code,
+            o.ma_don as converted_order_code,
             a.preferred_date, a.time_slot, a.status as appointment_status
      from public.yeu_cau_online r
-     left join public.orders o on o.id = r.don_da_tao_id
+     left join public.don_hang o on o.id = r.don_da_tao_id
      left join lateral (
        select ngay_hen as preferred_date, khung_gio as time_slot, trang_thai as status
        from public.lich_hen
@@ -221,9 +221,9 @@ async function listAppointments(filters, { limit, offset }, client) {
 
   params.push(limit, offset);
   const rows = await many(
-    `select ${aptCols('a.')}, o.order_code, count(*) over()::int as total
+    `select ${aptCols('a.')}, o.ma_don, count(*) over()::int as total
      from public.lich_hen a
-     left join public.orders o on o.id = a.don_hang_id
+     left join public.don_hang o on o.id = a.don_hang_id
      where ${where.join(' and ')}
      order by a.ngay_hen asc, a.ngay_tao desc
      limit $${params.length - 1} offset $${params.length}`,

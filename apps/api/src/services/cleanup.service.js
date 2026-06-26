@@ -14,8 +14,8 @@ async function purgeOldOrders() {
   const oldPhotos = await many(
     `select ph.id, ph.cloudinary_anh_goc_id as cloudinary_original_public_id, ph.cloudinary_anh_xu_ly_id as cloudinary_processed_public_id
      from public.anh ph
-     join public.orders o on o.id = ph.don_hang_id
-     where o.created_at < now() - interval '${PURGE_AFTER_DAYS} days' and ph.ngay_don_dep is null`
+     join public.don_hang o on o.id = ph.don_hang_id
+     where o.ngay_tao < now() - interval '${PURGE_AFTER_DAYS} days' and ph.ngay_don_dep is null`
   );
   for (const p of oldPhotos) {
     await assetService.destroyAsset(p.cloudinary_original_public_id);
@@ -27,8 +27,8 @@ async function purgeOldOrders() {
   const oldLayouts = await many(
     `select pl.id, pl.cloudinary_id
      from public.bo_cuc_in pl
-     join public.orders o on o.id = pl.don_hang_id
-     where o.created_at < now() - interval '${PURGE_AFTER_DAYS} days' and pl.ngay_don_dep is null`
+     join public.don_hang o on o.id = pl.don_hang_id
+     where o.ngay_tao < now() - interval '${PURGE_AFTER_DAYS} days' and pl.ngay_don_dep is null`
   );
   for (const l of oldLayouts) {
     await assetService.destroyAsset(l.cloudinary_id);

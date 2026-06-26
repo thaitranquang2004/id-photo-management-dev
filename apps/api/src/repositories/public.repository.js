@@ -1,12 +1,13 @@
 const { one, many } = require('../db/pool');
 const { PHOTO_COLS } = require('./photos.repository');
+const { orderCols } = require('./orders.repository');
 
 async function findOrderByTokenHash(tokenHash, client) {
   return one(
-    `select o.*, ct.ten as card_type_name
+    `select ${orderCols('o.')}, ct.ten as card_type_name
      from public.ma_truy_cap_khach cat
-     join public.orders o on o.id = cat.don_hang_id
-     join public.loai_the ct on ct.id = o.card_type_id
+     join public.don_hang o on o.id = cat.don_hang_id
+     join public.loai_the ct on ct.id = o.loai_the_id
      where cat.ma_hash = $1
        and cat.thu_hoi_luc is null
        and cat.het_han_luc > now()`,

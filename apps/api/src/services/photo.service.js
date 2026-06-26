@@ -296,7 +296,7 @@ async function batchProcess(body, context) {
     let updatedOrder = order;
     if (order.status === 'pending') {
       updatedOrder = await ordersRepository.updateStatus(order.id, 'processing', {}, client);
-      await writeAudit('order.status_changed', 'orders', order.id, context, {
+      await writeAudit('order.status_changed', 'don_hang', order.id, context, {
         old_data: order,
         new_data: updatedOrder
       }, client);

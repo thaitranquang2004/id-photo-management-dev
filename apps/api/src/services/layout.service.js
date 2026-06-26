@@ -208,7 +208,7 @@ async function generateLayout(body, context) {
     let updatedOrder = order;
     if (order.status === 'processing') {
       updatedOrder = await ordersRepository.updateStatus(order.id, 'completed', {}, client);
-      await writeAudit('order.status_changed', 'orders', order.id, context, { old_data: order, new_data: updatedOrder }, client);
+      await writeAudit('order.status_changed', 'don_hang', order.id, context, { old_data: order, new_data: updatedOrder }, client);
     }
 
     return { print_layout: printLayout, items, order: updatedOrder };

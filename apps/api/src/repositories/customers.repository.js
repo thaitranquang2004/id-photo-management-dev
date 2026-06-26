@@ -1,4 +1,5 @@
 const { one, many } = require('../db/pool');
+const { orderCols } = require('./orders.repository');
 
 // Alias cột khach_hang về tiếng Anh để customer.service + frontend không phải đổi.
 const CUST_COLS = `id, ho_ten as full_name, so_dien_thoai as phone, email, ghi_chu as notes,
@@ -83,17 +84,17 @@ async function archive(id, client) {
 }
 
 async function countOrders(customerId, client) {
-  const row = await one('select count(*)::int as count from public.orders where customer_id = $1', [customerId], client);
+  const row = await one('select count(*)::int as count from public.don_hang where khach_hang_id = $1', [customerId], client);
   return row?.count || 0;
 }
 
 async function recentOrders(customerId, client) {
   return many(
-    `select o.*, ct.ten as card_type_name
-     from public.orders o
-     join public.loai_the ct on ct.id = o.card_type_id
-     where o.customer_id = $1
-     order by o.created_at desc
+    `select ${orderCols('o.')}, ct.ten as card_type_name
+     from public.don_hang o
+     join public.loai_the ct on ct.id = o.loai_the_id
+     where o.khach_hang_id = $1
+     order by o.ngay_tao desc
      limit 10`,
     [customerId],
     client
@@ -106,10 +107,10 @@ async function approvedPhotos(customerId, client) {
     `select p.id, p.trang_thai as status, p.ngay_tao as created_at, p.ngay_don_dep as purged_at,
             p.cloudinary_anh_xu_ly_id as cloudinary_processed_public_id, p.cloudinary_anh_goc_id as cloudinary_original_public_id,
             p.metadata_anh_xu_ly as processed_asset_metadata, p.metadata_anh_goc as original_asset_metadata,
-            o.order_code
+            o.ma_don as order_code
      from public.anh p
-     join public.orders o on o.id = p.don_hang_id
-     where o.customer_id = $1 and p.trang_thai = 'approved'
+     join public.don_hang o on o.id = p.don_hang_id
+     where o.khach_hang_id = $1 and p.trang_thai = 'approved'
      order by p.ngay_tao desc
      limit 100`,
     [customerId],
@@ -121,8 +122,8 @@ async function printLayouts(customerId, { limit, offset }, client) {
   const rows = await many(
     `select pl.*, count(*) over()::int as total
      from public.bo_cuc_in pl
-     join public.orders o on o.id = pl.don_hang_id
-     where o.customer_id = $1
+     join public.don_hang o on o.id = pl.don_hang_id
+     where o.khach_hang_id = $1
      order by pl.ngay_tao desc
      limit $2 offset $3`,
     [customerId, limit, offset],
