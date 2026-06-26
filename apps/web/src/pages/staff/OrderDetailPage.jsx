@@ -599,11 +599,11 @@ export default function OrderDetailPage() {
                   <tbody>
                     {notificationsQuery.data.notifications.map((item) => (
                       <tr key={item.id}>
-                        <td>{formatDate(item.created_at)}</td>
-                        <td>{item.channel}</td>
-                        <td>{item.event_type}</td>
-                        <td>{item.recipient}</td>
-                        <td>{item.status}</td>
+                        <td>{formatDate(item.ngay_tao)}</td>
+                        <td>{item.kenh}</td>
+                        <td>{item.loai_su_kien}</td>
+                        <td>{item.nguoi_nhan}</td>
+                        <td>{item.trang_thai}</td>
                       </tr>
                     ))}
                   </tbody>

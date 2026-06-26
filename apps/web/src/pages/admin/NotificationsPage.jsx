@@ -76,21 +76,21 @@ export default function NotificationsPage() {
               <tbody>
                 {notifications.map((item) => (
                   <tr key={item.id}>
-                    <td className="text-nowrap">{formatDate(item.created_at)}</td>
+                    <td className="text-nowrap">{formatDate(item.ngay_tao)}</td>
                     <td>
-                      <Badge bg={item.channel === 'email' ? 'primary' : 'warning'} text={item.channel === 'email' ? undefined : 'dark'}>
-                        {item.channel === 'email' ? 'Email' : 'Zalo'}
+                      <Badge bg={item.kenh === 'email' ? 'primary' : 'warning'} text={item.kenh === 'email' ? undefined : 'dark'}>
+                        {item.kenh === 'email' ? 'Email' : 'Zalo'}
                       </Badge>
                     </td>
-                    <td>{EVENT_LABEL[item.event_type] || item.event_type}</td>
-                    <td>{item.recipient}</td>
+                    <td>{EVENT_LABEL[item.loai_su_kien] || item.loai_su_kien}</td>
+                    <td>{item.nguoi_nhan}</td>
                     <td>
-                      <StatusBadge status={item.status} />
-                      {item.error_message ? <div className="text-danger small">{item.error_message}</div> : null}
+                      <StatusBadge status={item.trang_thai} />
+                      {item.loi ? <div className="text-danger small">{item.loi}</div> : null}
                     </td>
                     <td style={{ maxWidth: 360 }}>
-                      <div className="fw-semibold small">{item.subject}</div>
-                      <div className="text-muted small" style={{ whiteSpace: 'pre-line' }}>{item.body}</div>
+                      <div className="fw-semibold small">{item.tieu_de}</div>
+                      <div className="text-muted small" style={{ whiteSpace: 'pre-line' }}>{item.noi_dung}</div>
                     </td>
                   </tr>
                 ))}

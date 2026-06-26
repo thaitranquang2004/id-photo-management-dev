@@ -2,8 +2,8 @@ const { one, many } = require('../db/pool');
 
 async function create(data, client) {
   return one(
-    `insert into public.notification_log (
-       channel, event_type, recipient, subject, body, status, order_id, online_request_id, metadata
+    `insert into public.nhat_ky_thong_bao (
+       kenh, loai_su_kien, nguoi_nhan, tieu_de, noi_dung, trang_thai, don_hang_id, yeu_cau_online_id, metadata
      )
      values ($1, $2, $3, $4, $5, $6, $7, $8, $9)
      returning *`,
@@ -24,11 +24,11 @@ async function create(data, client) {
 
 async function markStatus(id, status, patch = {}, client) {
   return one(
-    `update public.notification_log
-     set status = $2,
-         error_message = coalesce($3, error_message),
+    `update public.nhat_ky_thong_bao
+     set trang_thai = $2,
+         loi = coalesce($3, loi),
          metadata = metadata || coalesce($4::jsonb, '{}'::jsonb),
-         sent_at = case when $2 in ('sent', 'simulated') then now() else sent_at end
+         gui_luc = case when $2 in ('sent', 'simulated') then now() else gui_luc end
      where id = $1
      returning *`,
     [id, status, patch.error_message || null, patch.metadata || null],
@@ -42,23 +42,23 @@ async function list(filters, { limit, offset }, client) {
 
   if (filters.channel) {
     params.push(filters.channel);
-    where.push(`channel = $${params.length}`);
+    where.push(`kenh = $${params.length}`);
   }
   if (filters.event_type) {
     params.push(filters.event_type);
-    where.push(`event_type = $${params.length}`);
+    where.push(`loai_su_kien = $${params.length}`);
   }
   if (filters.order_id) {
     params.push(filters.order_id);
-    where.push(`order_id = $${params.length}`);
+    where.push(`don_hang_id = $${params.length}`);
   }
 
   params.push(limit, offset);
   const rows = await many(
     `select *, count(*) over()::int as total
-     from public.notification_log
+     from public.nhat_ky_thong_bao
      where ${where.join(' and ')}
-     order by created_at desc
+     order by ngay_tao desc
      limit $${params.length - 1} offset $${params.length}`,
     params,
     client
