@@ -1,4 +1,5 @@
 const { one, many } = require('../db/pool');
+const { PHOTO_COLS } = require('./photos.repository');
 
 async function findOrderByTokenHash(tokenHash, client) {
   return one(
@@ -50,9 +51,9 @@ async function logLookupEvent(event, client) {
 
 async function approvedPhotoForPublic(photoId, orderId, client) {
   return one(
-    `select *
-     from public.photos
-     where id = $1 and order_id = $2 and status = 'approved'`,
+    `select ${PHOTO_COLS}
+     from public.anh
+     where id = $1 and don_hang_id = $2 and trang_thai = 'approved'`,
     [photoId, orderId],
     client
   );
@@ -60,10 +61,10 @@ async function approvedPhotoForPublic(photoId, orderId, client) {
 
 async function approvedPhotos(orderId, client) {
   return many(
-    `select *
-     from public.photos
-     where order_id = $1 and status = 'approved'
-     order by created_at desc`,
+    `select ${PHOTO_COLS}
+     from public.anh
+     where don_hang_id = $1 and trang_thai = 'approved'
+     order by ngay_tao desc`,
     [orderId],
     client
   );

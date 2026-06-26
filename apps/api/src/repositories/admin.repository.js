@@ -5,7 +5,7 @@ async function dashboard(client) {
     one('select count(*)::int as total from public.orders', [], client),
     one("select coalesce(sum(total_amount), 0)::numeric as total from public.orders where status in ('completed', 'delivered')", [], client),
     one("select count(*)::int as total from public.customers where created_at >= now() - interval '30 days'", [], client),
-    one("select count(*)::int as total from public.photos where status in ('processed', 'approved')", [], client)
+    one("select count(*)::int as total from public.anh where trang_thai in ('processed', 'approved')", [], client)
   ]);
 
   return {

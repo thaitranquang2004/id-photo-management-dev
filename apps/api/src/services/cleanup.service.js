@@ -12,15 +12,15 @@ async function purgeOldOrders() {
   let requestPhotos = 0;
 
   const oldPhotos = await many(
-    `select ph.id, ph.cloudinary_original_public_id, ph.cloudinary_processed_public_id
-     from public.photos ph
-     join public.orders o on o.id = ph.order_id
-     where o.created_at < now() - interval '${PURGE_AFTER_DAYS} days' and ph.purged_at is null`
+    `select ph.id, ph.cloudinary_anh_goc_id as cloudinary_original_public_id, ph.cloudinary_anh_xu_ly_id as cloudinary_processed_public_id
+     from public.anh ph
+     join public.orders o on o.id = ph.don_hang_id
+     where o.created_at < now() - interval '${PURGE_AFTER_DAYS} days' and ph.ngay_don_dep is null`
   );
   for (const p of oldPhotos) {
     await assetService.destroyAsset(p.cloudinary_original_public_id);
     if (p.cloudinary_processed_public_id) await assetService.destroyAsset(p.cloudinary_processed_public_id);
-    await query('update public.photos set purged_at = now() where id = $1', [p.id]);
+    await query('update public.anh set ngay_don_dep = now() where id = $1', [p.id]);
     photos += 1;
   }
 

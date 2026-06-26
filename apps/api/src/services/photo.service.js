@@ -155,7 +155,7 @@ async function createPhotos(body, files, context) {
     for (const input of photoInputs) {
       const photo = await photosRepository.create({ ...body, ...input }, client);
       photos.push(photo);
-      await writeAudit('photo.created', 'photos', photo.id, context, { new_data: photo }, client);
+      await writeAudit('photo.created', 'anh',photo.id, context, { new_data: photo }, client);
     }
     return { photos };
   });
@@ -334,7 +334,7 @@ async function approvePhoto(id, context) {
       throw errors.invalidState('Chỉ ảnh processed mới được approved', { status: oldPhoto.status });
     }
     const photo = await photosRepository.updateStatus(id, 'approved', {}, client);
-    await writeAudit('photo.approved', 'photos', id, context, { old_data: oldPhoto, new_data: photo }, client);
+    await writeAudit('photo.approved', 'anh',id, context, { old_data: oldPhoto, new_data: photo }, client);
     return { photo };
   });
 }
@@ -347,7 +347,7 @@ async function rejectPhoto(id, body, context) {
       throw errors.invalidState('Không thể từ chối ảnh đã được duyệt.', { status: oldPhoto.status });
     }
     const photo = await photosRepository.updateStatus(id, 'rejected', { processing_error: body.reason }, client);
-    await writeAudit('photo.rejected', 'photos', id, context, { old_data: oldPhoto, new_data: photo }, client);
+    await writeAudit('photo.rejected', 'anh',id, context, { old_data: oldPhoto, new_data: photo }, client);
     return { photo };
   });
 }
@@ -379,7 +379,7 @@ async function requalifyPhoto(id, context) {
     });
 
     const updated = await photosRepository.updateQc(id, qc, client);
-    await writeAudit('photo.requalified', 'photos', id, context, { old_data: photo, new_data: updated }, client);
+    await writeAudit('photo.requalified', 'anh',id, context, { old_data: photo, new_data: updated }, client);
     return { photo: updated };
   });
 }
