@@ -272,7 +272,7 @@ async function runProcessingJob(jobId, context) {
       error_message: failedCount > 0 ? 'Một số ảnh xử lý thất bại' : null
     }, client);
 
-    await writeAudit('processing_job.completed', 'processing_jobs', job.id, context, {
+    await writeAudit('processing_job.completed', 'tac_vu_xu_ly', job.id, context, {
       new_data: finishedJob
     }, client);
 
@@ -304,7 +304,7 @@ async function batchProcess(body, context) {
 
     const job = await photosRepository.createProcessingJob(body, context.user.id, client);
     const updatedPhotos = await photosRepository.markPhotosProcessing(body.photo_ids, job.id, client);
-    await writeAudit('processing_job.created', 'processing_jobs', job.id, context, { new_data: job }, client);
+    await writeAudit('processing_job.created', 'tac_vu_xu_ly', job.id, context, { new_data: job }, client);
 
     return { order: updatedOrder, job, photos: updatedPhotos };
   });
