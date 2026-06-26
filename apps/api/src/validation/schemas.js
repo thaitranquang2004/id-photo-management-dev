@@ -38,26 +38,26 @@ const customerCreateBody = z.object({
 const customerUpdateBody = customerCreateBody.partial();
 
 const cardTypeBody = z.object({
-  name: z.string().trim().min(1),
-  short_code: z.string().trim().min(1),
-  width_mm: z.coerce.number().positive(),
-  height_mm: z.coerce.number().positive(),
-  background_color: z.string().trim().min(1).default('#FFFFFF'),
-  requirements: z.record(z.string(), z.any()).default({}),
-  display_order: z.coerce.number().int().default(0)
+  ten: z.string().trim().min(1),
+  ma_viet_tat: z.string().trim().min(1),
+  rong_mm: z.coerce.number().positive(),
+  cao_mm: z.coerce.number().positive(),
+  mau_nen: z.string().trim().min(1).default('#FFFFFF'),
+  yeu_cau: z.record(z.string(), z.any()).default({}),
+  thu_tu_hien_thi: z.coerce.number().int().default(0)
 });
 
 const cardTypePatchBody = cardTypeBody.partial();
 
 const pricingCreateBody = z.object({
-  card_type_id: uuid,
-  price_per_copy: z.coerce.number().nonnegative(),
-  processing_fee: z.coerce.number().nonnegative().default(0),
-  effective_from: z.coerce.date(),
-  effective_to: z.coerce.date().optional()
-}).refine((value) => !value.effective_to || value.effective_to >= value.effective_from, {
-  path: ['effective_to'],
-  message: 'effective_to phải lớn hơn hoặc bằng effective_from'
+  loai_the_id: uuid,
+  gia_moi_ban: z.coerce.number().nonnegative(),
+  phi_xu_ly: z.coerce.number().nonnegative().default(0),
+  hieu_luc_tu: z.coerce.date(),
+  hieu_luc_den: z.coerce.date().optional()
+}).refine((value) => !value.hieu_luc_den || value.hieu_luc_den >= value.hieu_luc_tu, {
+  path: ['hieu_luc_den'],
+  message: 'hieu_luc_den phải lớn hơn hoặc bằng hieu_luc_tu'
 });
 
 const orderCreateBody = z.object({

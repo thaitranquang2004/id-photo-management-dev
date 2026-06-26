@@ -28,7 +28,7 @@ async function listCardTypes() {
 async function createCardType(body, context) {
   return withTransaction(async (client) => {
     const cardType = await catalogRepository.createCardType(body, client);
-    await writeAudit('card_type.created', 'card_types', cardType.id, context, { new_data: cardType }, client);
+    await writeAudit('card_type.created', 'loai_the', cardType.id, context, { new_data: cardType }, client);
     return { card_type: cardType };
   });
 }
@@ -38,7 +38,7 @@ async function updateCardType(id, body, context) {
     const oldCardType = await catalogRepository.findCardType(id, client);
     if (!oldCardType) throw errors.notFound('Không tìm thấy loại thẻ');
     const cardType = await catalogRepository.updateCardType(id, body, client);
-    await writeAudit('card_type.updated', 'card_types', id, context, { old_data: oldCardType, new_data: cardType }, client);
+    await writeAudit('card_type.updated', 'loai_the', id, context, { old_data: oldCardType, new_data: cardType }, client);
     return { card_type: cardType };
   });
 }
@@ -48,7 +48,7 @@ async function archiveCardType(id, context) {
     const oldCardType = await catalogRepository.findCardType(id, client);
     if (!oldCardType) throw errors.notFound('Không tìm thấy loại thẻ');
     const cardType = await catalogRepository.archiveCardType(id, client);
-    await writeAudit('card_type.archived', 'card_types', id, context, { old_data: oldCardType, new_data: cardType }, client);
+    await writeAudit('card_type.archived', 'loai_the', id, context, { old_data: oldCardType, new_data: cardType }, client);
     return { card_type: cardType };
   });
 }
@@ -59,39 +59,39 @@ async function listPricing(query) {
 
 async function createPricing(body, context) {
   return withTransaction(async (client) => {
-    const cardType = await catalogRepository.findCardType(body.card_type_id, client);
+    const cardType = await catalogRepository.findCardType(body.loai_the_id, client);
     if (!cardType) throw errors.notFound('Không tìm thấy loại thẻ');
 
-    const existing = await catalogRepository.lockPricingForCardType(body.card_type_id, client);
-    const newFrom = dateOnly(body.effective_from);
-    const newTo = body.effective_to ? dateOnly(body.effective_to) : null;
+    const existing = await catalogRepository.lockPricingForCardType(body.loai_the_id, client);
+    const newFrom = dateOnly(body.hieu_luc_tu);
+    const newTo = body.hieu_luc_den ? dateOnly(body.hieu_luc_den) : null;
 
-    const openPrice = existing.find((row) => row.effective_to === null && dateOnly(row.effective_from) < newFrom);
+    const openPrice = existing.find((row) => row.hieu_luc_den === null && dateOnly(row.hieu_luc_tu) < newFrom);
     let closedRows = [];
     if (openPrice) {
       closedRows = await catalogRepository.closeOpenPricing(
-        body.card_type_id,
-        addDays(body.effective_from, -1),
+        body.loai_the_id,
+        addDays(body.hieu_luc_tu, -1),
         client
       );
     }
 
-    const refreshed = await catalogRepository.lockPricingForCardType(body.card_type_id, client);
-    const overlapping = refreshed.find((row) => rangesOverlap(row.effective_from, row.effective_to, newFrom, newTo));
+    const refreshed = await catalogRepository.lockPricingForCardType(body.loai_the_id, client);
+    const overlapping = refreshed.find((row) => rangesOverlap(row.hieu_luc_tu, row.hieu_luc_den, newFrom, newTo));
     if (overlapping) {
       throw errors.validation('Khoảng giá bị overlap với giá hiện có', {
-        card_type_id: body.card_type_id,
+        card_type_id: body.loai_the_id,
         overlapping_pricing_id: overlapping.id
       });
     }
 
     const pricing = await catalogRepository.insertPricing(
-      { ...body, effective_from: newFrom, effective_to: newTo },
+      { ...body, hieu_luc_tu: newFrom, hieu_luc_den: newTo },
       context.user.id,
       client
     );
 
-    await writeAudit('pricing.changed', 'pricing', pricing.id, context, {
+    await writeAudit('pricing.changed', 'bang_gia', pricing.id, context, {
       old_data: { closed_pricing: closedRows },
       new_data: pricing
     }, client);

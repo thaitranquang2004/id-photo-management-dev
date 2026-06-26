@@ -15,37 +15,37 @@ import { formatCurrency } from '../../utils/format';
 import { useFormErrors } from '../../hooks/useFormErrors.js';
 
 const emptyForm = {
-  name: '',
-  short_code: '',
-  width_mm: '',
-  height_mm: '',
-  background_color: '#FFFFFF',
-  requirements: '{}',
-  display_order: 0
+  ten: '',
+  ma_viet_tat: '',
+  rong_mm: '',
+  cao_mm: '',
+  mau_nen: '#FFFFFF',
+  yeu_cau: '{}',
+  thu_tu_hien_thi: 0
 };
 
 function toForm(cardType) {
   if (!cardType) return emptyForm;
   return {
-    name: cardType.name || '',
-    short_code: cardType.short_code || '',
-    width_mm: cardType.width_mm || '',
-    height_mm: cardType.height_mm || '',
-    background_color: cardType.background_color || '#FFFFFF',
-    requirements: JSON.stringify(cardType.requirements || {}, null, 2),
-    display_order: cardType.display_order || 0
+    ten: cardType.ten || '',
+    ma_viet_tat: cardType.ma_viet_tat || '',
+    rong_mm: cardType.rong_mm || '',
+    cao_mm: cardType.cao_mm || '',
+    mau_nen: cardType.mau_nen || '#FFFFFF',
+    yeu_cau: JSON.stringify(cardType.yeu_cau || {}, null, 2),
+    thu_tu_hien_thi: cardType.thu_tu_hien_thi || 0
   };
 }
 
 function parsePayload(form) {
   return {
-    name: form.name,
-    short_code: form.short_code,
-    width_mm: Number(form.width_mm),
-    height_mm: Number(form.height_mm),
-    background_color: form.background_color,
-    requirements: JSON.parse(form.requirements || '{}'),
-    display_order: Number(form.display_order || 0)
+    ten: form.ten,
+    ma_viet_tat: form.ma_viet_tat,
+    rong_mm: Number(form.rong_mm),
+    cao_mm: Number(form.cao_mm),
+    mau_nen: form.mau_nen,
+    yeu_cau: JSON.parse(form.yeu_cau || '{}'),
+    thu_tu_hien_thi: Number(form.thu_tu_hien_thi || 0)
   };
 }
 
@@ -89,10 +89,10 @@ export default function CardTypesPage() {
     event.preventDefault();
     setFormError('');
     if (!validate(form, {
-      name: 'Vui lòng nhập tên loại thẻ',
-      short_code: 'Vui lòng nhập short code',
-      width_mm: 'Vui lòng nhập chiều rộng',
-      height_mm: 'Vui lòng nhập chiều cao'
+      ten: 'Vui lòng nhập tên loại thẻ',
+      ma_viet_tat: 'Vui lòng nhập short code',
+      rong_mm: 'Vui lòng nhập chiều rộng',
+      cao_mm: 'Vui lòng nhập chiều cao'
     })) return;
     try {
       saveMutation.mutate(parsePayload(form));
@@ -141,15 +141,15 @@ export default function CardTypesPage() {
               <tbody>
                 {cardTypes.map((cardType) => (
                   <tr key={cardType.id}>
-                    <td className="fw-semibold">{cardType.name}</td>
-                    <td>{cardType.short_code}</td>
-                    <td>{cardType.width_mm} x {cardType.height_mm} mm</td>
+                    <td className="fw-semibold">{cardType.ten}</td>
+                    <td>{cardType.ma_viet_tat}</td>
+                    <td>{cardType.rong_mm} x {cardType.cao_mm} mm</td>
                     <td>
-                      <span className="color-swatch" style={{ backgroundColor: cardType.background_color }} />
-                      {cardType.background_color}
+                      <span className="color-swatch" style={{ backgroundColor: cardType.mau_nen }} />
+                      {cardType.mau_nen}
                     </td>
                     <td>{formatCurrency(Number(cardType.current_price_per_copy || 0) + Number(cardType.current_processing_fee || 0))}</td>
-                    <td className="requirements-cell">{JSON.stringify(cardType.requirements || {})}</td>
+                    <td className="requirements-cell">{JSON.stringify(cardType.yeu_cau || {})}</td>
                     <td className="text-end">
                       <div className="table-actions justify-content-end">
                         <Button size="sm" variant="outline-primary" onClick={() => openModal(cardType)}>
@@ -186,22 +186,22 @@ export default function CardTypesPage() {
                 <Form.Group>
                   <Form.Label>Tên</Form.Label>
                   <Form.Control
-                    value={form.name}
-                    onChange={(event) => { setForm((current) => ({ ...current, name: event.target.value })); clearError('name'); }}
-                    isInvalid={!!errors.name}
+                    value={form.ten}
+                    onChange={(event) => { setForm((current) => ({ ...current, ten: event.target.value })); clearError('ten'); }}
+                    isInvalid={!!errors.ten}
                   />
-                  <Form.Control.Feedback type="invalid">{errors.name}</Form.Control.Feedback>
+                  <Form.Control.Feedback type="invalid">{errors.ten}</Form.Control.Feedback>
                 </Form.Group>
               </Col>
               <Col md={6}>
                 <Form.Group>
                   <Form.Label>Short code</Form.Label>
                   <Form.Control
-                    value={form.short_code}
-                    onChange={(event) => { setForm((current) => ({ ...current, short_code: event.target.value })); clearError('short_code'); }}
-                    isInvalid={!!errors.short_code}
+                    value={form.ma_viet_tat}
+                    onChange={(event) => { setForm((current) => ({ ...current, ma_viet_tat: event.target.value })); clearError('ma_viet_tat'); }}
+                    isInvalid={!!errors.ma_viet_tat}
                   />
-                  <Form.Control.Feedback type="invalid">{errors.short_code}</Form.Control.Feedback>
+                  <Form.Control.Feedback type="invalid">{errors.ma_viet_tat}</Form.Control.Feedback>
                 </Form.Group>
               </Col>
               <Col md={4}>
@@ -209,11 +209,11 @@ export default function CardTypesPage() {
                   <Form.Label>Rộng mm</Form.Label>
                   <Form.Control
                     type="number"
-                    value={form.width_mm}
-                    onChange={(event) => { setForm((current) => ({ ...current, width_mm: event.target.value })); clearError('width_mm'); }}
-                    isInvalid={!!errors.width_mm}
+                    value={form.rong_mm}
+                    onChange={(event) => { setForm((current) => ({ ...current, rong_mm: event.target.value })); clearError('rong_mm'); }}
+                    isInvalid={!!errors.rong_mm}
                   />
-                  <Form.Control.Feedback type="invalid">{errors.width_mm}</Form.Control.Feedback>
+                  <Form.Control.Feedback type="invalid">{errors.rong_mm}</Form.Control.Feedback>
                 </Form.Group>
               </Col>
               <Col md={4}>
@@ -221,29 +221,29 @@ export default function CardTypesPage() {
                   <Form.Label>Cao mm</Form.Label>
                   <Form.Control
                     type="number"
-                    value={form.height_mm}
-                    onChange={(event) => { setForm((current) => ({ ...current, height_mm: event.target.value })); clearError('height_mm'); }}
-                    isInvalid={!!errors.height_mm}
+                    value={form.cao_mm}
+                    onChange={(event) => { setForm((current) => ({ ...current, cao_mm: event.target.value })); clearError('cao_mm'); }}
+                    isInvalid={!!errors.cao_mm}
                   />
-                  <Form.Control.Feedback type="invalid">{errors.height_mm}</Form.Control.Feedback>
+                  <Form.Control.Feedback type="invalid">{errors.cao_mm}</Form.Control.Feedback>
                 </Form.Group>
               </Col>
               <Col md={4}>
                 <Form.Group>
                   <Form.Label>Thứ tự</Form.Label>
-                  <Form.Control type="number" value={form.display_order} onChange={(event) => setForm((current) => ({ ...current, display_order: event.target.value }))} />
+                  <Form.Control type="number" value={form.thu_tu_hien_thi} onChange={(event) => setForm((current) => ({ ...current, thu_tu_hien_thi: event.target.value }))} />
                 </Form.Group>
               </Col>
               <Col md={4}>
                 <Form.Group>
                   <Form.Label>Màu nền</Form.Label>
-                  <Form.Control type="color" value={form.background_color} onChange={(event) => setForm((current) => ({ ...current, background_color: event.target.value }))} />
+                  <Form.Control type="color" value={form.mau_nen} onChange={(event) => setForm((current) => ({ ...current, mau_nen: event.target.value }))} />
                 </Form.Group>
               </Col>
               <Col md={8}>
                 <Form.Group>
                   <Form.Label>Requirements JSON</Form.Label>
-                  <Form.Control as="textarea" rows={4} value={form.requirements} onChange={(event) => setForm((current) => ({ ...current, requirements: event.target.value }))} />
+                  <Form.Control as="textarea" rows={4} value={form.yeu_cau} onChange={(event) => setForm((current) => ({ ...current, yeu_cau: event.target.value }))} />
                 </Form.Group>
               </Col>
             </Row>

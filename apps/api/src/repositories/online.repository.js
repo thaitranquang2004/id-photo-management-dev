@@ -54,11 +54,11 @@ async function listRequests(filters, { limit, offset }, client) {
 
   params.push(limit, offset);
   const rows = await many(
-    `select orq.*, ct.name as card_type_name,
+    `select orq.*, ct.ten as card_type_name,
             (select count(*)::int from public.online_request_photos orp where orp.online_request_id = orq.id) as photo_count,
             count(*) over()::int as total
      from public.online_requests orq
-     left join public.card_types ct on ct.id = orq.card_type_id
+     left join public.loai_the ct on ct.id = orq.card_type_id
      where ${where.join(' and ')}
      order by orq.created_at desc
      limit $${params.length - 1} offset $${params.length}`,
@@ -96,9 +96,9 @@ async function findPublicStatus(requestId, phone, client) {
 
 async function requestDetails(id, client) {
   const request = await one(
-    `select orq.*, ct.name as card_type_name, ct.short_code as card_type_short_code
+    `select orq.*, ct.ten as card_type_name, ct.ma_viet_tat as card_type_short_code
      from public.online_requests orq
-     left join public.card_types ct on ct.id = orq.card_type_id
+     left join public.loai_the ct on ct.id = orq.card_type_id
      where orq.id = $1`,
     [id],
     client

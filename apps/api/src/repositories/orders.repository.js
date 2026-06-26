@@ -29,10 +29,10 @@ async function list(filters, { limit, offset }, client) {
 
   const rows = await many(
     `select o.*, c.full_name as customer_name, c.phone as customer_phone,
-            ct.name as card_type_name, count(*) over()::int as total
+            ct.ten as card_type_name, count(*) over()::int as total
      from public.orders o
      join public.customers c on c.id = o.customer_id
-     join public.card_types ct on ct.id = o.card_type_id
+     join public.loai_the ct on ct.id = o.card_type_id
      where ${where.join(' and ')}
      order by o.created_at desc
      limit $${params.length - 1} offset $${params.length}`,
@@ -52,10 +52,10 @@ async function findByIdForUpdate(id, client) {
 
 async function findByCodeAndPhone(orderCode, phone, client) {
   return one(
-    `select o.*, ct.name as card_type_name
+    `select o.*, ct.ten as card_type_name
      from public.orders o
      join public.customers c on c.id = o.customer_id
-     join public.card_types ct on ct.id = o.card_type_id
+     join public.loai_the ct on ct.id = o.card_type_id
      where o.order_code = $1
        and regexp_replace(c.phone, '[^0-9]', '', 'g') = regexp_replace($2, '[^0-9]', '', 'g')`,
     [orderCode, phone],
@@ -66,10 +66,10 @@ async function findByCodeAndPhone(orderCode, phone, client) {
 async function details(id, client) {
   const order = await one(
     `select o.*, c.full_name as customer_name, c.phone as customer_phone,
-            ct.name as card_type_name, ct.short_code as card_type_short_code
+            ct.ten as card_type_name, ct.ma_viet_tat as card_type_short_code
      from public.orders o
      join public.customers c on c.id = o.customer_id
-     join public.card_types ct on ct.id = o.card_type_id
+     join public.loai_the ct on ct.id = o.card_type_id
      where o.id = $1`,
     [id],
     client
@@ -77,7 +77,7 @@ async function details(id, client) {
   if (!order) return null;
 
   const [pricingSnapshot, photos, printLayouts, appointment] = await Promise.all([
-    one('select * from public.pricing_snapshots where order_id = $1', [id], client),
+    one('select * from public.ban_luu_gia where don_hang_id = $1', [id], client),
     many('select * from public.photos where order_id = $1 order by created_at desc', [id], client),
     many('select * from public.bo_cuc_in where don_hang_id = $1 order by ngay_tao desc', [id], client),
     one('select * from public.appointments where order_id = $1 order by created_at desc limit 1', [id], client)
@@ -140,9 +140,9 @@ async function setAmountPaid(id, amountPaid, client) {
 
 async function createPricingSnapshot(order, pricing, totalAmount, client) {
   return one(
-    `insert into public.pricing_snapshots (
-       order_id, pricing_id, card_type_id, card_type_name, width_mm, height_mm,
-       background_color, price_per_copy, processing_fee, quantity, total_amount
+    `insert into public.ban_luu_gia (
+       don_hang_id, bang_gia_id, loai_the_id, ten_loai_the, rong_mm, cao_mm,
+       mau_nen, gia_moi_ban, phi_xu_ly, so_luong, tong_tien
      )
      values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
      returning *`,

@@ -84,9 +84,9 @@ async function countOrders(customerId, client) {
 
 async function recentOrders(customerId, client) {
   return many(
-    `select o.*, ct.name as card_type_name
+    `select o.*, ct.ten as card_type_name
      from public.orders o
-     join public.card_types ct on ct.id = o.card_type_id
+     join public.loai_the ct on ct.id = o.card_type_id
      where o.customer_id = $1
      order by o.created_at desc
      limit 10`,

@@ -43,11 +43,11 @@ async function orderReport(filters, client) {
   return many(
     `select o.order_code, o.status, o.total_amount, o.amount_paid, o.quantity, o.created_at,
             c.full_name as customer_name, c.phone as customer_phone,
-            ct.name as card_type_name,
+            ct.ten as card_type_name,
             p.full_name as staff_name
      from public.orders o
      join public.customers c on c.id = o.customer_id
-     join public.card_types ct on ct.id = o.card_type_id
+     join public.loai_the ct on ct.id = o.card_type_id
      join public.profiles p on p.id = o.created_by
      where ${where.join(' and ')}
      order by o.created_at desc`,

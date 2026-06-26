@@ -268,20 +268,20 @@ export default function NewOrderPage() {
                             name="card-type"
                             checked={orderForm.card_type_id === cardType.id}
                             onChange={() => { setOrderForm((current) => ({ ...current, card_type_id: cardType.id })); setStepError(''); }}
-                            aria-label={`Chọn ${cardType.name}`}
+                            aria-label={`Chọn ${cardType.ten}`}
                           />
                         </td>
                         <td>
-                          <div className="fw-semibold">{cardType.name}</div>
-                          <div className="text-muted small">{cardType.short_code}</div>
+                          <div className="fw-semibold">{cardType.ten}</div>
+                          <div className="text-muted small">{cardType.ma_viet_tat}</div>
                         </td>
-                        <td>{cardType.width_mm} x {cardType.height_mm} mm</td>
+                        <td>{cardType.rong_mm} x {cardType.cao_mm} mm</td>
                         <td>
-                          <span className="color-swatch" style={{ backgroundColor: cardType.background_color }} />
-                          {cardType.background_color}
+                          <span className="color-swatch" style={{ backgroundColor: cardType.mau_nen }} />
+                          {cardType.mau_nen}
                         </td>
                         <td>{formatCurrency(Number(cardType.current_price_per_copy || 0) + Number(cardType.current_processing_fee || 0))}</td>
-                        <td className="requirements-cell">{JSON.stringify(cardType.requirements || {})}</td>
+                        <td className="requirements-cell">{JSON.stringify(cardType.yeu_cau || {})}</td>
                       </tr>
                     ))}
                   </tbody>

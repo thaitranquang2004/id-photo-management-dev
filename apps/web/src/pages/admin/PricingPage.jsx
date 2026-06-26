@@ -16,11 +16,11 @@ export default function PricingPage() {
   const [cardTypeId, setCardTypeId] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [form, setForm] = useState({
-    card_type_id: '',
-    price_per_copy: '',
-    processing_fee: 0,
-    effective_from: today,
-    effective_to: ''
+    loai_the_id: '',
+    gia_moi_ban: '',
+    phi_xu_ly: 0,
+    hieu_luc_tu: today,
+    hieu_luc_den: ''
   });
   const { errors, setErrors, clearError, validate } = useFormErrors();
 
@@ -48,7 +48,7 @@ export default function PricingPage() {
   if (pricingQuery.error) return <ErrorState error={pricingQuery.error} onRetry={pricingQuery.refetch} />;
 
   function openModal() {
-    setForm((current) => ({ ...current, card_type_id: cardTypeId || cardTypes[0]?.id || '' }));
+    setForm((current) => ({ ...current, loai_the_id: cardTypeId || cardTypes[0]?.id || '' }));
     setErrors({});
     setShowModal(true);
   }
@@ -56,15 +56,15 @@ export default function PricingPage() {
   function submit(event) {
     event.preventDefault();
     if (!validate(form, {
-      card_type_id: 'Vui lòng chọn loại thẻ',
-      price_per_copy: 'Vui lòng nhập giá mỗi bản',
-      effective_from: 'Vui lòng chọn ngày áp dụng'
+      loai_the_id: 'Vui lòng chọn loại thẻ',
+      gia_moi_ban: 'Vui lòng nhập giá mỗi bản',
+      hieu_luc_tu: 'Vui lòng chọn ngày áp dụng'
     })) return;
     createMutation.mutate({
       ...form,
-      price_per_copy: Number(form.price_per_copy),
-      processing_fee: Number(form.processing_fee || 0),
-      effective_to: form.effective_to || undefined
+      gia_moi_ban: Number(form.gia_moi_ban),
+      phi_xu_ly: Number(form.phi_xu_ly || 0),
+      hieu_luc_den: form.hieu_luc_den || undefined
     });
   }
 
@@ -92,7 +92,7 @@ export default function PricingPage() {
               <Form.Label>Lọc theo loại thẻ</Form.Label>
               <Form.Select value={cardTypeId} onChange={(event) => setCardTypeId(event.target.value)}>
                 <option value="">Tất cả</option>
-                {cardTypes.map((cardType) => <option key={cardType.id} value={cardType.id}>{cardType.name}</option>)}
+                {cardTypes.map((cardType) => <option key={cardType.id} value={cardType.id}>{cardType.ten}</option>)}
               </Form.Select>
             </Form.Group>
           </Col>
@@ -115,11 +115,11 @@ export default function PricingPage() {
               <tbody>
                 {pricing.map((item) => (
                   <tr key={item.id}>
-                    <td>{cardTypeMap.get(item.card_type_id)?.name || item.card_type_id}</td>
-                    <td>{formatCurrency(item.price_per_copy)}</td>
-                    <td>{formatCurrency(item.processing_fee)}</td>
-                    <td>{formatDateOnly(item.effective_from)}</td>
-                    <td>{item.effective_to ? formatDateOnly(item.effective_to) : 'Đang áp dụng'}</td>
+                    <td>{cardTypeMap.get(item.loai_the_id)?.ten || item.loai_the_id}</td>
+                    <td>{formatCurrency(item.gia_moi_ban)}</td>
+                    <td>{formatCurrency(item.phi_xu_ly)}</td>
+                    <td>{formatDateOnly(item.hieu_luc_tu)}</td>
+                    <td>{item.hieu_luc_den ? formatDateOnly(item.hieu_luc_den) : 'Đang áp dụng'}</td>
                   </tr>
                 ))}
               </tbody>
@@ -137,14 +137,14 @@ export default function PricingPage() {
             <Form.Group className="mb-3">
               <Form.Label>Loại thẻ</Form.Label>
               <Form.Select
-                value={form.card_type_id}
-                onChange={(event) => { setForm((current) => ({ ...current, card_type_id: event.target.value })); clearError('card_type_id'); }}
-                isInvalid={!!errors.card_type_id}
+                value={form.loai_the_id}
+                onChange={(event) => { setForm((current) => ({ ...current, loai_the_id: event.target.value })); clearError('loai_the_id'); }}
+                isInvalid={!!errors.loai_the_id}
               >
                 <option value="">-- Chọn loại thẻ --</option>
-                {cardTypes.map((cardType) => <option key={cardType.id} value={cardType.id}>{cardType.name}</option>)}
+                {cardTypes.map((cardType) => <option key={cardType.id} value={cardType.id}>{cardType.ten}</option>)}
               </Form.Select>
-              <Form.Control.Feedback type="invalid">{errors.card_type_id}</Form.Control.Feedback>
+              <Form.Control.Feedback type="invalid">{errors.loai_the_id}</Form.Control.Feedback>
             </Form.Group>
             <Row className="g-3">
               <Col md={6}>
@@ -153,17 +153,17 @@ export default function PricingPage() {
                   <Form.Control
                     type="number"
                     min="0"
-                    value={form.price_per_copy}
-                    onChange={(event) => { setForm((current) => ({ ...current, price_per_copy: event.target.value })); clearError('price_per_copy'); }}
-                    isInvalid={!!errors.price_per_copy}
+                    value={form.gia_moi_ban}
+                    onChange={(event) => { setForm((current) => ({ ...current, gia_moi_ban: event.target.value })); clearError('gia_moi_ban'); }}
+                    isInvalid={!!errors.gia_moi_ban}
                   />
-                  <Form.Control.Feedback type="invalid">{errors.price_per_copy}</Form.Control.Feedback>
+                  <Form.Control.Feedback type="invalid">{errors.gia_moi_ban}</Form.Control.Feedback>
                 </Form.Group>
               </Col>
               <Col md={6}>
                 <Form.Group>
                   <Form.Label>Phí xử lý</Form.Label>
-                  <Form.Control type="number" min="0" value={form.processing_fee} onChange={(event) => setForm((current) => ({ ...current, processing_fee: event.target.value }))} />
+                  <Form.Control type="number" min="0" value={form.phi_xu_ly} onChange={(event) => setForm((current) => ({ ...current, phi_xu_ly: event.target.value }))} />
                 </Form.Group>
               </Col>
               <Col md={6}>
@@ -171,17 +171,17 @@ export default function PricingPage() {
                   <Form.Label>Áp dụng từ</Form.Label>
                   <Form.Control
                     type="date"
-                    value={form.effective_from}
-                    onChange={(event) => { setForm((current) => ({ ...current, effective_from: event.target.value })); clearError('effective_from'); }}
-                    isInvalid={!!errors.effective_from}
+                    value={form.hieu_luc_tu}
+                    onChange={(event) => { setForm((current) => ({ ...current, hieu_luc_tu: event.target.value })); clearError('hieu_luc_tu'); }}
+                    isInvalid={!!errors.hieu_luc_tu}
                   />
-                  <Form.Control.Feedback type="invalid">{errors.effective_from}</Form.Control.Feedback>
+                  <Form.Control.Feedback type="invalid">{errors.hieu_luc_tu}</Form.Control.Feedback>
                 </Form.Group>
               </Col>
               <Col md={6}>
                 <Form.Group>
                   <Form.Label>Áp dụng đến</Form.Label>
-                  <Form.Control type="date" value={form.effective_to} onChange={(event) => setForm((current) => ({ ...current, effective_to: event.target.value }))} />
+                  <Form.Control type="date" value={form.hieu_luc_den} onChange={(event) => setForm((current) => ({ ...current, hieu_luc_den: event.target.value }))} />
                 </Form.Group>
               </Col>
             </Row>

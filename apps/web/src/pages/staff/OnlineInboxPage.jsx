@@ -254,7 +254,7 @@ export default function OnlineInboxPage() {
                           onChange={(e) => setConvertForm((c) => ({ ...c, card_type_id: e.target.value }))}
                         >
                           <option value="">-- Chọn loại thẻ --</option>
-                          {cardTypes.map((ct) => <option key={ct.id} value={ct.id}>{ct.name}</option>)}
+                          {cardTypes.map((ct) => <option key={ct.id} value={ct.id}>{ct.ten}</option>)}
                         </Form.Select>
                       </Form.Group>
                     </Col>

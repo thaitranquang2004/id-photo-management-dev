@@ -522,8 +522,8 @@ export default function OrderDetailPage() {
             ) : (
               <LayoutComposer
                 photos={approvedPhotos.map((p) => ({ id: p.id, url: photoPreviewUrl(p) }))}
-                widthMm={pricingSnapshot?.width_mm}
-                heightMm={pricingSnapshot?.height_mm}
+                widthMm={pricingSnapshot?.rong_mm}
+                heightMm={pricingSnapshot?.cao_mm}
               />
             )}
           </section>
@@ -546,10 +546,10 @@ export default function OrderDetailPage() {
                 <h2>Snapshot giá</h2>
                 <Table className="detail-table">
                   <tbody>
-                    <tr><th>Loại thẻ</th><td>{pricingSnapshot?.card_type_name || order.card_type_name}</td></tr>
-                    <tr><th>Kích thước</th><td>{pricingSnapshot ? `${pricingSnapshot.width_mm} x ${pricingSnapshot.height_mm} mm` : '-'}</td></tr>
-                    <tr><th>Giá mỗi bản</th><td>{formatCurrency(pricingSnapshot?.price_per_copy)}</td></tr>
-                    <tr><th>Phí xử lý</th><td>{formatCurrency(pricingSnapshot?.processing_fee)}</td></tr>
+                    <tr><th>Loại thẻ</th><td>{pricingSnapshot?.ten_loai_the || order.card_type_name}</td></tr>
+                    <tr><th>Kích thước</th><td>{pricingSnapshot ? `${pricingSnapshot.rong_mm} x ${pricingSnapshot.cao_mm} mm` : '-'}</td></tr>
+                    <tr><th>Giá mỗi bản</th><td>{formatCurrency(pricingSnapshot?.gia_moi_ban)}</td></tr>
+                    <tr><th>Phí xử lý</th><td>{formatCurrency(pricingSnapshot?.phi_xu_ly)}</td></tr>
                   </tbody>
                 </Table>
               </Col>

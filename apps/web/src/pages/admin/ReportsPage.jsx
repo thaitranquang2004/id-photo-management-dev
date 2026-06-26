@@ -101,7 +101,7 @@ export default function ReportsPage() {
               <Form.Label>Loại thẻ</Form.Label>
               <Form.Select value={filters.card_type_id} onChange={(event) => setFilters((current) => ({ ...current, card_type_id: event.target.value }))}>
                 <option value="">Tất cả</option>
-                {cardTypes.map((cardType) => <option key={cardType.id} value={cardType.id}>{cardType.name}</option>)}
+                {cardTypes.map((cardType) => <option key={cardType.id} value={cardType.id}>{cardType.ten}</option>)}
               </Form.Select>
             </Form.Group>
           </Col>

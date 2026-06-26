@@ -197,12 +197,12 @@ async function listPublicCardTypes() {
   return {
     card_types: cardTypes.map((cardType) => ({
       id: cardType.id,
-      name: cardType.name,
-      short_code: cardType.short_code,
-      width_mm: cardType.width_mm,
-      height_mm: cardType.height_mm,
-      background_color: cardType.background_color,
-      requirements: cardType.requirements,
+      name: cardType.ten,
+      short_code: cardType.ma_viet_tat,
+      width_mm: cardType.rong_mm,
+      height_mm: cardType.cao_mm,
+      background_color: cardType.mau_nen,
+      requirements: cardType.yeu_cau,
       current_price_per_copy: cardType.current_price_per_copy ?? null
     }))
   };

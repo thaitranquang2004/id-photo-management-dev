@@ -2,10 +2,10 @@ const { one, many } = require('../db/pool');
 
 async function findOrderByTokenHash(tokenHash, client) {
   return one(
-    `select o.*, ct.name as card_type_name
+    `select o.*, ct.ten as card_type_name
      from public.ma_truy_cap_khach cat
      join public.orders o on o.id = cat.don_hang_id
-     join public.card_types ct on ct.id = o.card_type_id
+     join public.loai_the ct on ct.id = o.card_type_id
      where cat.ma_hash = $1
        and cat.thu_hoi_luc is null
        and cat.het_han_luc > now()`,
