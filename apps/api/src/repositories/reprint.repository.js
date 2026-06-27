@@ -4,8 +4,8 @@ async function list(filters, { limit, offset }, client) {
   const params = [];
   const where = ['1 = 1'];
 
-  if (filters.status) {
-    params.push(filters.status);
+  if (filters.trang_thai) {
+    params.push(filters.trang_thai);
     where.push(`prr.trang_thai = $${params.length}`);
   }
   if (filters.date_from) {
@@ -53,14 +53,14 @@ async function create(data, client) {
      values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
      returning *`,
     [
-      data.order_id,
-      data.photo_ids || [],
-      data.layout_id || null,
-      data.quantity,
-      data.phone || null,
-      data.order_code || null,
-      data.reason || null,
-      data.note || null,
+      data.don_hang_id,
+      data.danh_sach_anh_id || [],
+      data.bo_cuc_id || null,
+      data.so_luong,
+      data.so_dien_thoai || null,
+      data.ma_don || null,
+      data.ly_do || null,
+      data.ghi_chu || null,
       data.ip_hash || null,
       data.user_agent || null
     ],

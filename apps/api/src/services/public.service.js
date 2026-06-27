@@ -17,7 +17,7 @@ async function resolvePublicOrder(input, client) {
   if (input.token) {
     return publicRepository.findOrderByTokenHash(sha256(input.token), client);
   }
-  return ordersRepository.findByCodeAndPhone(input.order_code, input.phone, client);
+  return ordersRepository.findByCodeAndPhone(input.ma_don, input.so_dien_thoai, client);
 }
 
 function publicOrderInfo(order) {
@@ -45,8 +45,8 @@ async function customerLookup(query, req) {
       await publicRepository.logLookupEvent({
         action: 'lookup',
         result: 'not_found',
-        phone: query.phone,
-        order_code: query.order_code,
+        phone: query.so_dien_thoai,
+        order_code: query.ma_don,
         success: false,
         ip_hash: ipHash(req),
         user_agent: req.get('user-agent')
@@ -63,8 +63,8 @@ async function customerLookup(query, req) {
       order_id: order.id,
       action: 'lookup',
       result: 'success',
-      phone: query.phone,
-      order_code: query.order_code,
+      phone: query.so_dien_thoai,
+      order_code: query.ma_don,
       success: true,
       ip_hash: ipHash(req),
       user_agent: req.get('user-agent')
@@ -118,8 +118,8 @@ async function photoDownloadUrl(photoId, body, req) {
         photo_id: photoId,
         action: 'download',
         result: 'not_found',
-        phone: body.phone,
-        order_code: body.order_code,
+        phone: body.so_dien_thoai,
+        order_code: body.ma_don,
         success: false,
         ip_hash: ipHash(req),
         user_agent: req.get('user-agent')
@@ -137,8 +137,8 @@ async function photoDownloadUrl(photoId, body, req) {
       photo_id: photo.id,
       action: 'download',
       result: 'success',
-      phone: body.phone,
-      order_code: body.order_code,
+      phone: body.so_dien_thoai,
+      order_code: body.ma_don,
       success: true,
       ip_hash: ipHash(req),
       user_agent: req.get('user-agent')
@@ -152,25 +152,25 @@ async function createReprintRequest(body, req) {
     const order = await resolvePublicOrder(body, client);
     if (!order) throw errors.notFound('Không tìm thấy đơn hàng');
 
-    if (body.photo_ids.length > 0) {
+    if (body.danh_sach_anh_id.length > 0) {
       const approved = await publicRepository.approvedPhotos(order.id, client);
       const approvedIds = new Set(approved.map((photo) => photo.id));
-      const invalid = body.photo_ids.filter((id) => !approvedIds.has(id));
+      const invalid = body.danh_sach_anh_id.filter((id) => !approvedIds.has(id));
       if (invalid.length) {
         throw errors.validation('photo_ids phải thuộc đơn và đã approved', { invalid_photo_ids: invalid });
       }
     }
 
-    if (body.layout_id) {
-      const layout = await layoutsRepository.findById(body.layout_id, client);
+    if (body.bo_cuc_id) {
+      const layout = await layoutsRepository.findById(body.bo_cuc_id, client);
       if (!layout || layout.don_hang_id !== order.id || layout.trang_thai !== 'generated') {
-        throw errors.validation('layout_id không hợp lệ cho đơn này', { layout_id: body.layout_id });
+        throw errors.validation('layout_id không hợp lệ cho đơn này', { layout_id: body.bo_cuc_id });
       }
     }
 
     const request = await reprintRepository.create({
       ...body,
-      order_id: order.id,
+      don_hang_id: order.id,
       ip_hash: ipHash(req),
       user_agent: req.get('user-agent')
     }, client);
@@ -179,8 +179,8 @@ async function createReprintRequest(body, req) {
       order_id: order.id,
       action: 'reprint_requested',
       result: 'success',
-      phone: body.phone,
-      order_code: body.order_code,
+      phone: body.so_dien_thoai,
+      order_code: body.ma_don,
       success: true,
       ip_hash: ipHash(req),
       user_agent: req.get('user-agent'),

@@ -28,16 +28,16 @@ async function createLayout(data, actorId, client) {
      values ($1, $2, $3, $4, $5, $6, 'generated', $7, $8, $9, $10, $11)
      returning *`,
     [
-      data.order_id,
+      data.don_hang_id,
       actorId,
-      data.layout_type,
-      data.paper_size,
+      data.kieu_bo_cuc,
+      data.kho_giay,
       data.dpi || 300,
-      data.add_text || false,
-      data.cloudinary_public_id,
-      data.layout_config || {},
-      data.layout_asset_metadata || {},
-      data.file_size_bytes || null,
+      data.them_chu || false,
+      data.cloudinary_id,
+      data.cau_hinh_bo_cuc || {},
+      data.metadata_file || {},
+      data.dung_luong_bytes || null,
       data.metadata || {}
     ],
     client
@@ -60,7 +60,7 @@ async function createIssue(layoutId, data, actorId, client) {
     `insert into public.loi_bo_cuc (bo_cuc_id, loai_loi, ghi_chu, nguoi_bao)
      values ($1, $2, $3, $4)
      returning *`,
-    [layoutId, data.issue_type, data.note || null, actorId],
+    [layoutId, data.loai_loi, data.ghi_chu || null, actorId],
     client
   );
 }

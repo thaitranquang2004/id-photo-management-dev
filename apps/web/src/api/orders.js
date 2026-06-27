@@ -25,7 +25,7 @@ export async function deliverOrder(id, payload = {}) {
 }
 
 export async function cancelOrder(id, reason) {
-  return apiData(`/orders/${id}/cancel`, { method: 'POST', body: { reason } });
+  return apiData(`/orders/${id}/cancel`, { method: 'POST', body: { ly_do: reason } });
 }
 
 export async function notifyOrderReady(id) {

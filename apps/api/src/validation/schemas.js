@@ -29,10 +29,10 @@ const paginationQuery = z.object({
 const idParam = z.object({ id: uuid });
 
 const customerCreateBody = z.object({
-  full_name: z.string().trim().min(1),
-  phone,
+  ho_ten: z.string().trim().min(1),
+  so_dien_thoai: phone,
   email,
-  notes: longText.optional()
+  ghi_chu: longText.optional()
 });
 
 const customerUpdateBody = customerCreateBody.partial();
@@ -61,31 +61,31 @@ const pricingCreateBody = z.object({
 });
 
 const orderCreateBody = z.object({
-  customer_id: uuid,
-  card_type_id: uuid,
-  quantity: z.coerce.number().int().min(4, 'Mỗi đơn tối thiểu 4 tấm'),
-  pickup_date: z.coerce.date().optional(),
-  notes: longText.optional(),
-  delivery_method: z.enum(DELIVERY_METHODS).default('pickup')
+  khach_hang_id: uuid,
+  loai_the_id: uuid,
+  so_luong: z.coerce.number().int().min(4, 'Mỗi đơn tối thiểu 4 tấm'),
+  ngay_hen_lay: z.coerce.date().optional(),
+  ghi_chu: longText.optional(),
+  hinh_thuc_giao: z.enum(DELIVERY_METHODS).default('pickup')
 });
 
 const orderListQuery = paginationQuery.extend({
-  status: z.enum(ORDER_STATUSES).optional(),
-  intake_source: z.enum(INTAKE_SOURCES).optional(),
+  trang_thai: z.enum(ORDER_STATUSES).optional(),
+  nguon_don: z.enum(INTAKE_SOURCES).optional(),
   date_from: z.coerce.date().optional(),
   date_to: z.coerce.date().optional(),
-  created_by: uuid.optional()
+  nguoi_tao: uuid.optional()
 });
 
 const reportOrdersQuery = paginationQuery.extend({
   date_from: z.coerce.date().optional(),
   date_to: z.coerce.date().optional(),
-  card_type_id: uuid.optional(),
-  staff_id: uuid.optional(),
-  status: z.enum(ORDER_STATUSES).optional()
+  loai_the_id: uuid.optional(),
+  nguoi_tao: uuid.optional(),
+  trang_thai: z.enum(ORDER_STATUSES).optional()
 });
 
-const cancelOrderBody = z.object({ reason: longText.min(1) });
+const cancelOrderBody = z.object({ ly_do: longText.min(1) });
 const completeOrderBody = z.object({ skip_layout_reason: z.string().trim().min(1).optional() }).default({});
 const deliverOrderBody = z.object({ allow_unpaid_reason: z.string().trim().min(1).optional() }).default({});
 
@@ -97,43 +97,43 @@ const paymentCreateBody = z.object({
 });
 
 const photoCreateBody = z.object({
-  order_id: uuid,
-  cloudinary_original_public_id: z.string().trim().min(1).optional(),
-  original_filename: z.string().trim().optional(),
-  width_px: z.coerce.number().int().positive().optional(),
-  height_px: z.coerce.number().int().positive().optional(),
-  file_size_bytes: z.coerce.number().int().positive().optional(),
-  original_asset_metadata: z.record(z.string(), z.any()).default({})
+  don_hang_id: uuid,
+  cloudinary_anh_goc_id: z.string().trim().min(1).optional(),
+  ten_file_goc: z.string().trim().optional(),
+  rong_px: z.coerce.number().int().positive().optional(),
+  cao_px: z.coerce.number().int().positive().optional(),
+  dung_luong_bytes: z.coerce.number().int().positive().optional(),
+  metadata_anh_goc: z.record(z.string(), z.any()).default({})
 });
 
 const batchProcessBody = z.object({
-  order_id: uuid,
-  photo_ids: z.array(uuid).min(1),
+  don_hang_id: uuid,
+  danh_sach_anh_id: z.array(uuid).min(1),
   nha_cung_cap: z.enum(PROCESSING_PROVIDERS).default('google_ai'),
   che_do_xu_ly: z.enum(PROCESSING_MODES).default('safe_assist'),
   kiem_tra_nghiem_ngat: z.boolean().default(false)
 });
 
-const rejectPhotoBody = z.object({ reason: longText.min(1) });
-const notesBody = z.object({ notes: longText.optional() }).default({});
+const rejectPhotoBody = z.object({ ly_do: longText.min(1) });
+const notesBody = z.object({ ghi_chu: longText.optional() }).default({});
 const layoutConfigBody = z.object({
-  order_id: uuid,
-  photo_ids: z.array(uuid).min(1),
-  layout_type: z.string().trim().min(1).default('grid'),
-  paper_size: z.string().trim().min(1).default('A4'),
-  add_text: z.boolean().default(false),
-  layout_config: z.record(z.string(), z.any()).default({})
+  don_hang_id: uuid,
+  danh_sach_anh_id: z.array(uuid).min(1),
+  kieu_bo_cuc: z.string().trim().min(1).default('grid'),
+  kho_giay: z.string().trim().min(1).default('A4'),
+  them_chu: z.boolean().default(false),
+  cau_hinh_bo_cuc: z.record(z.string(), z.any()).default({})
 });
 
 const layoutGenerateBody = layoutConfigBody.extend({
-  cloudinary_public_id: z.string().trim().min(1).optional(),
-  layout_asset_metadata: z.record(z.string(), z.any()).default({}),
-  file_size_bytes: z.coerce.number().int().positive().optional()
+  cloudinary_id: z.string().trim().min(1).optional(),
+  metadata_file: z.record(z.string(), z.any()).default({}),
+  dung_luong_bytes: z.coerce.number().int().positive().optional()
 });
 
 const layoutIssueBody = z.object({
-  issue_type: z.string().trim().min(1),
-  note: longText.optional()
+  loai_loi: z.string().trim().min(1),
+  ghi_chu: longText.optional()
 });
 
 const reprintStatusBody = z.object({
@@ -142,80 +142,80 @@ const reprintStatusBody = z.object({
 });
 
 const reprintConvertBody = z.object({
-  quantity: z.coerce.number().int().positive().optional(),
-  pickup_date: z.coerce.date().optional(),
-  notes: longText.optional()
+  so_luong: z.coerce.number().int().positive().optional(),
+  ngay_hen_lay: z.coerce.date().optional(),
+  ghi_chu: longText.optional()
 }).default({});
 
 const publicLookupQuery = z.object({
-  phone: phone.optional(),
-  order_code: z.string().trim().optional(),
+  so_dien_thoai: phone.optional(),
+  ma_don: z.string().trim().optional(),
   token: z.string().trim().optional()
-}).refine((value) => value.token || (value.phone && value.order_code), {
-  message: 'Cần token hoặc phone + order_code'
+}).refine((value) => value.token || (value.so_dien_thoai && value.ma_don), {
+  message: 'Cần token hoặc so_dien_thoai + ma_don'
 });
 
 const publicDownloadBody = publicLookupQuery;
 const publicReprintBody = z.object({
-  phone: phone.optional(),
-  order_code: z.string().trim().optional(),
+  so_dien_thoai: phone.optional(),
+  ma_don: z.string().trim().optional(),
   token: z.string().trim().optional(),
-  photo_ids: z.array(uuid).default([]),
-  layout_id: uuid.optional(),
-  quantity: z.coerce.number().int().positive().default(1),
-  reason: longText.optional(),
-  note: longText.optional()
-}).refine((value) => value.token || (value.phone && value.order_code), {
-  message: 'Cần token hoặc phone + order_code'
+  danh_sach_anh_id: z.array(uuid).default([]),
+  bo_cuc_id: uuid.optional(),
+  so_luong: z.coerce.number().int().positive().default(1),
+  ly_do: longText.optional(),
+  ghi_chu: longText.optional()
+}).refine((value) => value.token || (value.so_dien_thoai && value.ma_don), {
+  message: 'Cần token hoặc so_dien_thoai + ma_don'
 });
 
 const onlineRequestBody = z.object({
-  full_name: z.string().trim().min(1),
-  phone,
+  ho_ten: z.string().trim().min(1),
+  so_dien_thoai: phone,
   email,
-  card_type_id: optionalUuid,
-  request_type: z.enum(REQUEST_TYPES).default('both'),
-  note: longText.optional(),
-  preferred_date: optionalDate,
-  time_slot: z.string().trim().optional()
+  loai_the_id: optionalUuid,
+  loai_yeu_cau: z.enum(REQUEST_TYPES).default('both'),
+  ghi_chu: longText.optional(),
+  ngay_hen: optionalDate,
+  khung_gio: z.string().trim().optional()
 });
 
 const onlineRequestListQuery = paginationQuery.extend({
-  status: z.enum(ONLINE_REQUEST_STATUSES).optional()
+  trang_thai: z.enum(ONLINE_REQUEST_STATUSES).optional()
 });
 
-const rejectRequestBody = z.object({ note: longText.optional() }).default({});
+const rejectRequestBody = z.object({ ghi_chu: longText.optional() }).default({});
 
 const convertRequestBody = z.object({
-  card_type_id: optionalUuid,
-  quantity: z.coerce.number().int().min(4, 'Mỗi đơn tối thiểu 4 tấm'),
-  pickup_date: z.coerce.date().optional(),
-  notes: longText.optional()
+  loai_the_id: optionalUuid,
+  so_luong: z.coerce.number().int().min(4, 'Mỗi đơn tối thiểu 4 tấm'),
+  ngay_hen_lay: z.coerce.date().optional(),
+  ghi_chu: longText.optional()
 });
 
 const appointmentCreateBody = z.object({
-  customer_name: z.string().trim().optional(),
-  phone: phone.optional(),
-  preferred_date: z.coerce.date(),
-  time_slot: z.string().trim().min(1),
-  note: longText.optional()
+  ten_khach: z.string().trim().optional(),
+  so_dien_thoai: phone.optional(),
+  ngay_hen: z.coerce.date(),
+  khung_gio: z.string().trim().min(1),
+  ghi_chu: longText.optional()
 });
 
 const appointmentListQuery = paginationQuery.extend({
-  status: z.enum(APPOINTMENT_STATUSES).optional(),
+  trang_thai: z.enum(APPOINTMENT_STATUSES).optional(),
   date_from: z.coerce.date().optional(),
   date_to: z.coerce.date().optional()
 });
 
 const appointmentStatusBody = z.object({
-  status: z.enum(APPOINTMENT_STATUSES),
-  note: longText.optional()
+  trang_thai: z.enum(APPOINTMENT_STATUSES),
+  ghi_chu: longText.optional()
 });
 
 const notificationListQuery = paginationQuery.extend({
-  channel: z.enum(NOTIFICATION_CHANNELS).optional(),
-  event_type: z.string().trim().optional(),
-  order_id: optionalUuid
+  kenh: z.enum(NOTIFICATION_CHANNELS).optional(),
+  loai_su_kien: z.string().trim().optional(),
+  don_hang_id: optionalUuid
 });
 
 const adminUserCreateBody = z.object({

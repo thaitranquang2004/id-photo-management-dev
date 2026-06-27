@@ -29,7 +29,7 @@ async function deliver(req, res) {
 
 async function cancel(req, res) {
   return sendSuccess(res, await orderService.changeStatus(req.validated.params.id, 'cancelled', requestContext(req), {
-    reason: req.validated.body.reason
+    reason: req.validated.body.ly_do
   }));
 }
 

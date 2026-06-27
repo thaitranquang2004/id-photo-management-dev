@@ -38,12 +38,12 @@ export default function OnlineInboxPage() {
   const [statusFilter, setStatusFilter] = useState('');
   const [page, setPage] = useState(1);
   const [selectedId, setSelectedId] = useState(null);
-  const [convertForm, setConvertForm] = useState({ quantity: 4, pickup_date: '', card_type_id: '' });
+  const [convertForm, setConvertForm] = useState({ so_luong: 4, ngay_hen_lay: '', loai_the_id: '' });
   const [rejectNote, setRejectNote] = useState('');
 
   const listQuery = useQuery({
     queryKey: ['online-requests', statusFilter, page],
-    queryFn: () => listOnlineRequests({ status: statusFilter || undefined, page, limit: PAGE_SIZE })
+    queryFn: () => listOnlineRequests({ trang_thai: statusFilter || undefined, page, limit: PAGE_SIZE })
   });
 
   const cardTypesQuery = useQuery({ queryKey: ['card-types'], queryFn: listCardTypes });
@@ -60,7 +60,7 @@ export default function OnlineInboxPage() {
 
   useEffect(() => {
     if (request) {
-      setConvertForm((current) => ({ ...current, card_type_id: request.loai_the_id || '' }));
+      setConvertForm((current) => ({ ...current, loai_the_id: request.loai_the_id || '' }));
       setRejectNote('');
     }
   }, [request]);
@@ -81,9 +81,9 @@ export default function OnlineInboxPage() {
 
   const convertMutation = useMutation({
     mutationFn: () => convertOnlineRequest(selectedId, {
-      quantity: Number(convertForm.quantity),
-      pickup_date: convertForm.pickup_date || undefined,
-      card_type_id: convertForm.card_type_id || undefined
+      so_luong: Number(convertForm.so_luong),
+      ngay_hen_lay: convertForm.ngay_hen_lay || undefined,
+      loai_the_id: convertForm.loai_the_id || undefined
     }),
     onSuccess: (result) => {
       invalidate();
@@ -230,8 +230,8 @@ export default function OnlineInboxPage() {
                         <Form.Control
                           type="number"
                           min="4"
-                          value={convertForm.quantity}
-                          onChange={(e) => setConvertForm((c) => ({ ...c, quantity: e.target.value }))}
+                          value={convertForm.so_luong}
+                          onChange={(e) => setConvertForm((c) => ({ ...c, so_luong: e.target.value }))}
                         />
                         <Form.Text muted>Tối thiểu 4 tấm.</Form.Text>
                       </Form.Group>
@@ -241,8 +241,8 @@ export default function OnlineInboxPage() {
                         <Form.Label>Ngày hẹn lấy</Form.Label>
                         <Form.Control
                           type="date"
-                          value={convertForm.pickup_date}
-                          onChange={(e) => setConvertForm((c) => ({ ...c, pickup_date: e.target.value }))}
+                          value={convertForm.ngay_hen_lay}
+                          onChange={(e) => setConvertForm((c) => ({ ...c, ngay_hen_lay: e.target.value }))}
                         />
                       </Form.Group>
                     </Col>
@@ -250,8 +250,8 @@ export default function OnlineInboxPage() {
                       <Form.Group>
                         <Form.Label>Loại thẻ</Form.Label>
                         <Form.Select
-                          value={convertForm.card_type_id}
-                          onChange={(e) => setConvertForm((c) => ({ ...c, card_type_id: e.target.value }))}
+                          value={convertForm.loai_the_id}
+                          onChange={(e) => setConvertForm((c) => ({ ...c, loai_the_id: e.target.value }))}
                         >
                           <option value="">-- Chọn loại thẻ --</option>
                           {cardTypes.map((ct) => <option key={ct.id} value={ct.id}>{ct.ten}</option>)}
@@ -286,7 +286,7 @@ export default function OnlineInboxPage() {
                 Từ chối
               </Button>
               <Button
-                disabled={convertMutation.isPending || !convertForm.card_type_id || !Number.isInteger(Number(convertForm.quantity)) || Number(convertForm.quantity) < 4}
+                disabled={convertMutation.isPending || !convertForm.loai_the_id || !Number.isInteger(Number(convertForm.so_luong)) || Number(convertForm.so_luong) < 4}
                 onClick={() => convertMutation.mutate()}
               >
                 {convertMutation.isPending ? 'Đang tạo đơn...' : 'Tạo đơn'}

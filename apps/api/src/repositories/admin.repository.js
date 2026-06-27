@@ -27,16 +27,16 @@ async function orderReport(filters, client) {
     params.push(filters.date_to);
     where.push(`o.ngay_tao <= $${params.length}`);
   }
-  if (filters.card_type_id) {
-    params.push(filters.card_type_id);
+  if (filters.loai_the_id) {
+    params.push(filters.loai_the_id);
     where.push(`o.loai_the_id = $${params.length}`);
   }
-  if (filters.staff_id) {
-    params.push(filters.staff_id);
+  if (filters.nguoi_tao) {
+    params.push(filters.nguoi_tao);
     where.push(`o.nguoi_tao = $${params.length}`);
   }
-  if (filters.status) {
-    params.push(filters.status);
+  if (filters.trang_thai) {
+    params.push(filters.trang_thai);
     where.push(`o.trang_thai = $${params.length}`);
   }
 

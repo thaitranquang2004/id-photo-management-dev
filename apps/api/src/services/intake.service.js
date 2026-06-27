@@ -23,16 +23,16 @@ async function uploadRequestFile(file, requestId) {
     resource_type: 'image'
   });
   return {
-    online_request_id: requestId,
-    cloudinary_original_public_id: result.public_id,
-    original_asset_metadata: {
+    yeu_cau_online_id: requestId,
+    cloudinary_anh_goc_id: result.public_id,
+    metadata_anh_goc: {
       ...assetService.cloudinaryMetadata(result),
       original_filename: file.originalname,
       mimetype: file.mimetype
     },
-    width_px: result.width,
-    height_px: result.height,
-    file_size_bytes: result.bytes
+    rong_px: result.width,
+    cao_px: result.height,
+    dung_luong_bytes: result.bytes
   };
 }
 
@@ -40,10 +40,10 @@ async function uploadRequestFile(file, requestId) {
 // and/or a lightweight appointment. Uploads happen before the transaction (matching
 // the staff photo-upload flow) using a pre-generated request id for clean foldering.
 async function submitOnlineRequest(body, files, req) {
-  if (body.card_type_id) {
-    const cardType = await catalogRepository.findCardType(body.card_type_id);
+  if (body.loai_the_id) {
+    const cardType = await catalogRepository.findCardType(body.loai_the_id);
     if (!cardType || !cardType.dang_hoat_dong) {
-      throw errors.validation('Loại ảnh không hợp lệ', { card_type_id: body.card_type_id });
+      throw errors.validation('Loại ảnh không hợp lệ', { card_type_id: body.loai_the_id });
     }
   }
 
@@ -55,12 +55,12 @@ async function submitOnlineRequest(body, files, req) {
   const created = await withTransaction(async (client) => {
     const request = await onlineRepository.createRequest({
       id: requestId,
-      full_name: body.full_name,
-      phone: body.phone,
+      ho_ten: body.ho_ten,
+      so_dien_thoai: body.so_dien_thoai,
       email: body.email,
-      card_type_id: body.card_type_id,
-      request_type: body.request_type,
-      note: body.note,
+      loai_the_id: body.loai_the_id,
+      loai_yeu_cau: body.loai_yeu_cau,
+      ghi_chu: body.ghi_chu,
       ip_hash: ipHash(req),
       user_agent: req.get('user-agent'),
       metadata: {}
@@ -71,28 +71,28 @@ async function submitOnlineRequest(body, files, req) {
     }
 
     let appointment = null;
-    if (body.preferred_date && body.time_slot) {
+    if (body.ngay_hen && body.khung_gio) {
       appointment = await onlineRepository.createAppointment({
-        online_request_id: requestId,
-        customer_name: body.full_name,
-        phone: body.phone,
-        preferred_date: body.preferred_date,
-        time_slot: body.time_slot,
-        status: 'requested',
-        note: body.note
+        yeu_cau_online_id: requestId,
+        ten_khach: body.ho_ten,
+        so_dien_thoai: body.so_dien_thoai,
+        ngay_hen: body.ngay_hen,
+        khung_gio: body.khung_gio,
+        trang_thai: 'requested',
+        ghi_chu: body.ghi_chu
       }, client);
     }
 
     await publicRepository.logLookupEvent({
       action: 'online_request',
       result: 'success',
-      phone: body.phone,
+      phone: body.so_dien_thoai,
       success: true,
       ip_hash: ipHash(req),
       user_agent: req.get('user-agent'),
       metadata: {
         online_request_id: requestId,
-        request_type: body.request_type,
+        request_type: body.loai_yeu_cau,
         photo_count: photoInputs.length,
         has_appointment: Boolean(appointment)
       }
@@ -103,11 +103,11 @@ async function submitOnlineRequest(body, files, req) {
 
   // Fire-and-forget after commit so notification issues never break the submission.
   await notificationService.notifyEvent('online_request_received', {
-    customer_name: body.full_name,
+    customer_name: body.ho_ten,
     email: body.email,
-    phone: body.phone,
+    phone: body.so_dien_thoai,
     online_request_id: created.ma_yeu_cau,
-    metadata: { request_type: body.request_type }
+    metadata: { request_type: body.loai_yeu_cau }
   });
 
   return created;
@@ -135,7 +135,7 @@ async function acceptRequest(id, context) {
     if (request.trang_thai !== 'new') {
       throw errors.invalidState('Chỉ yêu cầu mới (new) mới được tiếp nhận', { trang_thai: request.trang_thai });
     }
-    const next = await onlineRepository.updateRequestStatus(id, { status: 'accepted' }, context.user.id, client);
+    const next = await onlineRepository.updateRequestStatus(id, { trang_thai: 'accepted' }, context.user.id, client);
     await writeAudit('online_request.accepted', 'yeu_cau_online', id, context, { old_data: request, new_data: next }, client);
     return next;
   });
@@ -155,7 +155,7 @@ async function rejectRequest(id, body, context) {
     if (request.trang_thai === 'converted') {
       throw errors.invalidState('Yêu cầu đã chuyển thành đơn, không thể từ chối', { trang_thai: request.trang_thai });
     }
-    const next = await onlineRepository.updateRequestStatus(id, { status: 'rejected', note: body.note }, context.user.id, client);
+    const next = await onlineRepository.updateRequestStatus(id, { trang_thai: 'rejected', ghi_chu: body.ghi_chu }, context.user.id, client);
     await writeAudit('online_request.rejected', 'yeu_cau_online', id, context, { old_data: request, new_data: next }, client);
     return next;
   });
@@ -164,7 +164,7 @@ async function rejectRequest(id, body, context) {
     email: updated.email,
     phone: updated.so_dien_thoai,
     online_request_id: updated.id,
-    note: body.note
+    note: body.ghi_chu
   });
   return { request: updated };
 }
@@ -181,7 +181,7 @@ async function convertToOrder(id, body, context) {
       throw errors.invalidState('Yêu cầu đã được chuyển thành đơn', { trang_thai: request.trang_thai });
     }
 
-    const cardTypeId = body.card_type_id || request.loai_the_id;
+    const cardTypeId = body.loai_the_id || request.loai_the_id;
     if (!cardTypeId) {
       throw errors.validation('Cần chọn loại thẻ để tạo đơn', { field: 'card_type_id' });
     }
@@ -189,20 +189,20 @@ async function convertToOrder(id, body, context) {
     let customer = await customersRepository.findByPhone(request.so_dien_thoai, client);
     if (!customer) {
       customer = await customersRepository.create({
-        full_name: request.ho_ten,
-        phone: request.so_dien_thoai,
+        ho_ten: request.ho_ten,
+        so_dien_thoai: request.so_dien_thoai,
         email: request.email
       }, context.user.id, client);
     }
 
     const { order, pricing_snapshot: pricingSnapshot } = await orderService.createOrderCore({
-      customer_id: customer.id,
-      card_type_id: cardTypeId,
-      quantity: body.quantity,
-      pickup_date: body.pickup_date,
-      notes: body.notes || request.ghi_chu,
-      intake_source: 'online',
-      delivery_method: 'online'
+      khach_hang_id: customer.id,
+      loai_the_id: cardTypeId,
+      so_luong: body.so_luong,
+      ngay_hen_lay: body.ngay_hen_lay,
+      ghi_chu: body.ghi_chu || request.ghi_chu,
+      nguon_don: 'online',
+      hinh_thuc_giao: 'online'
     }, context, client);
 
     const requestPhotos = await onlineRepository.requestPhotos(id, client);
@@ -213,18 +213,18 @@ async function convertToOrder(id, body, context) {
         resource_type: 'image'
       });
       await photosRepository.create({
-        order_id: order.id,
-        cloudinary_original_public_id: uploaded.public_id,
-        original_asset_metadata: {
+        don_hang_id: order.id,
+        cloudinary_anh_goc_id: uploaded.public_id,
+        metadata_anh_goc: {
           ...assetService.cloudinaryMetadata(uploaded),
           ...requestPhoto.metadata_anh_goc,
           public_id: uploaded.public_id,
           secure_url: uploaded.secure_url,
           copied_from_online_request: id
         },
-        width_px: requestPhoto.rong_px,
-        height_px: requestPhoto.cao_px,
-        file_size_bytes: requestPhoto.dung_luong_bytes
+        rong_px: requestPhoto.rong_px,
+        cao_px: requestPhoto.cao_px,
+        dung_luong_bytes: requestPhoto.dung_luong_bytes
       }, client);
     }
 
@@ -233,7 +233,7 @@ async function convertToOrder(id, body, context) {
       await onlineRepository.linkAppointmentOrder(appointment.id, order.id, client);
     }
 
-    const updatedRequest = await onlineRepository.linkConverted(id, { order_id: order.id, customer_id: customer.id }, client);
+    const updatedRequest = await onlineRepository.linkConverted(id, { don_hang_id: order.id, khach_hang_id: customer.id }, client);
     await writeAudit('online_request.converted', 'yeu_cau_online', id, context, {
       old_data: request,
       new_data: { request: updatedRequest, order_id: order.id, customer_id: customer.id }
@@ -255,13 +255,13 @@ async function listAppointments(query) {
 async function createAppointment(body, context) {
   return withTransaction(async (client) => {
     const appointment = await onlineRepository.createAppointment({
-      customer_name: body.customer_name,
-      phone: body.phone,
-      preferred_date: body.preferred_date,
-      time_slot: body.time_slot,
-      status: 'confirmed',
-      note: body.note,
-      confirmed_by: context.user.id
+      ten_khach: body.ten_khach,
+      so_dien_thoai: body.so_dien_thoai,
+      ngay_hen: body.ngay_hen,
+      khung_gio: body.khung_gio,
+      trang_thai: 'confirmed',
+      ghi_chu: body.ghi_chu,
+      nguoi_xac_nhan: context.user.id
     }, client);
     await writeAudit('appointment.created', 'lich_hen',appointment.id, context, { new_data: appointment }, client);
     return { appointment };
@@ -272,7 +272,7 @@ async function updateAppointmentStatus(id, body, context) {
   const updated = await withTransaction(async (client) => {
     const appointment = await onlineRepository.findAppointmentById(id, client);
     if (!appointment) throw errors.notFound('Không tìm thấy lịch hẹn');
-    const next = await onlineRepository.updateAppointmentStatus(id, { status: body.status, note: body.note }, context.user.id, client);
+    const next = await onlineRepository.updateAppointmentStatus(id, { trang_thai: body.trang_thai, ghi_chu: body.ghi_chu }, context.user.id, client);
     await writeAudit('appointment.status_changed', 'lich_hen',id, context, { old_data: appointment, new_data: next }, client);
     return next;
   });

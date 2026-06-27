@@ -7,7 +7,7 @@ async function submit(req, res) {
 }
 
 async function publicStatus(req, res) {
-  const result = await intakeService.onlineRequestStatus(req.validated.params.id, req.validated.body.phone);
+  const result = await intakeService.onlineRequestStatus(req.validated.params.id, req.validated.body.so_dien_thoai);
   return sendSuccess(res, result.data);
 }
 

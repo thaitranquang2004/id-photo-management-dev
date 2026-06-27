@@ -6,7 +6,7 @@ export async function listCustomers(params = {}) {
 }
 
 export async function searchCustomersByPhone(phone) {
-  const result = await listCustomers({ phone, limit: 10 });
+  const result = await listCustomers({ so_dien_thoai: phone, limit: 10 });
   return result.data.customers || [];
 }
 

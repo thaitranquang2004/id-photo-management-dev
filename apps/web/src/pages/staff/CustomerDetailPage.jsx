@@ -21,7 +21,7 @@ export default function CustomerDetailPage() {
   const { id } = useParams();
   const queryClient = useQueryClient();
   const [showEdit, setShowEdit] = useState(false);
-  const [editForm, setEditForm] = useState({ full_name: '', phone: '', email: '', notes: '' });
+  const [editForm, setEditForm] = useState({ ho_ten: '', so_dien_thoai: '', email: '', ghi_chu: '' });
   const { errors, setErrors, clearError, validate } = useFormErrors();
   const customerQuery = useQuery({
     queryKey: ['customers', id],
@@ -44,10 +44,10 @@ export default function CustomerDetailPage() {
   });
   const editMutation = useMutation({
     mutationFn: () => updateCustomer(id, {
-      full_name: editForm.full_name,
-      phone: editForm.phone,
+      ho_ten: editForm.ho_ten,
+      so_dien_thoai: editForm.so_dien_thoai,
       email: editForm.email || undefined,
-      notes: editForm.notes || undefined
+      ghi_chu: editForm.ghi_chu || undefined
     }),
     onSuccess: () => {
       setShowEdit(false);
@@ -57,17 +57,17 @@ export default function CustomerDetailPage() {
 
   function openEdit() {
     setEditForm({
-      full_name: customer?.ho_ten || '',
-      phone: customer?.so_dien_thoai || '',
+      ho_ten: customer?.ho_ten || '',
+      so_dien_thoai: customer?.so_dien_thoai || '',
       email: customer?.email || '',
-      notes: customer?.ghi_chu || ''
+      ghi_chu: customer?.ghi_chu || ''
     });
     setErrors({});
     setShowEdit(true);
   }
 
   function handleSaveCustomer() {
-    if (!validate(editForm, { full_name: 'Vui lòng nhập họ tên', phone: 'Vui lòng nhập số điện thoại' })) return;
+    if (!validate(editForm, { ho_ten: 'Vui lòng nhập họ tên', so_dien_thoai: 'Vui lòng nhập số điện thoại' })) return;
     editMutation.mutate();
   }
 
@@ -227,21 +227,21 @@ export default function CustomerDetailPage() {
           <Form.Group className="mb-3">
             <Form.Label>Họ tên *</Form.Label>
             <Form.Control
-              value={editForm.full_name}
-              onChange={(e) => { setEditForm((c) => ({ ...c, full_name: e.target.value })); clearError('full_name'); }}
-              isInvalid={!!errors.full_name}
+              value={editForm.ho_ten}
+              onChange={(e) => { setEditForm((c) => ({ ...c, ho_ten: e.target.value })); clearError('ho_ten'); }}
+              isInvalid={!!errors.ho_ten}
             />
-            <Form.Control.Feedback type="invalid">{errors.full_name}</Form.Control.Feedback>
+            <Form.Control.Feedback type="invalid">{errors.ho_ten}</Form.Control.Feedback>
           </Form.Group>
           <Form.Group className="mb-3">
             <Form.Label>Số điện thoại *</Form.Label>
             <Form.Control
-              value={editForm.phone}
-              onChange={(e) => { setEditForm((c) => ({ ...c, phone: e.target.value })); clearError('phone'); }}
+              value={editForm.so_dien_thoai}
+              onChange={(e) => { setEditForm((c) => ({ ...c, so_dien_thoai: e.target.value })); clearError('so_dien_thoai'); }}
               inputMode="tel"
-              isInvalid={!!errors.phone}
+              isInvalid={!!errors.so_dien_thoai}
             />
-            <Form.Control.Feedback type="invalid">{errors.phone}</Form.Control.Feedback>
+            <Form.Control.Feedback type="invalid">{errors.so_dien_thoai}</Form.Control.Feedback>
           </Form.Group>
           <Form.Group className="mb-3">
             <Form.Label>Email</Form.Label>
@@ -249,7 +249,7 @@ export default function CustomerDetailPage() {
           </Form.Group>
           <Form.Group>
             <Form.Label>Ghi chú</Form.Label>
-            <Form.Control as="textarea" rows={2} value={editForm.notes} onChange={(e) => setEditForm((c) => ({ ...c, notes: e.target.value }))} />
+            <Form.Control as="textarea" rows={2} value={editForm.ghi_chu} onChange={(e) => setEditForm((c) => ({ ...c, ghi_chu: e.target.value }))} />
           </Form.Group>
           {editMutation.error ? <Alert variant="danger" className="mt-3">{editMutation.error.message}</Alert> : null}
         </Modal.Body>

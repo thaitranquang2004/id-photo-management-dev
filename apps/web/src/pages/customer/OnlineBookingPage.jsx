@@ -9,14 +9,14 @@ import { useFormErrors } from '../../hooks/useFormErrors.js';
 import { TIME_SLOTS } from '../../utils/constants.js';
 
 const EMPTY_FORM = {
-  full_name: '',
-  phone: '',
+  ho_ten: '',
+  so_dien_thoai: '',
   email: '',
-  card_type_id: '',
-  request_type: 'both',
-  note: '',
-  preferred_date: '',
-  time_slot: ''
+  loai_the_id: '',
+  loai_yeu_cau: 'both',
+  ghi_chu: '',
+  ngay_hen: '',
+  khung_gio: ''
 };
 
 export default function OnlineBookingPage() {
@@ -38,8 +38,8 @@ export default function OnlineBookingPage() {
   });
 
   const cardTypes = cardTypesQuery.data?.card_types || [];
-  const wantsUpload = form.request_type === 'upload' || form.request_type === 'both';
-  const wantsBooking = form.request_type === 'booking' || form.request_type === 'both';
+  const wantsUpload = form.loai_yeu_cau === 'upload' || form.loai_yeu_cau === 'both';
+  const wantsBooking = form.loai_yeu_cau === 'booking' || form.loai_yeu_cau === 'both';
 
   function update(key, value) {
     setForm((current) => ({ ...current, [key]: value }));
@@ -49,12 +49,12 @@ export default function OnlineBookingPage() {
   function submit(event) {
     event.preventDefault();
     const rules = {
-      full_name: 'Vui lòng nhập họ tên',
-      phone: 'Vui lòng nhập số điện thoại'
+      ho_ten: 'Vui lòng nhập họ tên',
+      so_dien_thoai: 'Vui lòng nhập số điện thoại'
     };
     if (wantsBooking) {
-      rules.preferred_date = 'Vui lòng chọn ngày hẹn';
-      rules.time_slot = 'Vui lòng chọn khung giờ';
+      rules.ngay_hen = 'Vui lòng chọn ngày hẹn';
+      rules.khung_gio = 'Vui lòng chọn khung giờ';
     }
     if (!validate(form, rules)) return;
     submitMutation.mutate();
@@ -133,15 +133,15 @@ export default function OnlineBookingPage() {
                     <Col md={6}>
                       <Form.Group>
                         <Form.Label>Họ tên *</Form.Label>
-                        <Form.Control value={form.full_name} onChange={(e) => update('full_name', e.target.value)} isInvalid={!!errors.full_name} />
-                        <Form.Control.Feedback type="invalid">{errors.full_name}</Form.Control.Feedback>
+                        <Form.Control value={form.ho_ten} onChange={(e) => update('ho_ten', e.target.value)} isInvalid={!!errors.ho_ten} />
+                        <Form.Control.Feedback type="invalid">{errors.ho_ten}</Form.Control.Feedback>
                       </Form.Group>
                     </Col>
                     <Col md={6}>
                       <Form.Group>
                         <Form.Label>Số điện thoại *</Form.Label>
-                        <Form.Control value={form.phone} onChange={(e) => update('phone', e.target.value)} inputMode="tel" isInvalid={!!errors.phone} />
-                        <Form.Control.Feedback type="invalid">{errors.phone}</Form.Control.Feedback>
+                        <Form.Control value={form.so_dien_thoai} onChange={(e) => update('so_dien_thoai', e.target.value)} inputMode="tel" isInvalid={!!errors.so_dien_thoai} />
+                        <Form.Control.Feedback type="invalid">{errors.so_dien_thoai}</Form.Control.Feedback>
                       </Form.Group>
                     </Col>
                     <Col md={6}>
@@ -153,7 +153,7 @@ export default function OnlineBookingPage() {
                     <Col md={6}>
                       <Form.Group>
                         <Form.Label>Loại ảnh</Form.Label>
-                        <Form.Select value={form.card_type_id} onChange={(e) => update('card_type_id', e.target.value)}>
+                        <Form.Select value={form.loai_the_id} onChange={(e) => update('loai_the_id', e.target.value)}>
                           <option value="">-- Chọn loại ảnh --</option>
                           {cardTypes.map((ct) => (
                             <option key={ct.id} value={ct.id}>
@@ -169,27 +169,27 @@ export default function OnlineBookingPage() {
                       <div className="d-flex gap-3 flex-wrap">
                         <Form.Check
                           type="radio"
-                          name="request_type"
+                          name="loai_yeu_cau"
                           id="rt-both"
                           label="Gửi ảnh + Đặt lịch"
-                          checked={form.request_type === 'both'}
-                          onChange={() => update('request_type', 'both')}
+                          checked={form.loai_yeu_cau === 'both'}
+                          onChange={() => update('loai_yeu_cau', 'both')}
                         />
                         <Form.Check
                           type="radio"
-                          name="request_type"
+                          name="loai_yeu_cau"
                           id="rt-upload"
                           label="Chỉ gửi ảnh"
-                          checked={form.request_type === 'upload'}
-                          onChange={() => update('request_type', 'upload')}
+                          checked={form.loai_yeu_cau === 'upload'}
+                          onChange={() => update('loai_yeu_cau', 'upload')}
                         />
                         <Form.Check
                           type="radio"
-                          name="request_type"
+                          name="loai_yeu_cau"
                           id="rt-booking"
                           label="Chỉ đặt lịch"
-                          checked={form.request_type === 'booking'}
-                          onChange={() => update('request_type', 'booking')}
+                          checked={form.loai_yeu_cau === 'booking'}
+                          onChange={() => update('loai_yeu_cau', 'booking')}
                         />
                       </div>
                     </Col>
@@ -216,21 +216,21 @@ export default function OnlineBookingPage() {
                             <Form.Label>Ngày hẹn *</Form.Label>
                             <Form.Control
                               type="date"
-                              value={form.preferred_date}
-                              onChange={(e) => update('preferred_date', e.target.value)}
-                              isInvalid={!!errors.preferred_date}
+                              value={form.ngay_hen}
+                              onChange={(e) => update('ngay_hen', e.target.value)}
+                              isInvalid={!!errors.ngay_hen}
                             />
-                            <Form.Control.Feedback type="invalid">{errors.preferred_date}</Form.Control.Feedback>
+                            <Form.Control.Feedback type="invalid">{errors.ngay_hen}</Form.Control.Feedback>
                           </Form.Group>
                         </Col>
                         <Col md={6}>
                           <Form.Group>
                             <Form.Label>Khung giờ *</Form.Label>
-                            <Form.Select value={form.time_slot} onChange={(e) => update('time_slot', e.target.value)} isInvalid={!!errors.time_slot}>
+                            <Form.Select value={form.khung_gio} onChange={(e) => update('khung_gio', e.target.value)} isInvalid={!!errors.khung_gio}>
                               <option value="">-- Chọn khung giờ --</option>
                               {TIME_SLOTS.map((slot) => <option key={slot} value={slot}>{slot}</option>)}
                             </Form.Select>
-                            <Form.Control.Feedback type="invalid">{errors.time_slot}</Form.Control.Feedback>
+                            <Form.Control.Feedback type="invalid">{errors.khung_gio}</Form.Control.Feedback>
                           </Form.Group>
                         </Col>
                       </>
@@ -239,7 +239,7 @@ export default function OnlineBookingPage() {
                     <Col xs={12}>
                       <Form.Group>
                         <Form.Label>Ghi chú</Form.Label>
-                        <Form.Control as="textarea" rows={2} value={form.note} onChange={(e) => update('note', e.target.value)} />
+                        <Form.Control as="textarea" rows={2} value={form.ghi_chu} onChange={(e) => update('ghi_chu', e.target.value)} />
                       </Form.Group>
                     </Col>
                   </Row>

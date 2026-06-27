@@ -6,7 +6,7 @@ const { writeAudit } = require('./audit.service');
 
 async function listCustomers(query) {
   const pagination = parsePagination(query);
-  const result = await customersRepository.list({ phone: query.phone, ...pagination });
+  const result = await customersRepository.list({ so_dien_thoai: query.so_dien_thoai, ...pagination });
   return {
     data: { customers: result.rows.map(({ total, ...row }) => row) },
     pagination: buildPagination(pagination.page, pagination.limit, result.total)

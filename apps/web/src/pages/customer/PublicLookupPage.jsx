@@ -18,22 +18,22 @@ import { useFormErrors } from '../../hooks/useFormErrors.js';
 export default function PublicLookupPage() {
   const [searchParams] = useSearchParams();
   const autoLookupDone = useRef(false);
-  const [lookupForm, setLookupForm] = useState({ phone: '', order_code: '', token: '' });
+  const [lookupForm, setLookupForm] = useState({ so_dien_thoai: '', ma_don: '', token: '' });
   const [selectedPhotos, setSelectedPhotos] = useState([]);
-  const [reprintForm, setReprintForm] = useState({ quantity: 1, reason: '', note: '' });
+  const [reprintForm, setReprintForm] = useState({ so_luong: 1, ly_do: '', ghi_chu: '' });
   const { errors, setErrors, clearError, validate } = useFormErrors();
   const [reprintError, setReprintError] = useState('');
   const lookupPayload = useMemo(() => (
     lookupForm.token.trim()
       ? { token: lookupForm.token.trim() }
-      : { phone: lookupForm.phone.trim(), order_code: lookupForm.order_code.trim() }
+      : { so_dien_thoai: lookupForm.so_dien_thoai.trim(), ma_don: lookupForm.ma_don.trim() }
   ), [lookupForm]);
 
   const lookupMutation = useMutation({
     mutationFn: lookupCustomer,
     onSuccess: () => {
       setSelectedPhotos([]);
-      setReprintForm({ quantity: 1, reason: '', note: '' });
+      setReprintForm({ so_luong: 1, ly_do: '', ghi_chu: '' });
     }
   });
 
@@ -47,10 +47,10 @@ export default function PublicLookupPage() {
   const reprintMutation = useMutation({
     mutationFn: () => createPublicReprintRequest({
       ...lookupPayload,
-      photo_ids: selectedPhotos,
-      quantity: Number(reprintForm.quantity),
-      reason: reprintForm.reason || undefined,
-      note: reprintForm.note || undefined
+      danh_sach_anh_id: selectedPhotos,
+      so_luong: Number(reprintForm.so_luong),
+      ly_do: reprintForm.ly_do || undefined,
+      ghi_chu: reprintForm.ghi_chu || undefined
     })
   });
 
@@ -78,8 +78,8 @@ export default function PublicLookupPage() {
     event.preventDefault();
     // Hợp lệ khi có mã tra cứu (token); nếu không thì bắt buộc cả SĐT + mã đơn.
     const rules = hasToken ? {} : {
-      phone: 'Nhập số điện thoại (hoặc dùng mã tra cứu bên dưới)',
-      order_code: 'Nhập mã đơn (hoặc dùng mã tra cứu bên dưới)'
+      so_dien_thoai: 'Nhập số điện thoại (hoặc dùng mã tra cứu bên dưới)',
+      ma_don: 'Nhập mã đơn (hoặc dùng mã tra cứu bên dưới)'
     };
     if (!validate(lookupForm, rules)) return;
     lookupMutation.mutate(lookupPayload);
@@ -95,9 +95,9 @@ export default function PublicLookupPage() {
   }
 
   function resetLookup() {
-    setLookupForm({ phone: '', order_code: '', token: '' });
+    setLookupForm({ so_dien_thoai: '', ma_don: '', token: '' });
     setSelectedPhotos([]);
-    setReprintForm({ quantity: 1, reason: '', note: '' });
+    setReprintForm({ so_luong: 1, ly_do: '', ghi_chu: '' });
     setErrors({});
     setReprintError('');
     lookupMutation.reset();
@@ -144,29 +144,29 @@ export default function PublicLookupPage() {
               </div>
 
               <Form onSubmit={submitLookup}>
-                <Form.Group className="mb-3" controlId="lookup-phone">
+                <Form.Group className="mb-3" controlId="lookup-so_dien_thoai">
                   <Form.Label>Số điện thoại</Form.Label>
                   <Form.Control
-                    value={lookupForm.phone}
-                    onChange={(event) => { setLookupForm((current) => ({ ...current, phone: event.target.value })); clearError('phone'); }}
+                    value={lookupForm.so_dien_thoai}
+                    onChange={(event) => { setLookupForm((current) => ({ ...current, so_dien_thoai: event.target.value })); clearError('so_dien_thoai'); }}
                     inputMode="tel"
                     autoComplete="tel"
                     placeholder="Ví dụ: 0901234567"
                     disabled={hasToken}
-                    isInvalid={!!errors.phone}
+                    isInvalid={!!errors.so_dien_thoai}
                   />
-                  <Form.Control.Feedback type="invalid">{errors.phone}</Form.Control.Feedback>
+                  <Form.Control.Feedback type="invalid">{errors.so_dien_thoai}</Form.Control.Feedback>
                 </Form.Group>
                 <Form.Group className="mb-3" controlId="lookup-order-code">
                   <Form.Label>Mã đơn</Form.Label>
                   <Form.Control
-                    value={lookupForm.order_code}
-                    onChange={(event) => { setLookupForm((current) => ({ ...current, order_code: event.target.value })); clearError('order_code'); }}
+                    value={lookupForm.ma_don}
+                    onChange={(event) => { setLookupForm((current) => ({ ...current, ma_don: event.target.value })); clearError('ma_don'); }}
                     placeholder="Ví dụ: ORD-2026-001"
                     disabled={hasToken}
-                    isInvalid={!!errors.order_code}
+                    isInvalid={!!errors.ma_don}
                   />
-                  <Form.Control.Feedback type="invalid">{errors.order_code}</Form.Control.Feedback>
+                  <Form.Control.Feedback type="invalid">{errors.ma_don}</Form.Control.Feedback>
                 </Form.Group>
                 <div className="public-divider">hoặc</div>
                 <Form.Group className="mb-3" controlId="lookup-token">
@@ -310,8 +310,8 @@ export default function PublicLookupPage() {
                           <Form.Control
                             type="number"
                             min="1"
-                            value={reprintForm.quantity}
-                            onChange={(event) => setReprintForm((current) => ({ ...current, quantity: event.target.value }))}
+                            value={reprintForm.so_luong}
+                            onChange={(event) => setReprintForm((current) => ({ ...current, so_luong: event.target.value }))}
                           />
                         </Form.Group>
                       </Col>
@@ -319,8 +319,8 @@ export default function PublicLookupPage() {
                         <Form.Group>
                           <Form.Label>Lý do</Form.Label>
                           <Form.Control
-                            value={reprintForm.reason}
-                            onChange={(event) => setReprintForm((current) => ({ ...current, reason: event.target.value }))}
+                            value={reprintForm.ly_do}
+                            onChange={(event) => setReprintForm((current) => ({ ...current, ly_do: event.target.value }))}
                           />
                         </Form.Group>
                       </Col>
@@ -330,8 +330,8 @@ export default function PublicLookupPage() {
                           <Form.Control
                             as="textarea"
                             rows={2}
-                            value={reprintForm.note}
-                            onChange={(event) => setReprintForm((current) => ({ ...current, note: event.target.value }))}
+                            value={reprintForm.ghi_chu}
+                            onChange={(event) => setReprintForm((current) => ({ ...current, ghi_chu: event.target.value }))}
                           />
                         </Form.Group>
                       </Col>

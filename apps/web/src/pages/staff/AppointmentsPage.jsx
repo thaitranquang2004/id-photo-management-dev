@@ -12,7 +12,7 @@ import { useFormErrors } from '../../hooks/useFormErrors.js';
 import { TIME_SLOTS } from '../../utils/constants.js';
 
 const PAGE_SIZE = 20;
-const EMPTY_CREATE = { customer_name: '', phone: '', preferred_date: '', time_slot: '', note: '' };
+const EMPTY_CREATE = { ten_khach: '', so_dien_thoai: '', ngay_hen: '', khung_gio: '', ghi_chu: '' };
 
 const STATUS_META = {
   requested: { label: 'Chờ xác nhận', bg: 'primary' },
@@ -36,7 +36,7 @@ export default function AppointmentsPage() {
 
   const listQuery = useQuery({
     queryKey: ['appointments', statusFilter, page],
-    queryFn: () => listAppointments({ status: statusFilter || undefined, page, limit: PAGE_SIZE })
+    queryFn: () => listAppointments({ trang_thai: statusFilter || undefined, page, limit: PAGE_SIZE })
   });
 
   const statusMutation = useMutation({
@@ -46,11 +46,11 @@ export default function AppointmentsPage() {
 
   const createMutation = useMutation({
     mutationFn: () => createAppointment({
-      customer_name: createForm.customer_name || undefined,
-      phone: createForm.phone || undefined,
-      preferred_date: createForm.preferred_date,
-      time_slot: createForm.time_slot,
-      note: createForm.note || undefined
+      ten_khach: createForm.ten_khach || undefined,
+      so_dien_thoai: createForm.so_dien_thoai || undefined,
+      ngay_hen: createForm.ngay_hen,
+      khung_gio: createForm.khung_gio,
+      ghi_chu: createForm.ghi_chu || undefined
     }),
     onSuccess: () => {
       setShowCreate(false);
@@ -69,7 +69,7 @@ export default function AppointmentsPage() {
   }
 
   function handleCreate() {
-    if (!validate(createForm, { preferred_date: 'Vui lòng chọn ngày hẹn', time_slot: 'Vui lòng chọn khung giờ' })) return;
+    if (!validate(createForm, { ngay_hen: 'Vui lòng chọn ngày hẹn', khung_gio: 'Vui lòng chọn khung giờ' })) return;
     createMutation.mutate();
   }
 
@@ -133,7 +133,7 @@ export default function AppointmentsPage() {
                             size="sm"
                             variant="outline-info"
                             disabled={statusMutation.isPending}
-                            onClick={() => statusMutation.mutate({ id: item.id, status: 'confirmed' })}
+                            onClick={() => statusMutation.mutate({ id: item.id, trang_thai: 'confirmed' })}
                           >
                             Xác nhận
                           </Button>
@@ -143,7 +143,7 @@ export default function AppointmentsPage() {
                             size="sm"
                             variant="outline-success"
                             disabled={statusMutation.isPending}
-                            onClick={() => statusMutation.mutate({ id: item.id, status: 'done' })}
+                            onClick={() => statusMutation.mutate({ id: item.id, trang_thai: 'done' })}
                           >
                             Hoàn tất
                           </Button>
@@ -153,7 +153,7 @@ export default function AppointmentsPage() {
                             size="sm"
                             variant="outline-danger"
                             disabled={statusMutation.isPending}
-                            onClick={() => statusMutation.mutate({ id: item.id, status: 'cancelled' })}
+                            onClick={() => statusMutation.mutate({ id: item.id, trang_thai: 'cancelled' })}
                           >
                             Huỷ
                           </Button>
@@ -179,13 +179,13 @@ export default function AppointmentsPage() {
             <Col md={6}>
               <Form.Group>
                 <Form.Label>Tên khách</Form.Label>
-                <Form.Control value={createForm.customer_name} onChange={(e) => setCreateForm((c) => ({ ...c, customer_name: e.target.value }))} />
+                <Form.Control value={createForm.ten_khach} onChange={(e) => setCreateForm((c) => ({ ...c, ten_khach: e.target.value }))} />
               </Form.Group>
             </Col>
             <Col md={6}>
               <Form.Group>
                 <Form.Label>Số điện thoại</Form.Label>
-                <Form.Control value={createForm.phone} onChange={(e) => setCreateForm((c) => ({ ...c, phone: e.target.value }))} inputMode="tel" />
+                <Form.Control value={createForm.so_dien_thoai} onChange={(e) => setCreateForm((c) => ({ ...c, so_dien_thoai: e.target.value }))} inputMode="tel" />
               </Form.Group>
             </Col>
             <Col md={6}>
@@ -193,31 +193,31 @@ export default function AppointmentsPage() {
                 <Form.Label>Ngày hẹn *</Form.Label>
                 <Form.Control
                   type="date"
-                  value={createForm.preferred_date}
-                  onChange={(e) => { setCreateForm((c) => ({ ...c, preferred_date: e.target.value })); clearError('preferred_date'); }}
-                  isInvalid={!!errors.preferred_date}
+                  value={createForm.ngay_hen}
+                  onChange={(e) => { setCreateForm((c) => ({ ...c, ngay_hen: e.target.value })); clearError('ngay_hen'); }}
+                  isInvalid={!!errors.ngay_hen}
                 />
-                <Form.Control.Feedback type="invalid">{errors.preferred_date}</Form.Control.Feedback>
+                <Form.Control.Feedback type="invalid">{errors.ngay_hen}</Form.Control.Feedback>
               </Form.Group>
             </Col>
             <Col md={6}>
               <Form.Group>
                 <Form.Label>Khung giờ *</Form.Label>
                 <Form.Select
-                  value={createForm.time_slot}
-                  onChange={(e) => { setCreateForm((c) => ({ ...c, time_slot: e.target.value })); clearError('time_slot'); }}
-                  isInvalid={!!errors.time_slot}
+                  value={createForm.khung_gio}
+                  onChange={(e) => { setCreateForm((c) => ({ ...c, khung_gio: e.target.value })); clearError('khung_gio'); }}
+                  isInvalid={!!errors.khung_gio}
                 >
                   <option value="">-- Chọn khung giờ --</option>
                   {TIME_SLOTS.map((slot) => <option key={slot} value={slot}>{slot}</option>)}
                 </Form.Select>
-                <Form.Control.Feedback type="invalid">{errors.time_slot}</Form.Control.Feedback>
+                <Form.Control.Feedback type="invalid">{errors.khung_gio}</Form.Control.Feedback>
               </Form.Group>
             </Col>
             <Col xs={12}>
               <Form.Group>
                 <Form.Label>Ghi chú</Form.Label>
-                <Form.Control as="textarea" rows={2} value={createForm.note} onChange={(e) => setCreateForm((c) => ({ ...c, note: e.target.value }))} />
+                <Form.Control as="textarea" rows={2} value={createForm.ghi_chu} onChange={(e) => setCreateForm((c) => ({ ...c, ghi_chu: e.target.value }))} />
               </Form.Group>
             </Col>
           </Row>

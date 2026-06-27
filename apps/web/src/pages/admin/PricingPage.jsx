@@ -27,7 +27,7 @@ export default function PricingPage() {
   const cardTypesQuery = useQuery({ queryKey: ['card-types'], queryFn: listCardTypes });
   const pricingQuery = useQuery({
     queryKey: ['pricing', cardTypeId],
-    queryFn: () => listPricing(cardTypeId ? { card_type_id: cardTypeId } : {})
+    queryFn: () => listPricing(cardTypeId ? { loai_the_id: cardTypeId } : {})
   });
 
   const createMutation = useMutation({

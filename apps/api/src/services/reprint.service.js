@@ -70,13 +70,13 @@ async function convertToOrder(id, body, context) {
     if (!origOrder) throw errors.invalidState('Đơn gốc không còn tồn tại');
 
     const { order, pricing_snapshot: pricingSnapshot } = await orderService.createOrderCore({
-      customer_id: origOrder.khach_hang_id,
-      card_type_id: origOrder.loai_the_id,
-      quantity: body.quantity || request.so_luong,
-      pickup_date: body.pickup_date,
-      notes: body.notes || `In lại từ đơn ${origOrder.ma_don}`,
-      intake_source: 'reprint',
-      delivery_method: 'pickup'
+      khach_hang_id: origOrder.khach_hang_id,
+      loai_the_id: origOrder.loai_the_id,
+      so_luong: body.so_luong || request.so_luong,
+      ngay_hen_lay: body.ngay_hen_lay,
+      ghi_chu: body.ghi_chu || `In lại từ đơn ${origOrder.ma_don}`,
+      nguon_don: 'reprint',
+      hinh_thuc_giao: 'pickup'
     }, context, client);
 
     // Fall back to all approved photos of the original order when the customer
@@ -92,16 +92,16 @@ async function convertToOrder(id, body, context) {
         resource_type: 'image'
       });
       const photo = await photosRepository.create({
-        order_id: order.id,
-        cloudinary_original_public_id: uploaded.public_id,
-        original_asset_metadata: {
+        don_hang_id: order.id,
+        cloudinary_anh_goc_id: uploaded.public_id,
+        metadata_anh_goc: {
           ...assetService.cloudinaryMetadata(uploaded),
           copied_from_photo: src.id,
           copied_from_order: origOrder.id
         },
-        width_px: src.rong_px,
-        height_px: src.cao_px,
-        file_size_bytes: src.dung_luong_bytes
+        rong_px: src.rong_px,
+        cao_px: src.cao_px,
+        dung_luong_bytes: src.dung_luong_bytes
       }, client);
       await photosRepository.updateStatus(photo.id, 'approved', {}, client);
     }

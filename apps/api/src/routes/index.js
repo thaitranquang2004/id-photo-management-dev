@@ -87,7 +87,7 @@ router.post(
 router.post(
   '/public/online-requests/:id/status',
   publicApiLimiter,
-  validate(z.object({ params: schemas.idParam, body: z.object({ phone: schemas.phone }) })),
+  validate(z.object({ params: schemas.idParam, body: z.object({ so_dien_thoai: schemas.phone }) })),
   asyncHandler(intake.publicStatus)
 );
 
@@ -103,13 +103,13 @@ router.get('/me', (req, res) => sendSuccess(res, {
 
 router.get(
   '/customers',
-  validate(z.object({ query: schemas.paginationQuery.extend({ phone: schemas.phone.optional() }) })),
+  validate(z.object({ query: schemas.paginationQuery.extend({ so_dien_thoai: schemas.phone.optional() }) })),
   asyncHandler(customers.list)
 );
 router.get('/customers/:id', validate(paramsId), asyncHandler(customers.get));
 router.post('/customers', validate(z.object({ body: schemas.customerCreateBody })), asyncHandler(customers.create));
 router.patch('/customers/:id', validate(z.object({ params: schemas.idParam, body: schemas.customerUpdateBody })), asyncHandler(customers.update));
-router.patch('/customers/:id/archive', validate(z.object({ params: schemas.idParam, body: z.object({ reason: z.string().optional() }).default({}) })), asyncHandler(customers.archive));
+router.patch('/customers/:id/archive', validate(z.object({ params: schemas.idParam, body: z.object({ ly_do: z.string().optional() }).default({}) })), asyncHandler(customers.archive));
 router.get('/customers/:id/photos', validate(paramsId), asyncHandler(customers.photos));
 router.get('/customers/:id/print-layouts', validate(z.object({ params: schemas.idParam, query: schemas.paginationQuery })), asyncHandler(customers.printLayouts));
 
@@ -117,7 +117,7 @@ router.get('/card-types', asyncHandler(catalog.listCardTypes));
 router.post('/card-types', requireRole('admin'), validate(z.object({ body: schemas.cardTypeBody })), asyncHandler(catalog.createCardType));
 router.patch('/card-types/:id', requireRole('admin'), validate(z.object({ params: schemas.idParam, body: schemas.cardTypePatchBody })), asyncHandler(catalog.updateCardType));
 router.patch('/card-types/:id/archive', requireRole('admin'), validate(z.object({ params: schemas.idParam, body: emptyBody })), asyncHandler(catalog.archiveCardType));
-router.get('/pricing', requireRole('admin'), validate(z.object({ query: z.object({ card_type_id: schemas.uuid.optional() }) })), asyncHandler(catalog.listPricing));
+router.get('/pricing', requireRole('admin'), validate(z.object({ query: z.object({ loai_the_id: schemas.uuid.optional() }) })), asyncHandler(catalog.listPricing));
 router.post('/pricing', requireRole('admin'), validate(z.object({ body: schemas.pricingCreateBody })), asyncHandler(catalog.createPricing));
 
 router.get('/orders', validate(z.object({ query: schemas.orderListQuery })), asyncHandler(orders.list));
@@ -144,7 +144,7 @@ router.post('/layouts/preview', validate(z.object({ body: schemas.layoutConfigBo
 router.post('/layouts/generate', validate(z.object({ body: schemas.layoutGenerateBody })), asyncHandler(layouts.generate));
 router.get('/layouts/:id', validate(paramsId), asyncHandler(layouts.get));
 router.post('/layouts/:id/download-url', validate(z.object({ params: schemas.idParam, body: emptyBody })), asyncHandler(layouts.downloadUrl));
-router.post('/layouts/:id/reprint', validate(z.object({ params: schemas.idParam, body: z.object({ reason: z.string().optional() }).default({}) })), asyncHandler(layouts.reprint));
+router.post('/layouts/:id/reprint', validate(z.object({ params: schemas.idParam, body: z.object({ ly_do: z.string().optional() }).default({}) })), asyncHandler(layouts.reprint));
 router.post('/layouts/:id/issues', validate(z.object({ params: schemas.idParam, body: schemas.layoutIssueBody })), asyncHandler(layouts.issue));
 
 router.get('/reprint-requests', validate(listQuery), asyncHandler(reprints.list));

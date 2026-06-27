@@ -9,12 +9,12 @@ async function create(data, client) {
      values ($1, $2, $3, $4, $5, $6)
      returning *`,
     [
-      data.order_id,
-      data.cloudinary_original_public_id,
-      data.original_asset_metadata || {},
-      data.width_px || null,
-      data.height_px || null,
-      data.file_size_bytes || null
+      data.don_hang_id,
+      data.cloudinary_anh_goc_id,
+      data.metadata_anh_goc || {},
+      data.rong_px || null,
+      data.cao_px || null,
+      data.dung_luong_bytes || null
     ],
     client
   );
@@ -48,7 +48,7 @@ async function updateStatus(id, status, patch, client) {
          ngay_cap_nhat = now()
      where id = $1
      returning *`,
-    [id, status, patch?.processing_error || null],
+    [id, status, patch?.loi_xu_ly || null],
     client
   );
 }
@@ -71,12 +71,12 @@ async function markProcessed(id, data, client) {
      returning *`,
     [
       id,
-      data.cloudinary_processed_public_id,
-      data.processed_asset_metadata || {},
-      data.quality_score ?? null,
-      JSON.stringify(data.quality_issues || []),
-      data.qc_status || null,
-      data.ai_assist_applied || null
+      data.cloudinary_anh_xu_ly_id,
+      data.metadata_anh_xu_ly || {},
+      data.diem_chat_luong ?? null,
+      JSON.stringify(data.loi_chat_luong || []),
+      data.trang_thai_qc || null,
+      data.ai_da_ap_dung || null
     ],
     client
   );
@@ -92,7 +92,7 @@ async function updateQc(id, data, client) {
          ngay_cap_nhat = now()
      where id = $1
      returning *`,
-    [id, data.quality_score ?? null, JSON.stringify(data.quality_issues || []), data.qc_status],
+    [id, data.diem_chat_luong ?? null, JSON.stringify(data.loi_chat_luong || []), data.trang_thai_qc],
     client
   );
 }
@@ -118,12 +118,12 @@ async function createProcessingJob(data, actorId, client) {
      values ($1, $2, $3, 'queued', $4, $5, $6)
      returning *`,
     [
-      data.order_id,
+      data.don_hang_id,
       actorId,
       data.nha_cung_cap || 'google_ai',
       data.kiem_tra_nghiem_ngat || false,
       data.che_do_xu_ly || 'safe_assist',
-      data.photo_ids.length
+      data.danh_sach_anh_id.length
     ],
     client
   );

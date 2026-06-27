@@ -18,15 +18,15 @@ const context = {
 
 test('photo creation requires Cloudinary original public_id before DB insert', async () => {
   await assert.rejects(
-    () => photoService.createPhotos({ order_id: '20000000-0000-4000-8000-000000000001' }, [], context),
+    () => photoService.createPhotos({ don_hang_id: '20000000-0000-4000-8000-000000000001' }, [], context),
     (error) => error.code === 'VALIDATION_ERROR'
   );
 });
 
 test('batch processing defaults to Google AI provider', () => {
   const body = schemas.batchProcessBody.parse({
-    order_id: '20000000-0000-4000-8000-000000000001',
-    photo_ids: ['30000000-0000-4000-8000-000000000001']
+    don_hang_id: '20000000-0000-4000-8000-000000000001',
+    danh_sach_anh_id: ['30000000-0000-4000-8000-000000000001']
   });
 
   assert.equal(body.nha_cung_cap, 'google_ai');
@@ -34,8 +34,8 @@ test('batch processing defaults to Google AI provider', () => {
 
 test('batch processing defaults to safe_assist mode (AI must not alter identity)', () => {
   const body = schemas.batchProcessBody.parse({
-    order_id: '20000000-0000-4000-8000-000000000001',
-    photo_ids: ['30000000-0000-4000-8000-000000000001']
+    don_hang_id: '20000000-0000-4000-8000-000000000001',
+    danh_sach_anh_id: ['30000000-0000-4000-8000-000000000001']
   });
 
   assert.equal(body.che_do_xu_ly, 'safe_assist');
@@ -43,26 +43,26 @@ test('batch processing defaults to safe_assist mode (AI must not alter identity)
 
 test('batch processing rejects unknown processing_mode', () => {
   assert.throws(() => schemas.batchProcessBody.parse({
-    order_id: '20000000-0000-4000-8000-000000000001',
-    photo_ids: ['30000000-0000-4000-8000-000000000001'],
+    don_hang_id: '20000000-0000-4000-8000-000000000001',
+    danh_sach_anh_id: ['30000000-0000-4000-8000-000000000001'],
     che_do_xu_ly: 'beautify'
   }));
 });
 
 test('batch processing rejects Banana.dev provider value', () => {
   assert.throws(() => schemas.batchProcessBody.parse({
-    order_id: '20000000-0000-4000-8000-000000000001',
-    photo_ids: ['30000000-0000-4000-8000-000000000001'],
+    don_hang_id: '20000000-0000-4000-8000-000000000001',
+    danh_sach_anh_id: ['30000000-0000-4000-8000-000000000001'],
     nha_cung_cap: 'banana'
   }));
 });
 
 test('layout generation defaults to grid on A4 paper', () => {
   const body = schemas.layoutGenerateBody.parse({
-    order_id: '20000000-0000-4000-8000-000000000001',
-    photo_ids: ['30000000-0000-4000-8000-000000000001']
+    don_hang_id: '20000000-0000-4000-8000-000000000001',
+    danh_sach_anh_id: ['30000000-0000-4000-8000-000000000001']
   });
 
-  assert.equal(body.layout_type, 'grid');
-  assert.equal(body.paper_size, 'A4');
+  assert.equal(body.kieu_bo_cuc, 'grid');
+  assert.equal(body.kho_giay, 'A4');
 });

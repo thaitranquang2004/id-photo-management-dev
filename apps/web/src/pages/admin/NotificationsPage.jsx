@@ -29,12 +29,12 @@ function StatusBadge({ status }) {
 }
 
 export default function NotificationsPage() {
-  const [channel, setChannel] = useState('');
+  const [kenh, setChannel] = useState('');
   const [page, setPage] = useState(1);
 
   const listQuery = useQuery({
-    queryKey: ['notifications', channel, page],
-    queryFn: () => listNotifications({ channel: channel || undefined, page, limit: PAGE_SIZE })
+    queryKey: ['notifications', kenh, page],
+    queryFn: () => listNotifications({ kenh: kenh || undefined, page, limit: PAGE_SIZE })
   });
 
   const notifications = listQuery.data?.notifications || [];
@@ -47,7 +47,7 @@ export default function NotificationsPage() {
           <h1>Thông báo</h1>
           <p>Nhật ký email (thật) và Zalo (mô phỏng) gửi cho khách.</p>
         </div>
-        <Form.Select value={channel} onChange={(e) => { setChannel(e.target.value); setPage(1); }} style={{ maxWidth: 200 }}>
+        <Form.Select value={kenh} onChange={(e) => { setChannel(e.target.value); setPage(1); }} style={{ maxWidth: 200 }}>
           <option value="">Tất cả kênh</option>
           <option value="email">Email</option>
           <option value="zalo">Zalo (mô phỏng)</option>

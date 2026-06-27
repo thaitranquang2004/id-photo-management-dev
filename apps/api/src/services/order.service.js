@@ -49,10 +49,10 @@ async function getOrder(id) {
 // Core order creation reused by the staff endpoint AND online-request conversion.
 // Runs inside the caller's transaction so callers can compose extra work atomically.
 async function createOrderCore(body, context, client) {
-  const pricing = await catalogRepository.getCurrentPricing(body.card_type_id, new Date(), client);
-  if (!pricing) throw errors.validation('Loại thẻ chưa có giá hiện hành', { card_type_id: body.card_type_id });
+  const pricing = await catalogRepository.getCurrentPricing(body.loai_the_id, new Date(), client);
+  if (!pricing) throw errors.validation('Loại thẻ chưa có giá hiện hành', { card_type_id: body.loai_the_id });
 
-  const totalAmount = totalFromPricing(pricing, body.quantity);
+  const totalAmount = totalFromPricing(pricing, body.so_luong);
   const order = await ordersRepository.createOrder(body, context.user.id, totalAmount, client);
 
   const pricingSnapshot = await ordersRepository.createPricingSnapshot(order, pricing, totalAmount, client);

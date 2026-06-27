@@ -22,16 +22,16 @@ const APPT_LABEL = {
 };
 
 export default function OnlineRequestStatusPage() {
-  const [form, setForm] = useState({ request_id: '', phone: '' });
+  const [form, setForm] = useState({ request_id: '', so_dien_thoai: '' });
   const { errors, clearError, validate } = useFormErrors();
   const statusMutation = useMutation({
-    mutationFn: () => getOnlineRequestStatus(form.request_id.trim(), form.phone.trim())
+    mutationFn: () => getOnlineRequestStatus(form.request_id.trim(), form.so_dien_thoai.trim())
   });
   const request = statusMutation.data?.request;
 
   function submit(event) {
     event.preventDefault();
-    if (!validate(form, { request_id: 'Vui lòng nhập mã yêu cầu', phone: 'Vui lòng nhập số điện thoại' })) return;
+    if (!validate(form, { request_id: 'Vui lòng nhập mã yêu cầu', so_dien_thoai: 'Vui lòng nhập số điện thoại' })) return;
     statusMutation.mutate();
   }
 
@@ -76,12 +76,12 @@ export default function OnlineRequestStatusPage() {
                     <Form.Group>
                       <Form.Label>Số điện thoại *</Form.Label>
                       <Form.Control
-                        value={form.phone}
-                        onChange={(e) => { setForm((c) => ({ ...c, phone: e.target.value })); clearError('phone'); }}
+                        value={form.so_dien_thoai}
+                        onChange={(e) => { setForm((c) => ({ ...c, so_dien_thoai: e.target.value })); clearError('so_dien_thoai'); }}
                         inputMode="tel"
-                        isInvalid={!!errors.phone}
+                        isInvalid={!!errors.so_dien_thoai}
                       />
-                      <Form.Control.Feedback type="invalid">{errors.phone}</Form.Control.Feedback>
+                      <Form.Control.Feedback type="invalid">{errors.so_dien_thoai}</Form.Control.Feedback>
                     </Form.Group>
                   </Col>
                 </Row>

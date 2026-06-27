@@ -54,7 +54,7 @@ async function archiveCardType(id, context) {
 }
 
 async function listPricing(query) {
-  return { pricing: await catalogRepository.listPricing(query.card_type_id) };
+  return { pricing: await catalogRepository.listPricing(query.loai_the_id) };
 }
 
 async function createPricing(body, context) {

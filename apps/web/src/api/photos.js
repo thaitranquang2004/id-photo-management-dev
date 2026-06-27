@@ -2,7 +2,7 @@ import { apiData } from './client';
 
 export async function uploadPhotos(orderId, files) {
   const formData = new FormData();
-  formData.set('order_id', orderId);
+  formData.set('don_hang_id', orderId);
   Array.from(files).forEach((file) => formData.append('files', file));
   return apiData('/photos', { method: 'POST', body: formData });
 }
@@ -16,11 +16,11 @@ export async function getProcessingJob(id) {
 }
 
 export async function approvePhoto(id, notes = '') {
-  return apiData(`/photos/${id}/approve`, { method: 'POST', body: { notes } });
+  return apiData(`/photos/${id}/approve`, { method: 'POST', body: { ghi_chu: notes } });
 }
 
 export async function rejectPhoto(id, reason) {
-  return apiData(`/photos/${id}/reject`, { method: 'POST', body: { reason } });
+  return apiData(`/photos/${id}/reject`, { method: 'POST', body: { ly_do: reason } });
 }
 
 export async function requalifyPhoto(id) {

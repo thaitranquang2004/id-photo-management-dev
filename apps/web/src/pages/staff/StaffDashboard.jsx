@@ -22,11 +22,11 @@ export default function StaffDashboard() {
   const today = todayRange();
   const pendingOrders = useQuery({
     queryKey: ['staff', 'orders', 'pending-today', today.date_from, today.date_to],
-    queryFn: () => listOrders({ status: 'pending', date_from: today.date_from, date_to: today.date_to, limit: 20 })
+    queryFn: () => listOrders({ trang_thai: 'pending', date_from: today.date_from, date_to: today.date_to, limit: 20 })
   });
   const completedOrders = useQuery({
     queryKey: ['staff', 'orders', 'completed-today', today.date_from, today.date_to],
-    queryFn: () => listOrders({ status: 'completed', date_from: today.date_from, date_to: today.date_to, limit: 1 })
+    queryFn: () => listOrders({ trang_thai: 'completed', date_from: today.date_from, date_to: today.date_to, limit: 1 })
   });
   const monthlyCustomers = useQuery({
     queryKey: ['staff', 'customers', 'month'],
@@ -156,7 +156,7 @@ export default function StaffDashboard() {
                 {reprints.map((item) => (
                   <div className="stack-list-item" key={item.id}>
                     <div className="fw-semibold">{item.ma_don || item.id}</div>
-                    <div className="text-muted small">{item.reason || item.note || 'Không có ghi chú'}</div>
+                    <div className="text-muted small">{item.ly_do || item.ghi_chu || 'Không có ghi chú'}</div>
                   </div>
                 ))}
               </div>

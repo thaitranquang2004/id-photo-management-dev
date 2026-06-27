@@ -4,16 +4,16 @@ async function list(filters, { limit, offset }, client) {
   const params = [];
   const where = ['1 = 1'];
 
-  if (filters.status) {
-    params.push(filters.status);
+  if (filters.trang_thai) {
+    params.push(filters.trang_thai);
     where.push(`o.trang_thai = $${params.length}`);
   }
-  if (filters.created_by) {
-    params.push(filters.created_by);
+  if (filters.nguoi_tao) {
+    params.push(filters.nguoi_tao);
     where.push(`o.nguoi_tao = $${params.length}`);
   }
-  if (filters.intake_source) {
-    params.push(filters.intake_source);
+  if (filters.nguon_don) {
+    params.push(filters.nguon_don);
     where.push(`o.nguon_don = $${params.length}`);
   }
   if (filters.date_from) {
@@ -108,15 +108,15 @@ async function createOrder(data, actorId, totalAmount, client) {
        $1, $2, $3, 'pending', $4, $5, $6, $7, $8, $9
      returning *`,
     [
-      data.customer_id,
-      data.card_type_id,
+      data.khach_hang_id,
+      data.loai_the_id,
       actorId,
       totalAmount,
-      data.quantity,
-      data.pickup_date || null,
-      data.notes || null,
-      data.intake_source || 'walk_in',
-      data.delivery_method || 'pickup'
+      data.so_luong,
+      data.ngay_hen_lay || null,
+      data.ghi_chu || null,
+      data.nguon_don || 'walk_in',
+      data.hinh_thuc_giao || 'pickup'
     ],
     client
   );

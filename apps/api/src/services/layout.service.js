@@ -20,18 +20,18 @@ function mmToPx(mm, dpi) {
 }
 
 function paperSize(body) {
-  const configured = body.layout_config || {};
+  const configured = body.cau_hinh_bo_cuc || {};
   if (configured.paper_width_mm && configured.paper_height_mm) {
     return {
       width: Number(configured.paper_width_mm),
       height: Number(configured.paper_height_mm)
     };
   }
-  return PAPER_SIZES_MM[body.paper_size] || PAPER_SIZES_MM.A4;
+  return PAPER_SIZES_MM[body.kho_giay] || PAPER_SIZES_MM.A4;
 }
 
 function photoSize(body, cardType) {
-  const configured = body.layout_config || {};
+  const configured = body.cau_hinh_bo_cuc || {};
   return {
     width: Number(configured.photo_width_mm || cardType.rong_mm),
     height: Number(configured.photo_height_mm || cardType.cao_mm)
@@ -45,11 +45,11 @@ async function loadPrintablePhoto(photo) {
 }
 
 async function renderLayoutBuffer(body, order, cardType, photos) {
-  const dpi = Number(body.dpi || body.layout_config?.dpi || 300);
+  const dpi = Number(body.dpi || body.cau_hinh_bo_cuc?.dpi || 300);
   const paper = paperSize(body);
   const card = photoSize(body, cardType);
-  const marginMm = Number(body.layout_config?.margin_mm ?? 5);
-  const gapMm = Number(body.layout_config?.gap_mm ?? 2);
+  const marginMm = Number(body.cau_hinh_bo_cuc?.margin_mm ?? 5);
+  const gapMm = Number(body.cau_hinh_bo_cuc?.gap_mm ?? 2);
 
   const paperWidthPx = mmToPx(paper.width, dpi);
   const paperHeightPx = mmToPx(paper.height, dpi);
@@ -57,7 +57,7 @@ async function renderLayoutBuffer(body, order, cardType, photos) {
   const photoHeightPx = mmToPx(card.height, dpi);
   const marginPx = mmToPx(marginMm, dpi);
   const gapPx = mmToPx(gapMm, dpi);
-  const labelHeightPx = body.add_text ? mmToPx(5, dpi) : 0;
+  const labelHeightPx = body.them_chu ? mmToPx(5, dpi) : 0;
   const itemHeightPx = photoHeightPx + labelHeightPx;
   const columns = Math.max(1, Math.floor((paperWidthPx - marginPx * 2 + gapPx) / (photoWidthPx + gapPx)));
   const rows = Math.max(1, Math.floor((paperHeightPx - marginPx * 2 + gapPx) / (itemHeightPx + gapPx)));
@@ -80,7 +80,7 @@ async function renderLayoutBuffer(body, order, cardType, photos) {
       .toBuffer();
     composites.push({ input: resized, left, top });
 
-    if (body.add_text) {
+    if (body.them_chu) {
       const labelSvg = Buffer.from(`
         <svg width="${photoWidthPx}" height="${labelHeightPx}" xmlns="http://www.w3.org/2000/svg">
           <rect width="100%" height="100%" fill="white"/>
@@ -126,21 +126,21 @@ async function renderLayoutBuffer(body, order, cardType, photos) {
 }
 
 async function validatedLayoutInputs(body, client) {
-  const order = await ordersRepository.findById(body.order_id, client);
+  const order = await ordersRepository.findById(body.don_hang_id, client);
   if (!order) throw errors.notFound('Không tìm thấy đơn hàng');
   const cardType = await catalogRepository.findCardType(order.loai_the_id, client);
-  const photos = await photosRepository.findManyByIds(body.photo_ids, client);
-  if (photos.length !== body.photo_ids.length || photos.some((photo) => photo.don_hang_id !== body.order_id || photo.trang_thai !== 'approved')) {
-    throw errors.validation('Layout chỉ được dùng ảnh approved thuộc cùng order', { order_id: body.order_id });
+  const photos = await photosRepository.findManyByIds(body.danh_sach_anh_id, client);
+  if (photos.length !== body.danh_sach_anh_id.length || photos.some((photo) => photo.don_hang_id !== body.don_hang_id || photo.trang_thai !== 'approved')) {
+    throw errors.validation('Layout chỉ được dùng ảnh approved thuộc cùng order', { order_id: body.don_hang_id });
   }
   return { order, cardType, photos };
 }
 
 async function validateConfig(body) {
-  const photos = await photosRepository.findManyByIds(body.photo_ids);
-  const invalid = photos.filter((photo) => photo.don_hang_id !== body.order_id || photo.trang_thai !== 'approved');
+  const photos = await photosRepository.findManyByIds(body.danh_sach_anh_id);
+  const invalid = photos.filter((photo) => photo.don_hang_id !== body.don_hang_id || photo.trang_thai !== 'approved');
   return {
-    valid: photos.length === body.photo_ids.length && invalid.length === 0,
+    valid: photos.length === body.danh_sach_anh_id.length && invalid.length === 0,
     warnings: invalid.length ? ['Chỉ ảnh approved thuộc cùng order mới được dùng cho layout'] : []
   };
 }
@@ -158,9 +158,9 @@ async function preview(body) {
   return {
     preview_signed_url: signed.signed_url,
     expires_at: signed.expires_at,
-    cloudinary_public_id: upload.public_id,
+    cloudinary_id: upload.public_id,
     layout_config: {
-      ...body.layout_config,
+      ...body.cau_hinh_bo_cuc,
       renderer: rendered.metadata
     }
   };
@@ -168,17 +168,17 @@ async function preview(body) {
 
 async function generateLayout(body, context) {
   return withTransaction(async (client) => {
-    const order = await ordersRepository.findByIdForUpdate(body.order_id, client);
+    const order = await ordersRepository.findByIdForUpdate(body.don_hang_id, client);
     if (!order) throw errors.notFound('Không tìm thấy đơn hàng');
 
     const cardType = await catalogRepository.findCardType(order.loai_the_id, client);
-    const photos = await photosRepository.findManyByIds(body.photo_ids, client);
-    if (photos.length !== body.photo_ids.length || photos.some((photo) => photo.don_hang_id !== body.order_id || photo.trang_thai !== 'approved')) {
-      throw errors.validation('Layout chỉ được dùng ảnh approved thuộc cùng order', { order_id: body.order_id });
+    const photos = await photosRepository.findManyByIds(body.danh_sach_anh_id, client);
+    if (photos.length !== body.danh_sach_anh_id.length || photos.some((photo) => photo.don_hang_id !== body.don_hang_id || photo.trang_thai !== 'approved')) {
+      throw errors.validation('Layout chỉ được dùng ảnh approved thuộc cùng order', { order_id: body.don_hang_id });
     }
 
     let layoutBody = body;
-    if (!body.cloudinary_public_id) {
+    if (!body.cloudinary_id) {
       const rendered = await renderLayoutBuffer(body, order, cardType, photos);
       const upload = await assetService.uploadBuffer(rendered.buffer, {
         folder: `id-photo-management/orders/${order.id}/layouts`,
@@ -188,12 +188,12 @@ async function generateLayout(body, context) {
       });
       layoutBody = {
         ...body,
-        cloudinary_public_id: upload.public_id,
-        layout_asset_metadata: {
+        cloudinary_id: upload.public_id,
+        metadata_file: {
           ...assetService.cloudinaryMetadata(upload),
           ...rendered.metadata
         },
-        file_size_bytes: upload.bytes,
+        dung_luong_bytes: upload.bytes,
         metadata: {
           renderer: 'sharp-grid',
           source: 'api'
@@ -202,7 +202,7 @@ async function generateLayout(body, context) {
     }
 
     const printLayout = await layoutsRepository.createLayout(layoutBody, context.user.id, client);
-    const items = await layoutsRepository.createItems(printLayout.id, body.photo_ids, client);
+    const items = await layoutsRepository.createItems(printLayout.id, body.danh_sach_anh_id, client);
     await writeAudit('layout.created', 'bo_cuc_in', printLayout.id, context, { new_data: { print_layout: printLayout, items } }, client);
 
     let updatedOrder = order;

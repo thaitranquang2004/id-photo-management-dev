@@ -1,11 +1,11 @@
 const { one, many } = require('../db/pool');
 
-async function list({ phone, limit, offset }, client) {
+async function list({ so_dien_thoai, limit, offset }, client) {
   const params = [];
   const where = ['dang_hoat_dong = true'];
 
-  if (phone) {
-    params.push(`%${phone}%`);
+  if (so_dien_thoai) {
+    params.push(`%%`);
     where.push(`so_dien_thoai ilike $${params.length}`);
   }
 
@@ -44,7 +44,7 @@ async function create(data, actorId, client) {
     `insert into public.khach_hang (ho_ten, so_dien_thoai, email, ghi_chu, nguoi_tao)
      values ($1, $2, $3, $4, $5)
      returning *`,
-    [data.full_name, data.phone, data.email || null, data.notes || null, actorId],
+    [data.ho_ten, data.so_dien_thoai, data.email || null, data.ghi_chu || null, actorId],
     client
   );
 }
@@ -59,7 +59,7 @@ async function update(id, patch, client) {
          ngay_cap_nhat = now()
      where id = $1
      returning *`,
-    [id, patch.full_name ?? null, patch.phone ?? null, patch.email ?? null, patch.notes ?? null],
+    [id, patch.ho_ten ?? null, patch.so_dien_thoai ?? null, patch.email ?? null, patch.ghi_chu ?? null],
     client
   );
 }

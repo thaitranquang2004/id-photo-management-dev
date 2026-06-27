@@ -98,9 +98,9 @@ function computeQc({ sourceWidthPx, sourceHeightPx, cardType, aiFindings }) {
   const penalty = issues.reduce((sum, item) => sum + (item.severity === 'fail' ? 40 : 10), 0);
 
   return {
-    qc_status: hasFail ? 'fail' : hasWarn ? 'warn' : 'pass',
-    quality_score: Math.max(0, Math.min(100, 100 - penalty)),
-    quality_issues: issues
+    trang_thai_qc: hasFail ? 'fail' : hasWarn ? 'warn' : 'pass',
+    diem_chat_luong: Math.max(0, Math.min(100, 100 - penalty)),
+    loi_chat_luong: issues
   };
 }
 
@@ -126,28 +126,28 @@ async function uploadOriginalFile(file, orderId) {
   });
 
   return {
-    cloudinary_original_public_id: result.public_id,
-    original_asset_metadata: {
+    cloudinary_anh_goc_id: result.public_id,
+    metadata_anh_goc: {
       ...assetService.cloudinaryMetadata(result),
       original_filename: file.originalname,
       mimetype: file.mimetype
     },
-    width_px: result.width,
-    height_px: result.height,
-    file_size_bytes: result.bytes
+    rong_px: result.width,
+    cao_px: result.height,
+    dung_luong_bytes: result.bytes
   };
 }
 
 async function createPhotos(body, files, context) {
-  if (!files?.length && !body.cloudinary_original_public_id) {
+  if (!files?.length && !body.cloudinary_anh_goc_id) {
     throw errors.validation('Cần cloudinary_original_public_id để tạo record ảnh');
   }
 
-  const order = await ordersRepository.findById(body.order_id);
+  const order = await ordersRepository.findById(body.don_hang_id);
   if (!order) throw errors.notFound('Không tìm thấy đơn hàng');
 
   const photoInputs = files?.length
-    ? await Promise.all(files.map((file) => uploadOriginalFile(file, body.order_id)))
+    ? await Promise.all(files.map((file) => uploadOriginalFile(file, body.don_hang_id)))
     : [body];
 
   return withTransaction(async (client) => {
@@ -221,8 +221,8 @@ async function processPhoto(photo, order, cardType, job, client) {
     });
 
     const processed = await photosRepository.markProcessed(photo.id, {
-      cloudinary_processed_public_id: upload.public_id,
-      processed_asset_metadata: {
+      cloudinary_anh_xu_ly_id: upload.public_id,
+      metadata_anh_xu_ly: {
         ...assetService.cloudinaryMetadata(upload),
         ...providerMetadata,
         target_width_mm: Number(cardType.rong_mm),
@@ -231,18 +231,18 @@ async function processPhoto(photo, order, cardType, job, client) {
         ai_safe_assist: aiAssist,
         qc_findings: aiFindings || null
       },
-      quality_score: qc.quality_score,
-      quality_issues: qc.quality_issues,
-      qc_status: qc.qc_status,
-      ai_assist_applied: aiAssist
+      diem_chat_luong: qc.diem_chat_luong,
+      loi_chat_luong: qc.loi_chat_luong,
+      trang_thai_qc: qc.trang_thai_qc,
+      ai_da_ap_dung: aiAssist
     }, client);
 
-    if (job.kiem_tra_nghiem_ngat && qc.qc_status === 'fail') {
-      const reason = `QC thất bại: ${qc.quality_issues
+    if (job.kiem_tra_nghiem_ngat && qc.trang_thai_qc === 'fail') {
+      const reason = `QC thất bại: ${qc.loi_chat_luong
         .filter((item) => item.severity === 'fail')
         .map((item) => item.message)
         .join('; ')}`;
-      return photosRepository.updateStatus(photo.id, 'rejected', { processing_error: reason }, client);
+      return photosRepository.updateStatus(photo.id, 'rejected', { loi_xu_ly: reason }, client);
     }
 
     return processed;
@@ -282,15 +282,15 @@ async function runProcessingJob(jobId, context) {
 
 async function batchProcess(body, context) {
   const created = await withTransaction(async (client) => {
-    const order = await ordersRepository.findByIdForUpdate(body.order_id, client);
+    const order = await ordersRepository.findByIdForUpdate(body.don_hang_id, client);
     if (!order) throw errors.notFound('Không tìm thấy đơn hàng');
     if (!['pending', 'processing'].includes(order.trang_thai)) {
       throw errors.invalidState('Chỉ đơn pending hoặc processing mới được batch-process', { status: order.trang_thai });
     }
 
-    const photos = await photosRepository.findManyByIds(body.photo_ids, client);
-    if (photos.length !== body.photo_ids.length || photos.some((photo) => photo.don_hang_id !== body.order_id)) {
-      throw errors.validation('photo_ids phải thuộc cùng order_id', { order_id: body.order_id });
+    const photos = await photosRepository.findManyByIds(body.danh_sach_anh_id, client);
+    if (photos.length !== body.danh_sach_anh_id.length || photos.some((photo) => photo.don_hang_id !== body.don_hang_id)) {
+      throw errors.validation('photo_ids phải thuộc cùng order_id', { order_id: body.don_hang_id });
     }
 
     let updatedOrder = order;
@@ -303,7 +303,7 @@ async function batchProcess(body, context) {
     }
 
     const job = await photosRepository.createProcessingJob(body, context.user.id, client);
-    const updatedPhotos = await photosRepository.markPhotosProcessing(body.photo_ids, job.id, client);
+    const updatedPhotos = await photosRepository.markPhotosProcessing(body.danh_sach_anh_id, job.id, client);
     await writeAudit('processing_job.created', 'tac_vu_xu_ly', job.id, context, { new_data: job }, client);
 
     return { order: updatedOrder, job, photos: updatedPhotos };
@@ -346,7 +346,7 @@ async function rejectPhoto(id, body, context) {
     if (oldPhoto.status === 'approved') {
       throw errors.invalidState('Không thể từ chối ảnh đã được duyệt.', { status: oldPhoto.status });
     }
-    const photo = await photosRepository.updateStatus(id, 'rejected', { processing_error: body.reason }, client);
+    const photo = await photosRepository.updateStatus(id, 'rejected', { loi_xu_ly: body.ly_do }, client);
     await writeAudit('photo.rejected', 'anh',id, context, { old_data: oldPhoto, new_data: photo }, client);
     return { photo };
   });

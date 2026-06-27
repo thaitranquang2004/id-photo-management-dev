@@ -123,7 +123,7 @@ export default function AdminDashboard() {
                 {reprints.map((request) => (
                   <div className="stack-list-item" key={request.id}>
                     <strong>{request.ma_don || request.id}</strong>
-                    <span>{request.reason || request.note || 'Không có ghi chú'}</span>
+                    <span>{request.ly_do || request.ghi_chu || 'Không có ghi chú'}</span>
                   </div>
                 ))}
               </div>

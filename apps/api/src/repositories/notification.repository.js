@@ -13,9 +13,9 @@ async function create(data, client) {
       data.recipient,
       data.subject || null,
       data.body || null,
-      data.status || 'pending',
-      data.order_id || null,
-      data.online_request_id || null,
+      data.trang_thai || 'pending',
+      data.don_hang_id || null,
+      data.yeu_cau_online_id || null,
       data.metadata || {}
     ],
     client
@@ -40,16 +40,16 @@ async function list(filters, { limit, offset }, client) {
   const params = [];
   const where = ['1 = 1'];
 
-  if (filters.channel) {
-    params.push(filters.channel);
+  if (filters.kenh) {
+    params.push(filters.kenh);
     where.push(`kenh = $${params.length}`);
   }
-  if (filters.event_type) {
-    params.push(filters.event_type);
+  if (filters.loai_su_kien) {
+    params.push(filters.loai_su_kien);
     where.push(`loai_su_kien = $${params.length}`);
   }
-  if (filters.order_id) {
-    params.push(filters.order_id);
+  if (filters.don_hang_id) {
+    params.push(filters.don_hang_id);
     where.push(`don_hang_id = $${params.length}`);
   }
 

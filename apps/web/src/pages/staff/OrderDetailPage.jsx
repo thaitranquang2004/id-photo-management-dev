@@ -80,7 +80,7 @@ export default function OrderDetailPage() {
 
   const notificationsQuery = useQuery({
     queryKey: ['notifications', 'order', id],
-    queryFn: () => listNotifications({ order_id: id, limit: 20 })
+    queryFn: () => listNotifications({ don_hang_id: id, limit: 20 })
   });
   const approvedPhotos = useMemo(() => photos.filter((photo) => photo.trang_thai === 'approved'), [photos]);
   const pendingAiPhotos = useMemo(() => photos.filter((photo) => photo.trang_thai === 'raw'), [photos]);
@@ -97,8 +97,8 @@ export default function OrderDetailPage() {
 
   const processMutation = useMutation({
     mutationFn: () => batchProcessPhotos({
-      order_id: id,
-      photo_ids: pendingAiPhotos.map((photo) => photo.id),
+      don_hang_id: id,
+      danh_sach_anh_id: pendingAiPhotos.map((photo) => photo.id),
       nha_cung_cap: 'google_ai',
       kiem_tra_nghiem_ngat: false
     }),
@@ -110,8 +110,8 @@ export default function OrderDetailPage() {
 
   const autoProcessMutation = useMutation({
     mutationFn: (photoIds) => batchProcessPhotos({
-      order_id: id,
-      photo_ids: photoIds,
+      don_hang_id: id,
+      danh_sach_anh_id: photoIds,
       nha_cung_cap: 'google_ai',
       kiem_tra_nghiem_ngat: false
     }),
@@ -156,7 +156,7 @@ export default function OrderDetailPage() {
   });
 
   const rejectMutation = useMutation({
-    mutationFn: ({ photoId, reason }) => rejectPhoto(photoId, reason),
+    mutationFn: ({ photoId, ly_do }) => rejectPhoto(photoId, ly_do),
     onSuccess: () => {
       setRejectTarget(null);
       setRejectReason('');
@@ -636,7 +636,7 @@ export default function OrderDetailPage() {
           <Button
             variant="danger"
             disabled={!rejectReason.trim() || rejectMutation.isPending}
-            onClick={() => rejectMutation.mutate({ photoId: rejectTarget.id, reason: rejectReason })}
+            onClick={() => rejectMutation.mutate({ photoId: rejectTarget.id, ly_do: rejectReason })}
           >
             Từ chối
           </Button>

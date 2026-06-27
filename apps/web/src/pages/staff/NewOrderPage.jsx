@@ -17,16 +17,16 @@ const steps = ['Khách hàng', 'Thông tin đơn', 'Xác nhận'];
 export default function NewOrderPage() {
   const navigate = useNavigate();
   const [step, setStep] = useState(0);
-  const [phone, setPhone] = useState('');
+  const [so_dien_thoai, setPhone] = useState('');
   const [customers, setCustomers] = useState([]);
   const [selectedCustomer, setSelectedCustomer] = useState(null);
-  const [customerForm, setCustomerForm] = useState({ full_name: '', phone: '', email: '', notes: '' });
+  const [customerForm, setCustomerForm] = useState({ ho_ten: '', so_dien_thoai: '', email: '', ghi_chu: '' });
   const [orderForm, setOrderForm] = useState({
-    card_type_id: '',
-    quantity: 4,
-    pickup_date: '',
-    notes: '',
-    delivery_method: 'pickup'
+    loai_the_id: '',
+    so_luong: 4,
+    ngay_hen_lay: '',
+    ghi_chu: '',
+    hinh_thuc_giao: 'pickup'
   });
   const searchErrors = useFormErrors();
   const customerErrors = useFormErrors();
@@ -60,24 +60,24 @@ export default function NewOrderPage() {
   });
 
   const cardTypes = cardTypesQuery.data?.card_types || [];
-  const selectedCardType = cardTypes.find((cardType) => cardType.id === orderForm.card_type_id);
+  const selectedCardType = cardTypes.find((cardType) => cardType.id === orderForm.loai_the_id);
   const estimatedTotal = useMemo(() => {
     if (!selectedCardType) return 0;
-    return Number(selectedCardType.gia_moi_ban_hien_hanh || 0) * Number(orderForm.quantity || 0)
+    return Number(selectedCardType.gia_moi_ban_hien_hanh || 0) * Number(orderForm.so_luong || 0)
       + Number(selectedCardType.phi_xu_ly_hien_hanh || 0);
-  }, [orderForm.quantity, selectedCardType]);
+  }, [orderForm.so_luong, selectedCardType]);
 
   function handleSearch(event) {
     event.preventDefault();
-    if (!searchErrors.validate({ phone }, { phone: 'Vui lòng nhập số điện thoại để tìm' })) return;
-    const value = phone.trim();
-    setCustomerForm((current) => ({ ...current, phone: value }));
+    if (!searchErrors.validate({ so_dien_thoai }, { so_dien_thoai: 'Vui lòng nhập số điện thoại để tìm' })) return;
+    const value = so_dien_thoai.trim();
+    setCustomerForm((current) => ({ ...current, so_dien_thoai: value }));
     searchMutation.mutate(value);
   }
 
   function submitCustomer(event) {
     event.preventDefault();
-    if (!customerErrors.validate(customerForm, { full_name: 'Vui lòng nhập họ tên', phone: 'Vui lòng nhập số điện thoại' })) return;
+    if (!customerErrors.validate(customerForm, { ho_ten: 'Vui lòng nhập họ tên', so_dien_thoai: 'Vui lòng nhập số điện thoại' })) return;
     createCustomerMutation.mutate(customerForm);
   }
 
@@ -86,7 +86,7 @@ export default function NewOrderPage() {
       setStepError('Vui lòng chọn một loại thẻ.');
       return;
     }
-    if (Number(orderForm.quantity) < 4) {
+    if (Number(orderForm.so_luong) < 4) {
       setStepError('Số lượng tối thiểu là 4 tấm/đơn.');
       return;
     }
@@ -97,12 +97,12 @@ export default function NewOrderPage() {
   function submitOrder() {
     if (!selectedCustomer || !selectedCardType) return;
     createOrderMutation.mutate({
-      customer_id: selectedCustomer.id,
-      card_type_id: selectedCardType.id,
-      quantity: Number(orderForm.quantity),
-      pickup_date: orderForm.pickup_date || undefined,
-      notes: orderForm.notes || undefined,
-      delivery_method: orderForm.delivery_method
+      khach_hang_id: selectedCustomer.id,
+      loai_the_id: selectedCardType.id,
+      so_luong: Number(orderForm.so_luong),
+      ngay_hen_lay: orderForm.ngay_hen_lay || undefined,
+      ghi_chu: orderForm.ghi_chu || undefined,
+      hinh_thuc_giao: orderForm.hinh_thuc_giao
     });
   }
 
@@ -137,16 +137,16 @@ export default function NewOrderPage() {
               <Form onSubmit={handleSearch}>
                 <InputGroup className="mb-1" hasValidation>
                   <Form.Control
-                    value={phone}
-                    onChange={(event) => { setPhone(event.target.value); searchErrors.clearError('phone'); }}
+                    value={so_dien_thoai}
+                    onChange={(event) => { setPhone(event.target.value); searchErrors.clearError('so_dien_thoai'); }}
                     placeholder="Nhập số điện thoại"
-                    isInvalid={!!searchErrors.errors.phone}
+                    isInvalid={!!searchErrors.errors.so_dien_thoai}
                   />
                   <Button type="submit" disabled={searchMutation.isPending}>
                     <Search size={17} aria-hidden="true" />
                     Tìm
                   </Button>
-                  <Form.Control.Feedback type="invalid">{searchErrors.errors.phone}</Form.Control.Feedback>
+                  <Form.Control.Feedback type="invalid">{searchErrors.errors.so_dien_thoai}</Form.Control.Feedback>
                 </InputGroup>
                 <div className="mb-3" />
               </Form>
@@ -187,22 +187,22 @@ export default function NewOrderPage() {
                     <Form.Group>
                       <Form.Label>Họ tên</Form.Label>
                       <Form.Control
-                        value={customerForm.full_name}
-                        onChange={(event) => { setCustomerForm((current) => ({ ...current, full_name: event.target.value })); customerErrors.clearError('full_name'); }}
-                        isInvalid={!!customerErrors.errors.full_name}
+                        value={customerForm.ho_ten}
+                        onChange={(event) => { setCustomerForm((current) => ({ ...current, ho_ten: event.target.value })); customerErrors.clearError('ho_ten'); }}
+                        isInvalid={!!customerErrors.errors.ho_ten}
                       />
-                      <Form.Control.Feedback type="invalid">{customerErrors.errors.full_name}</Form.Control.Feedback>
+                      <Form.Control.Feedback type="invalid">{customerErrors.errors.ho_ten}</Form.Control.Feedback>
                     </Form.Group>
                   </Col>
                   <Col md={6}>
                     <Form.Group>
                       <Form.Label>Số điện thoại</Form.Label>
                       <Form.Control
-                        value={customerForm.phone}
-                        onChange={(event) => { setCustomerForm((current) => ({ ...current, phone: event.target.value })); customerErrors.clearError('phone'); }}
-                        isInvalid={!!customerErrors.errors.phone}
+                        value={customerForm.so_dien_thoai}
+                        onChange={(event) => { setCustomerForm((current) => ({ ...current, so_dien_thoai: event.target.value })); customerErrors.clearError('so_dien_thoai'); }}
+                        isInvalid={!!customerErrors.errors.so_dien_thoai}
                       />
-                      <Form.Control.Feedback type="invalid">{customerErrors.errors.phone}</Form.Control.Feedback>
+                      <Form.Control.Feedback type="invalid">{customerErrors.errors.so_dien_thoai}</Form.Control.Feedback>
                     </Form.Group>
                   </Col>
                   <Col md={6}>
@@ -219,8 +219,8 @@ export default function NewOrderPage() {
                     <Form.Group>
                       <Form.Label>Ghi chú</Form.Label>
                       <Form.Control
-                        value={customerForm.notes}
-                        onChange={(event) => setCustomerForm((current) => ({ ...current, notes: event.target.value }))}
+                        value={customerForm.ghi_chu}
+                        onChange={(event) => setCustomerForm((current) => ({ ...current, ghi_chu: event.target.value }))}
                       />
                     </Form.Group>
                   </Col>
@@ -261,13 +261,13 @@ export default function NewOrderPage() {
                   </thead>
                   <tbody>
                     {cardTypes.map((cardType) => (
-                      <tr key={cardType.id} className={orderForm.card_type_id === cardType.id ? 'selected-row' : ''}>
+                      <tr key={cardType.id} className={orderForm.loai_the_id === cardType.id ? 'selected-row' : ''}>
                         <td>
                           <Form.Check
                             type="radio"
                             name="card-type"
-                            checked={orderForm.card_type_id === cardType.id}
-                            onChange={() => { setOrderForm((current) => ({ ...current, card_type_id: cardType.id })); setStepError(''); }}
+                            checked={orderForm.loai_the_id === cardType.id}
+                            onChange={() => { setOrderForm((current) => ({ ...current, loai_the_id: cardType.id })); setStepError(''); }}
                             aria-label={`Chọn ${cardType.ten}`}
                           />
                         </td>
@@ -295,9 +295,9 @@ export default function NewOrderPage() {
                     <Form.Control
                       type="number"
                       min="4"
-                      value={orderForm.quantity}
-                      onChange={(event) => { setOrderForm((current) => ({ ...current, quantity: event.target.value })); setStepError(''); }}
-                      isInvalid={Number(orderForm.quantity) < 4}
+                      value={orderForm.so_luong}
+                      onChange={(event) => { setOrderForm((current) => ({ ...current, so_luong: event.target.value })); setStepError(''); }}
+                      isInvalid={Number(orderForm.so_luong) < 4}
                     />
                     <Form.Text muted>Tối thiểu 4 tấm/đơn.</Form.Text>
                   </Form.Group>
@@ -306,8 +306,8 @@ export default function NewOrderPage() {
                   <Form.Group>
                     <Form.Label>Hình thức giao</Form.Label>
                     <Form.Select
-                      value={orderForm.delivery_method}
-                      onChange={(event) => setOrderForm((current) => ({ ...current, delivery_method: event.target.value }))}
+                      value={orderForm.hinh_thuc_giao}
+                      onChange={(event) => setOrderForm((current) => ({ ...current, hinh_thuc_giao: event.target.value }))}
                     >
                       <option value="pickup">Lấy tại quầy</option>
                       <option value="online">Khách tải online</option>
@@ -319,8 +319,8 @@ export default function NewOrderPage() {
                     <Form.Label>Ngày hẹn lấy</Form.Label>
                     <Form.Control
                       type="date"
-                      value={orderForm.pickup_date}
-                      onChange={(event) => setOrderForm((current) => ({ ...current, pickup_date: event.target.value }))}
+                      value={orderForm.ngay_hen_lay}
+                      onChange={(event) => setOrderForm((current) => ({ ...current, ngay_hen_lay: event.target.value }))}
                     />
                   </Form.Group>
                 </Col>
@@ -328,8 +328,8 @@ export default function NewOrderPage() {
                   <Form.Group>
                     <Form.Label>Ghi chú đơn</Form.Label>
                     <Form.Control
-                      value={orderForm.notes}
-                      onChange={(event) => setOrderForm((current) => ({ ...current, notes: event.target.value }))}
+                      value={orderForm.ghi_chu}
+                      onChange={(event) => setOrderForm((current) => ({ ...current, ghi_chu: event.target.value }))}
                     />
                   </Form.Group>
                 </Col>
@@ -365,13 +365,13 @@ export default function NewOrderPage() {
             <Col md={4}>
               <div className="summary-box">
                 <span>Số lượng</span>
-                <strong>{orderForm.quantity}</strong>
+                <strong>{orderForm.so_luong}</strong>
               </div>
             </Col>
             <Col md={4}>
               <div className="summary-box">
                 <span>Ngày hẹn</span>
-                <strong>{orderForm.pickup_date || '-'}</strong>
+                <strong>{orderForm.ngay_hen_lay || '-'}</strong>
               </div>
             </Col>
             <Col md={4}>

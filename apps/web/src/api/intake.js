@@ -12,7 +12,7 @@ export async function submitOnlineRequest({ fields, files }) {
 
 // Public, no-login. Customer checks their request status by id + phone.
 export async function getOnlineRequestStatus(requestId, phone) {
-  return apiData(`/public/online-requests/${requestId}/status`, { method: 'POST', body: { phone } });
+  return apiData(`/public/online-requests/${requestId}/status`, { method: 'POST', body: { so_dien_thoai: phone } });
 }
 
 export async function listOnlineRequests(query) {
@@ -28,7 +28,7 @@ export async function acceptOnlineRequest(id) {
 }
 
 export async function rejectOnlineRequest(id, note) {
-  return apiData(`/online-requests/${id}/reject`, { method: 'POST', body: { note } });
+  return apiData(`/online-requests/${id}/reject`, { method: 'POST', body: { ghi_chu: note } });
 }
 
 export async function convertOnlineRequest(id, payload) {

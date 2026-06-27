@@ -9,12 +9,12 @@ async function createRequest(data, client) {
      returning *`,
     [
       data.id || null,
-      data.full_name,
-      data.phone,
+      data.ho_ten,
+      data.so_dien_thoai,
       data.email || null,
-      data.card_type_id || null,
-      data.request_type || 'both',
-      data.note || null,
+      data.loai_the_id || null,
+      data.loai_yeu_cau || 'both',
+      data.ghi_chu || null,
       data.ip_hash || null,
       data.user_agent || null,
       data.metadata || {}
@@ -32,12 +32,12 @@ async function addRequestPhoto(data, client) {
      values ($1, $2, $3, $4, $5, $6)
      returning *`,
     [
-      data.online_request_id,
-      data.cloudinary_original_public_id,
-      data.original_asset_metadata || {},
-      data.width_px || null,
-      data.height_px || null,
-      data.file_size_bytes || null
+      data.yeu_cau_online_id,
+      data.cloudinary_anh_goc_id,
+      data.metadata_anh_goc || {},
+      data.rong_px || null,
+      data.cao_px || null,
+      data.dung_luong_bytes || null
     ],
     client
   );
@@ -47,8 +47,8 @@ async function listRequests(filters, { limit, offset }, client) {
   const params = [];
   const where = ['1 = 1'];
 
-  if (filters.status) {
-    params.push(filters.status);
+  if (filters.trang_thai) {
+    params.push(filters.trang_thai);
     where.push(`orq.trang_thai = $${params.length}`);
   }
 
@@ -130,12 +130,12 @@ async function updateRequestStatus(id, data, actorId, client) {
          ngay_cap_nhat = now()
      where id = $1
      returning *`,
-    [id, data.status, data.note || null, actorId || null],
+    [id, data.trang_thai, data.ghi_chu || null, actorId || null],
     client
   );
 }
 
-async function linkConverted(id, { order_id, customer_id }, client) {
+async function linkConverted(id, { don_hang_id, khach_hang_id }, client) {
   return one(
     `update public.yeu_cau_online
      set trang_thai = 'converted',
@@ -145,7 +145,7 @@ async function linkConverted(id, { order_id, customer_id }, client) {
          ngay_cap_nhat = now()
      where id = $1
      returning *`,
-    [id, order_id, customer_id],
+    [id, don_hang_id, khach_hang_id],
     client
   );
 }
@@ -158,15 +158,15 @@ async function createAppointment(data, client) {
      values ($1, $2, $3, $4, $5, $6, $7, $8, $9)
      returning *`,
     [
-      data.online_request_id || null,
-      data.order_id || null,
-      data.customer_name || null,
-      data.phone || null,
-      data.preferred_date,
-      data.time_slot,
-      data.status || 'requested',
-      data.note || null,
-      data.confirmed_by || null
+      data.yeu_cau_online_id || null,
+      data.don_hang_id || null,
+      data.ten_khach || null,
+      data.so_dien_thoai || null,
+      data.ngay_hen,
+      data.khung_gio,
+      data.trang_thai || 'requested',
+      data.ghi_chu || null,
+      data.nguoi_xac_nhan || null
     ],
     client
   );
@@ -192,8 +192,8 @@ async function listAppointments(filters, { limit, offset }, client) {
   const params = [];
   const where = ['1 = 1'];
 
-  if (filters.status) {
-    params.push(filters.status);
+  if (filters.trang_thai) {
+    params.push(filters.trang_thai);
     where.push(`a.trang_thai = $${params.length}`);
   }
   if (filters.date_from) {
@@ -232,7 +232,7 @@ async function updateAppointmentStatus(id, data, actorId, client) {
          ngay_cap_nhat = now()
      where id = $1
      returning *`,
-    [id, data.status, data.note || null, actorId || null],
+    [id, data.trang_thai, data.ghi_chu || null, actorId || null],
     client
   );
 }

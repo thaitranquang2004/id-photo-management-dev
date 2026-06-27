@@ -28,17 +28,17 @@ export default function ReportsPage() {
   const [filters, setFilters] = useState({
     date_from: '',
     date_to: '',
-    card_type_id: '',
-    staff_id: '',
-    status: ''
+    loai_the_id: '',
+    nguoi_tao: '',
+    trang_thai: ''
   });
 
   const reportParams = {
     date_from: filters.date_from || undefined,
     date_to: filters.date_to || undefined,
-    card_type_id: filters.card_type_id || undefined,
-    staff_id: filters.staff_id || undefined,
-    status: filters.status || undefined
+    loai_the_id: filters.loai_the_id || undefined,
+    nguoi_tao: filters.nguoi_tao || undefined,
+    trang_thai: filters.status || undefined
   };
 
   const reportQuery = useQuery({
@@ -99,7 +99,7 @@ export default function ReportsPage() {
           <Col md={2}>
             <Form.Group>
               <Form.Label>Loại thẻ</Form.Label>
-              <Form.Select value={filters.card_type_id} onChange={(event) => setFilters((current) => ({ ...current, card_type_id: event.target.value }))}>
+              <Form.Select value={filters.loai_the_id} onChange={(event) => setFilters((current) => ({ ...current, loai_the_id: event.target.value }))}>
                 <option value="">Tất cả</option>
                 {cardTypes.map((cardType) => <option key={cardType.id} value={cardType.id}>{cardType.ten}</option>)}
               </Form.Select>
@@ -108,13 +108,13 @@ export default function ReportsPage() {
           <Col md={2}>
             <Form.Group>
               <Form.Label>Nhân viên</Form.Label>
-              <Form.Control value={filters.staff_id} onChange={(event) => setFilters((current) => ({ ...current, staff_id: event.target.value }))} placeholder="User ID" />
+              <Form.Control value={filters.nguoi_tao} onChange={(event) => setFilters((current) => ({ ...current, nguoi_tao: event.target.value }))} placeholder="User ID" />
             </Form.Group>
           </Col>
           <Col md={2}>
             <Form.Group>
               <Form.Label>Trạng thái</Form.Label>
-              <Form.Select value={filters.status} onChange={(event) => setFilters((current) => ({ ...current, status: event.target.value }))}>
+              <Form.Select value={filters.status} onChange={(event) => setFilters((current) => ({ ...current, trang_thai: event.target.value }))}>
                 <option value="">Tất cả</option>
                 <option value="pending">pending</option>
                 <option value="processing">processing</option>
