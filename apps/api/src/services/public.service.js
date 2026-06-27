@@ -23,10 +23,10 @@ async function resolvePublicOrder(input, client) {
 function publicOrderInfo(order) {
   return {
     id: order.id,
-    order_code: order.ma_don,
-    card_type_name: order.ten_loai_the,
-    status: order.trang_thai,
-    created_at: order.ngay_tao
+    ma_don: order.ma_don,
+    ten_loai_the: order.ten_loai_the,
+    trang_thai: order.trang_thai,
+    ngay_tao: order.ngay_tao
   };
 }
 
@@ -76,17 +76,17 @@ async function customerLookup(query, req) {
         const publicId = photo.cloudinary_anh_xu_ly_id || photo.cloudinary_anh_goc_id;
         return {
           id: photo.id,
-          status: photo.trang_thai,
-          purged: Boolean(photo.ngay_don_dep),
+          trang_thai: photo.trang_thai,
+          da_don_dep: Boolean(photo.ngay_don_dep),
           signed_url: photo.ngay_don_dep ? null : signedOrNull(publicId, { format: 'jpg' }).signed_url
         };
       }),
       print_layouts: layouts.map((layout) => ({
         id: layout.id,
-        layout_type: layout.kieu_bo_cuc,
-        paper_size: layout.kho_giay,
-        status: layout.trang_thai,
-        purged: Boolean(layout.ngay_don_dep),
+        kieu_bo_cuc: layout.kieu_bo_cuc,
+        kho_giay: layout.kho_giay,
+        trang_thai: layout.trang_thai,
+        da_don_dep: Boolean(layout.ngay_don_dep),
         signed_url: layout.ngay_don_dep ? null : signedOrNull(layout.cloudinary_id, {
           format: layout.metadata_file?.format || 'png',
           attachment: true
@@ -96,9 +96,9 @@ async function customerLookup(query, req) {
         const publicId = photo.cloudinary_anh_xu_ly_id || photo.cloudinary_anh_goc_id;
         return {
           id: photo.id,
-          order_code: photo.order_code,
-          created_at: photo.ngay_tao,
-          purged: Boolean(photo.ngay_don_dep),
+          ma_don: photo.ma_don,
+          ngay_tao: photo.ngay_tao,
+          da_don_dep: Boolean(photo.ngay_don_dep),
           signed_url: photo.ngay_don_dep ? null : signedOrNull(publicId, { format: 'jpg' }).signed_url
         };
       })
@@ -187,7 +187,7 @@ async function createReprintRequest(body, req) {
       metadata: { request_id: request.id }
     }, client);
 
-    return { request_id: request.id, trang_thai: request.trang_thai };
+    return { ma_yeu_cau: request.id, trang_thai: request.trang_thai };
   });
 }
 

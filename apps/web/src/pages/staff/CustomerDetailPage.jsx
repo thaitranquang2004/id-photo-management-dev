@@ -167,7 +167,7 @@ export default function CustomerDetailPage() {
                     <div className="photo-placeholder">Ảnh đã hết hạn lưu trữ</div>
                   )}
                   <div className="public-photo-actions">
-                    <span className="small text-muted">{photo.order_code} · {formatDate(photo.ngay_tao)}</span>
+                    <span className="small text-muted">{photo.ma_don} · {formatDate(photo.ngay_tao)}</span>
                   </div>
                 </div>
               );

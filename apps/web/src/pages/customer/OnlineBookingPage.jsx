@@ -115,7 +115,7 @@ export default function OnlineBookingPage() {
               {submitted ? (
                 <Alert variant="success">
                   <Alert.Heading>Đã gửi yêu cầu!</Alert.Heading>
-                  <p className="mb-1">Mã yêu cầu của bạn: <strong>{submitted.request_id}</strong></p>
+                  <p className="mb-1">Mã yêu cầu của bạn: <strong>{submitted.ma_yeu_cau}</strong></p>
                   <p className="mb-1">
                     Theo dõi tình trạng tại <a href="/trang-thai">Trạng thái yêu cầu</a> (dùng mã yêu cầu + số điện thoại).
                   </p>

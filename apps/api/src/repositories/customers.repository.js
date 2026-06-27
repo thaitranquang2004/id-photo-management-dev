@@ -101,7 +101,7 @@ async function approvedPhotos(customerId, client) {
     `select p.id, p.trang_thai, p.ngay_tao, p.ngay_don_dep,
             p.cloudinary_anh_xu_ly_id, p.cloudinary_anh_goc_id,
             p.metadata_anh_xu_ly, p.metadata_anh_goc,
-            o.ma_don as order_code
+            o.ma_don
      from public.anh p
      join public.don_hang o on o.id = p.don_hang_id
      where o.khach_hang_id = $1 and p.trang_thai = 'approved'

@@ -241,22 +241,22 @@ export default function PublicLookupPage() {
                       <span className="text-muted d-block mb-1" style={{ fontSize: '0.8rem' }}>Mã đơn</span>
                       <h2 className="d-flex align-items-center gap-2 m-0" style={{ fontSize: '1.45rem' }}>
                         <Hash size={20} className="text-primary" aria-hidden="true" />
-                        <span>{orderInfo.order_code}</span>
+                        <span>{orderInfo.ma_don}</span>
                       </h2>
                     </div>
-                    <OrderStatusBadge status={orderInfo.status} />
+                    <OrderStatusBadge status={orderInfo.trang_thai} />
                   </div>
                   <Row className="g-3">
                     <Col sm={6}>
                       <div className="summary-box">
                         <span>Ngày chụp</span>
-                        <strong>{formatDateOnly(orderInfo.created_at)}</strong>
+                        <strong>{formatDateOnly(orderInfo.ngay_tao)}</strong>
                       </div>
                     </Col>
                     <Col sm={6}>
                       <div className="summary-box">
                         <span>Loại thẻ</span>
-                        <strong>{orderInfo.card_type_name || 'Theo đơn hàng'}</strong>
+                        <strong>{orderInfo.ten_loai_the || 'Theo đơn hàng'}</strong>
                       </div>
                     </Col>
                   </Row>
@@ -268,7 +268,7 @@ export default function PublicLookupPage() {
                     <div className="public-photo-grid">
                       {photos.map((photo) => (
                         <div className="public-photo" key={photo.id}>
-                          {photo.purged ? (
+                          {photo.da_don_dep ? (
                             <div className="photo-placeholder">Ảnh đã hết hạn lưu trữ (quá 6 tháng)</div>
                           ) : photo.signed_url ? (
                             <Image src={photo.signed_url} alt="Ảnh đã duyệt" fluid />
@@ -281,12 +281,12 @@ export default function PublicLookupPage() {
                               checked={selectedPhotos.includes(photo.id)}
                               onChange={() => togglePhoto(photo.id)}
                               label="In lại"
-                              disabled={photo.purged}
+                              disabled={photo.da_don_dep}
                             />
                             <Button
                               size="sm"
                               variant="outline-primary"
-                              disabled={photo.purged || (downloadMutation.isPending && downloadMutation.variables === photo.id)}
+                              disabled={photo.da_don_dep || (downloadMutation.isPending && downloadMutation.variables === photo.id)}
                               onClick={() => downloadMutation.mutate(photo.id)}
                             >
                               <Download size={15} aria-hidden="true" />
@@ -356,7 +356,7 @@ export default function PublicLookupPage() {
                       <div className="public-photo-grid">
                         {collection.map((photo) => (
                           <div className="public-photo" key={photo.id}>
-                            {photo.purged ? (
+                            {photo.da_don_dep ? (
                               <div className="photo-placeholder">Ảnh đã hết hạn lưu trữ (quá 6 tháng)</div>
                             ) : photo.signed_url ? (
                               <Image src={photo.signed_url} alt="Ảnh thẻ đã duyệt" fluid />
@@ -364,7 +364,7 @@ export default function PublicLookupPage() {
                               <div className="photo-placeholder">No preview</div>
                             )}
                             <div className="public-photo-actions">
-                              <span className="small text-muted">{photo.order_code} · {formatDateOnly(photo.created_at)}</span>
+                              <span className="small text-muted">{photo.ma_don} · {formatDateOnly(photo.ngay_tao)}</span>
                             </div>
                           </div>
                         ))}

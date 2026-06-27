@@ -98,7 +98,7 @@ async function submitOnlineRequest(body, files, req) {
       }
     }, client);
 
-    return { request_id: request.id, trang_thai: request.trang_thai, photo_count: photoInputs.length };
+    return { ma_yeu_cau: request.id, trang_thai: request.trang_thai, so_anh: photoInputs.length };
   });
 
   // Fire-and-forget after commit so notification issues never break the submission.
@@ -106,7 +106,7 @@ async function submitOnlineRequest(body, files, req) {
     customer_name: body.full_name,
     email: body.email,
     phone: body.phone,
-    online_request_id: created.request_id,
+    online_request_id: created.ma_yeu_cau,
     metadata: { request_type: body.request_type }
   });
 
