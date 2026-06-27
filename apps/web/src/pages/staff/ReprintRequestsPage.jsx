@@ -63,7 +63,7 @@ export default function ReprintRequestsPage() {
   const detail = detailQuery.data;
   const request = detail?.request;
   const photos = detail?.photos || [];
-  const actionable = request && !request.reprint_order_id && ['new', 'reviewed'].includes(request.status);
+  const actionable = request && !request.don_in_lai_id && ['new', 'reviewed'].includes(request.trang_thai);
 
   function closeDetail() {
     setSelectedId(null);
@@ -114,12 +114,12 @@ export default function ReprintRequestsPage() {
               <tbody>
                 {requests.map((item) => (
                   <tr key={item.id}>
-                    <td className="fw-semibold">{item.order_code || '-'}</td>
-                    <td>{item.phone || '-'}</td>
-                    <td>{item.quantity}</td>
-                    <td>{item.reason || item.note || '-'}</td>
-                    <td><StatusBadge status={item.status} /></td>
-                    <td>{formatDate(item.created_at)}</td>
+                    <td className="fw-semibold">{item.ma_don || '-'}</td>
+                    <td>{item.so_dien_thoai || '-'}</td>
+                    <td>{item.so_luong}</td>
+                    <td>{item.ly_do || item.ghi_chu || '-'}</td>
+                    <td><StatusBadge status={item.trang_thai} /></td>
+                    <td>{formatDate(item.ngay_tao)}</td>
                     <td className="text-end">
                       <Button size="sm" variant="outline-primary" onClick={() => setSelectedId(item.id)}>Chi tiết</Button>
                     </td>
@@ -140,18 +140,18 @@ export default function ReprintRequestsPage() {
           {detailQuery.isLoading ? <LoadingState label="Đang tải..." /> : null}
           {request ? (
             <>
-              <div className="summary-box mb-2"><span>Đơn gốc</span><strong>{request.order_code || detail?.order?.order_code || '-'}</strong></div>
-              <div className="summary-box mb-2"><span>SĐT</span><strong>{request.phone || '-'}</strong></div>
-              <div className="summary-box mb-2"><span>Số lượng</span><strong>{request.quantity}</strong></div>
+              <div className="summary-box mb-2"><span>Đơn gốc</span><strong>{request.ma_don || detail?.order?.order_code || '-'}</strong></div>
+              <div className="summary-box mb-2"><span>SĐT</span><strong>{request.so_dien_thoai || '-'}</strong></div>
+              <div className="summary-box mb-2"><span>Số lượng</span><strong>{request.so_luong}</strong></div>
               <div className="summary-box mb-2"><span>Số ảnh yêu cầu</span><strong>{photos.length}</strong></div>
-              <div className="summary-box mb-2"><span>Lý do</span><strong>{request.reason || '-'}</strong></div>
-              {request.note ? <div className="summary-box mb-2"><span>Ghi chú</span><strong>{request.note}</strong></div> : null}
-              <div className="summary-box mb-2"><span>Trạng thái</span><strong><StatusBadge status={request.status} /></strong></div>
+              <div className="summary-box mb-2"><span>Lý do</span><strong>{request.ly_do || '-'}</strong></div>
+              {request.ghi_chu ? <div className="summary-box mb-2"><span>Ghi chú</span><strong>{request.ghi_chu}</strong></div> : null}
+              <div className="summary-box mb-2"><span>Trạng thái</span><strong><StatusBadge status={request.trang_thai} /></strong></div>
 
-              {request.reprint_order_id ? (
+              {request.don_in_lai_id ? (
                 <Alert variant="success" className="mt-2 mb-0">
                   Đã tạo đơn in lại.{' '}
-                  <Link to={`/staff/orders/${request.reprint_order_id}`}>Mở đơn in lại</Link>
+                  <Link to={`/staff/orders/${request.don_in_lai_id}`}>Mở đơn in lại</Link>
                 </Alert>
               ) : null}
 
@@ -172,15 +172,15 @@ export default function ReprintRequestsPage() {
           <Button variant="outline-secondary" onClick={closeDetail}>Đóng</Button>
           {actionable ? (
             <>
-              {request.status === 'new' ? (
-                <Button variant="outline-info" disabled={statusMutation.isPending} onClick={() => statusMutation.mutate({ status: 'reviewed' })}>
+              {request.trang_thai === 'new' ? (
+                <Button variant="outline-info" disabled={statusMutation.isPending} onClick={() => statusMutation.mutate({ trang_thai: 'reviewed' })}>
                   Đã xem
                 </Button>
               ) : null}
               <Button
                 variant="outline-danger"
                 disabled={statusMutation.isPending || !rejectNote.trim()}
-                onClick={() => statusMutation.mutate({ status: 'rejected', note: rejectNote })}
+                onClick={() => statusMutation.mutate({ trang_thai: 'rejected', ghi_chu: rejectNote })}
               >
                 Từ chối
               </Button>
@@ -189,8 +189,8 @@ export default function ReprintRequestsPage() {
               </Button>
             </>
           ) : null}
-          {request && request.status === 'accepted' && request.reprint_order_id ? (
-            <Button variant="outline-success" disabled={statusMutation.isPending} onClick={() => statusMutation.mutate({ status: 'completed' })}>
+          {request && request.trang_thai === 'accepted' && request.don_in_lai_id ? (
+            <Button variant="outline-success" disabled={statusMutation.isPending} onClick={() => statusMutation.mutate({ trang_thai: 'completed' })}>
               Đánh dấu hoàn tất
             </Button>
           ) : null}

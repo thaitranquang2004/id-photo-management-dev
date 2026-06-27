@@ -37,10 +37,10 @@ async function updateStatus(id, body, context) {
   return withTransaction(async (client) => {
     const oldRequest = await reprintRepository.findById(id, client);
     if (!oldRequest) throw errors.notFound('Không tìm thấy yêu cầu in lại');
-    if (!allowedTransitions[oldRequest.status]?.includes(body.status)) {
-      throw errors.invalidState(`Không thể chuyển reprint request từ ${oldRequest.status} sang ${body.status}`, {
-        current: oldRequest.status,
-        next: body.status
+    if (!allowedTransitions[oldRequest.trang_thai]?.includes(body.trang_thai)) {
+      throw errors.invalidState(`Không thể chuyển reprint request từ ${oldRequest.trang_thai} sang ${body.trang_thai}`, {
+        current: oldRequest.trang_thai,
+        next: body.trang_thai
       });
     }
     const request = await reprintRepository.updateStatus(id, body, context.user.id, client);
@@ -59,20 +59,20 @@ async function convertToOrder(id, body, context) {
   const outcome = await withTransaction(async (client) => {
     const request = await reprintRepository.findById(id, client);
     if (!request) throw errors.notFound('Không tìm thấy yêu cầu in lại');
-    if (request.reprint_order_id) {
-      throw errors.invalidState('Yêu cầu in lại đã được tạo đơn', { reprint_order_id: request.reprint_order_id });
+    if (request.don_in_lai_id) {
+      throw errors.invalidState('Yêu cầu in lại đã được tạo đơn', { don_in_lai_id: request.don_in_lai_id });
     }
-    if (!['new', 'reviewed', 'accepted'].includes(request.status)) {
-      throw errors.invalidState(`Không thể tạo đơn từ yêu cầu ở trạng thái ${request.status}`, { status: request.status });
+    if (!['new', 'reviewed', 'accepted'].includes(request.trang_thai)) {
+      throw errors.invalidState(`Không thể tạo đơn từ yêu cầu ở trạng thái ${request.trang_thai}`, { status: request.trang_thai });
     }
 
-    const origOrder = await ordersRepository.findById(request.order_id, client);
+    const origOrder = await ordersRepository.findById(request.don_hang_id, client);
     if (!origOrder) throw errors.invalidState('Đơn gốc không còn tồn tại');
 
     const { order, pricing_snapshot: pricingSnapshot } = await orderService.createOrderCore({
       customer_id: origOrder.customer_id,
       card_type_id: origOrder.card_type_id,
-      quantity: body.quantity || request.quantity,
+      quantity: body.quantity || request.so_luong,
       pickup_date: body.pickup_date,
       notes: body.notes || `In lại từ đơn ${origOrder.order_code}`,
       intake_source: 'reprint',
@@ -81,8 +81,8 @@ async function convertToOrder(id, body, context) {
 
     // Fall back to all approved photos of the original order when the customer
     // didn't pick specific photos, so the reprint order always has photos to print.
-    const sourcePhotos = request.requested_photo_ids?.length
-      ? await photosRepository.findManyByIds(request.requested_photo_ids, client)
+    const sourcePhotos = request.danh_sach_anh_id?.length
+      ? await photosRepository.findManyByIds(request.danh_sach_anh_id, client)
       : await photosRepository.findApprovedByOrder(origOrder.id, client);
     for (const src of sourcePhotos) {
       const printablePublicId = src.cloudinary_processed_public_id || src.cloudinary_original_public_id;

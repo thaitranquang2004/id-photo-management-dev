@@ -2,12 +2,6 @@ const { one, many } = require('../db/pool');
 const { PHOTO_COLS } = require('./photos.repository');
 const { orderCols } = require('./orders.repository');
 
-// Alias cột yeu_cau_in_lai về tiếng Anh (p = prefix, vd 'prr.') để service + frontend không phải đổi.
-const rprCols = (p = '') => `${p}id, ${p}don_hang_id as order_id, ${p}danh_sach_anh_id as requested_photo_ids,
-  ${p}bo_cuc_id as requested_layout_id, ${p}so_luong as quantity, ${p}so_dien_thoai as phone, ${p}ma_don as order_code,
-  ${p}ly_do as reason, ${p}ghi_chu as note, ${p}trang_thai as status, ${p}ip_hash, ${p}user_agent,
-  ${p}ngay_tao as created_at, ${p}nguoi_duyet as reviewed_by, ${p}ngay_duyet as reviewed_at, ${p}don_in_lai_id as reprint_order_id`;
-
 async function list(filters, { limit, offset }, client) {
   const params = [];
   const where = ['1 = 1'];
@@ -27,7 +21,7 @@ async function list(filters, { limit, offset }, client) {
 
   params.push(limit, offset);
   const rows = await many(
-    `select ${rprCols('prr.')}, count(*) over()::int as total
+    `select prr.*, count(*) over()::int as total
      from public.yeu_cau_in_lai prr
      where ${where.join(' and ')}
      order by prr.ngay_tao desc
@@ -39,15 +33,15 @@ async function list(filters, { limit, offset }, client) {
 }
 
 async function findById(id, client) {
-  return one(`select ${rprCols()} from public.yeu_cau_in_lai where id = $1`, [id], client);
+  return one('select * from public.yeu_cau_in_lai where id = $1', [id], client);
 }
 
 async function details(id, client) {
   const request = await findById(id, client);
   if (!request) return null;
-  const order = await one(`select ${orderCols()} from public.don_hang where id = $1`, [request.order_id], client);
-  const photos = request.requested_photo_ids?.length
-    ? await many(`select ${PHOTO_COLS} from public.anh where id = any($1::uuid[])`, [request.requested_photo_ids], client)
+  const order = await one(`select ${orderCols()} from public.don_hang where id = $1`, [request.don_hang_id], client);
+  const photos = request.danh_sach_anh_id?.length
+    ? await many(`select ${PHOTO_COLS} from public.anh where id = any($1::uuid[])`, [request.danh_sach_anh_id], client)
     : [];
   return { request, order, photos };
 }
@@ -59,7 +53,7 @@ async function create(data, client) {
        ma_don, ly_do, ghi_chu, ip_hash, user_agent
      )
      values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-     returning ${rprCols()}`,
+     returning *`,
     [
       data.order_id,
       data.photo_ids || [],
@@ -84,8 +78,8 @@ async function updateStatus(id, data, actorId, client) {
          nguoi_duyet = $4,
          ngay_duyet = now()
      where id = $1
-     returning ${rprCols()}`,
-    [id, data.status, data.note || null, actorId],
+     returning *`,
+    [id, data.trang_thai, data.ghi_chu || null, actorId],
     client
   );
 }
@@ -98,7 +92,7 @@ async function linkOrder(id, orderId, actorId, client) {
          nguoi_duyet = $3,
          ngay_duyet = now()
      where id = $1
-     returning ${rprCols()}`,
+     returning *`,
     [id, orderId, actorId],
     client
   );

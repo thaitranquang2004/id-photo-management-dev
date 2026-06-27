@@ -187,7 +187,7 @@ async function createReprintRequest(body, req) {
       metadata: { request_id: request.id }
     }, client);
 
-    return { request_id: request.id, status: request.status };
+    return { request_id: request.id, trang_thai: request.trang_thai };
   });
 }
 

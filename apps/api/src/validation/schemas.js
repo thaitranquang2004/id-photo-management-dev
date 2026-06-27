@@ -137,8 +137,8 @@ const layoutIssueBody = z.object({
 });
 
 const reprintStatusBody = z.object({
-  status: z.enum(REPRINT_STATUSES),
-  note: longText.optional()
+  trang_thai: z.enum(REPRINT_STATUSES),
+  ghi_chu: longText.optional()
 });
 
 const reprintConvertBody = z.object({
