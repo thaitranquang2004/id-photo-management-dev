@@ -157,14 +157,14 @@ async function createReprintRequest(body, req) {
       const approvedIds = new Set(approved.map((photo) => photo.id));
       const invalid = body.danh_sach_anh_id.filter((id) => !approvedIds.has(id));
       if (invalid.length) {
-        throw errors.validation('photo_ids phải thuộc đơn và đã approved', { invalid_photo_ids: invalid });
+        throw errors.validation('danh_sach_anh_id phải thuộc đơn và đã approved', { danh_sach_anh_id_khong_hop_le: invalid });
       }
     }
 
     if (body.bo_cuc_id) {
       const layout = await layoutsRepository.findById(body.bo_cuc_id, client);
       if (!layout || layout.don_hang_id !== order.id || layout.trang_thai !== 'generated') {
-        throw errors.validation('layout_id không hợp lệ cho đơn này', { layout_id: body.bo_cuc_id });
+        throw errors.validation('bo_cuc_id không hợp lệ cho đơn này', { bo_cuc_id: body.bo_cuc_id });
       }
     }
 

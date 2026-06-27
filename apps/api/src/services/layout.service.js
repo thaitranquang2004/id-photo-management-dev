@@ -131,7 +131,7 @@ async function validatedLayoutInputs(body, client) {
   const cardType = await catalogRepository.findCardType(order.loai_the_id, client);
   const photos = await photosRepository.findManyByIds(body.danh_sach_anh_id, client);
   if (photos.length !== body.danh_sach_anh_id.length || photos.some((photo) => photo.don_hang_id !== body.don_hang_id || photo.trang_thai !== 'approved')) {
-    throw errors.validation('Layout chỉ được dùng ảnh approved thuộc cùng order', { order_id: body.don_hang_id });
+    throw errors.validation('Layout chỉ được dùng ảnh approved thuộc cùng order', { don_hang_id: body.don_hang_id });
   }
   return { order, cardType, photos };
 }
@@ -174,7 +174,7 @@ async function generateLayout(body, context) {
     const cardType = await catalogRepository.findCardType(order.loai_the_id, client);
     const photos = await photosRepository.findManyByIds(body.danh_sach_anh_id, client);
     if (photos.length !== body.danh_sach_anh_id.length || photos.some((photo) => photo.don_hang_id !== body.don_hang_id || photo.trang_thai !== 'approved')) {
-      throw errors.validation('Layout chỉ được dùng ảnh approved thuộc cùng order', { order_id: body.don_hang_id });
+      throw errors.validation('Layout chỉ được dùng ảnh approved thuộc cùng order', { don_hang_id: body.don_hang_id });
     }
 
     let layoutBody = body;

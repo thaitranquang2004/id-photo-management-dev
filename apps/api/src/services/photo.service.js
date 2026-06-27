@@ -290,7 +290,7 @@ async function batchProcess(body, context) {
 
     const photos = await photosRepository.findManyByIds(body.danh_sach_anh_id, client);
     if (photos.length !== body.danh_sach_anh_id.length || photos.some((photo) => photo.don_hang_id !== body.don_hang_id)) {
-      throw errors.validation('photo_ids phải thuộc cùng order_id', { order_id: body.don_hang_id });
+      throw errors.validation('danh_sach_anh_id phải thuộc cùng don_hang_id', { don_hang_id: body.don_hang_id });
     }
 
     let updatedOrder = order;

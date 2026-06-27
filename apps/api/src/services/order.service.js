@@ -50,7 +50,7 @@ async function getOrder(id) {
 // Runs inside the caller's transaction so callers can compose extra work atomically.
 async function createOrderCore(body, context, client) {
   const pricing = await catalogRepository.getCurrentPricing(body.loai_the_id, new Date(), client);
-  if (!pricing) throw errors.validation('Loại thẻ chưa có giá hiện hành', { card_type_id: body.loai_the_id });
+  if (!pricing) throw errors.validation('Loại thẻ chưa có giá hiện hành', { loai_the_id: body.loai_the_id });
 
   const totalAmount = totalFromPricing(pricing, body.so_luong);
   const order = await ordersRepository.createOrder(body, context.user.id, totalAmount, client);

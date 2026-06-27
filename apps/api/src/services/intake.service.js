@@ -43,7 +43,7 @@ async function submitOnlineRequest(body, files, req) {
   if (body.loai_the_id) {
     const cardType = await catalogRepository.findCardType(body.loai_the_id);
     if (!cardType || !cardType.dang_hoat_dong) {
-      throw errors.validation('Loại ảnh không hợp lệ', { card_type_id: body.loai_the_id });
+      throw errors.validation('Loại ảnh không hợp lệ', { loai_the_id: body.loai_the_id });
     }
   }
 
@@ -183,7 +183,7 @@ async function convertToOrder(id, body, context) {
 
     const cardTypeId = body.loai_the_id || request.loai_the_id;
     if (!cardTypeId) {
-      throw errors.validation('Cần chọn loại thẻ để tạo đơn', { field: 'card_type_id' });
+      throw errors.validation('Cần chọn loại thẻ để tạo đơn', { field: 'loai_the_id' });
     }
 
     let customer = await customersRepository.findByPhone(request.so_dien_thoai, client);
