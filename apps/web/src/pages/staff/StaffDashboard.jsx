@@ -134,7 +134,7 @@ export default function StaffDashboard() {
               <div className="stack-list">
                 {newOnlineRequests.map((item) => (
                   <div className="stack-list-item" key={item.id}>
-                    <div className="fw-semibold">{item.full_name} · {item.phone}</div>
+                    <div className="fw-semibold">{item.ho_ten} · {item.so_dien_thoai}</div>
                     <div className="text-muted small">{item.card_type_name || 'Chưa chọn loại'} · {item.photo_count || 0} ảnh</div>
                   </div>
                 ))}

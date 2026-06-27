@@ -1,26 +1,12 @@
 const { one, many } = require('../db/pool');
 
-// Alias cột về tên tiếng Anh để intake.service + frontend không phải đổi (p = prefix bảng, vd 'orq.').
-const reqCols = (p = '') => `${p}id, ${p}ho_ten as full_name, ${p}so_dien_thoai as phone, ${p}email,
-  ${p}loai_the_id as card_type_id, ${p}loai_yeu_cau as request_type, ${p}ghi_chu as note, ${p}trang_thai as status,
-  ${p}don_da_tao_id as converted_order_id, ${p}khach_hang_id as customer_id, ${p}ip_hash, ${p}user_agent, ${p}metadata,
-  ${p}nguoi_duyet as reviewed_by, ${p}ngay_duyet as reviewed_at, ${p}ngay_tao as created_at, ${p}ngay_cap_nhat as updated_at`;
-const rpCols = (p = '') => `${p}id, ${p}yeu_cau_online_id as online_request_id,
-  ${p}cloudinary_anh_goc_id as cloudinary_original_public_id, ${p}metadata_anh_goc as original_asset_metadata,
-  ${p}rong_px as width_px, ${p}cao_px as height_px, ${p}dung_luong_bytes as file_size_bytes,
-  ${p}ngay_don_dep as purged_at, ${p}ngay_tao as created_at`;
-const aptCols = (p = '') => `${p}id, ${p}yeu_cau_online_id as online_request_id, ${p}don_hang_id as order_id,
-  ${p}ten_khach as customer_name, ${p}so_dien_thoai as phone, ${p}ngay_hen as preferred_date, ${p}khung_gio as time_slot,
-  ${p}trang_thai as status, ${p}ghi_chu as note, ${p}nguoi_xac_nhan as confirmed_by,
-  ${p}ngay_tao as created_at, ${p}ngay_cap_nhat as updated_at`;
-
 async function createRequest(data, client) {
   return one(
     `insert into public.yeu_cau_online (
        id, ho_ten, so_dien_thoai, email, loai_the_id, loai_yeu_cau, ghi_chu, ip_hash, user_agent, metadata
      )
      values (coalesce($1, extensions.gen_random_uuid()), $2, $3, $4, $5, $6, $7, $8, $9, $10)
-     returning ${reqCols()}`,
+     returning *`,
     [
       data.id || null,
       data.full_name,
@@ -44,7 +30,7 @@ async function addRequestPhoto(data, client) {
        rong_px, cao_px, dung_luong_bytes
      )
      values ($1, $2, $3, $4, $5, $6)
-     returning ${rpCols()}`,
+     returning *`,
     [
       data.online_request_id,
       data.cloudinary_original_public_id,
@@ -68,7 +54,7 @@ async function listRequests(filters, { limit, offset }, client) {
 
   params.push(limit, offset);
   const rows = await many(
-    `select ${reqCols('orq.')}, ct.ten as card_type_name,
+    `select orq.*, ct.ten as card_type_name,
             (select count(*)::int from public.anh_yeu_cau_online orp where orp.yeu_cau_online_id = orq.id) as photo_count,
             count(*) over()::int as total
      from public.yeu_cau_online orq
@@ -83,19 +69,19 @@ async function listRequests(filters, { limit, offset }, client) {
 }
 
 async function findRequestById(id, client) {
-  return one(`select ${reqCols()} from public.yeu_cau_online where id = $1`, [id], client);
+  return one(`select * from public.yeu_cau_online where id = $1`, [id], client);
 }
 
 // Public, customer-facing: limited safe fields, gated by id + phone match.
 async function findPublicStatus(requestId, phone, client) {
   return one(
-    `select r.id, r.trang_thai as status, r.loai_yeu_cau as request_type, r.ngay_tao as created_at,
-            o.ma_don as converted_order_code,
-            a.preferred_date, a.time_slot, a.status as appointment_status
+    `select r.id, r.trang_thai, r.loai_yeu_cau, r.ngay_tao,
+            o.ma_don as ma_don_da_tao,
+            a.ngay_hen, a.khung_gio, a.trang_thai as trang_thai_lich_hen
      from public.yeu_cau_online r
      left join public.don_hang o on o.id = r.don_da_tao_id
      left join lateral (
-       select ngay_hen as preferred_date, khung_gio as time_slot, trang_thai as status
+       select ngay_hen, khung_gio, trang_thai
        from public.lich_hen
        where yeu_cau_online_id = r.id
        order by ngay_tao desc
@@ -110,7 +96,7 @@ async function findPublicStatus(requestId, phone, client) {
 
 async function requestDetails(id, client) {
   const request = await one(
-    `select ${reqCols('orq.')}, ct.ten as card_type_name, ct.ma_viet_tat as card_type_short_code
+    `select orq.*, ct.ten as card_type_name, ct.ma_viet_tat as card_type_short_code
      from public.yeu_cau_online orq
      left join public.loai_the ct on ct.id = orq.loai_the_id
      where orq.id = $1`,
@@ -120,15 +106,15 @@ async function requestDetails(id, client) {
   if (!request) return null;
 
   const [photos, appointment] = await Promise.all([
-    many(`select ${rpCols()} from public.anh_yeu_cau_online where yeu_cau_online_id = $1 order by ngay_tao`, [id], client),
-    one(`select ${aptCols()} from public.lich_hen where yeu_cau_online_id = $1 order by ngay_tao desc limit 1`, [id], client)
+    many(`select * from public.anh_yeu_cau_online where yeu_cau_online_id = $1 order by ngay_tao`, [id], client),
+    one(`select * from public.lich_hen where yeu_cau_online_id = $1 order by ngay_tao desc limit 1`, [id], client)
   ]);
   return { request, photos, appointment };
 }
 
 async function requestPhotos(requestId, client) {
   return many(
-    `select ${rpCols()} from public.anh_yeu_cau_online where yeu_cau_online_id = $1 order by ngay_tao`,
+    `select * from public.anh_yeu_cau_online where yeu_cau_online_id = $1 order by ngay_tao`,
     [requestId],
     client
   );
@@ -143,7 +129,7 @@ async function updateRequestStatus(id, data, actorId, client) {
          ngay_duyet = now(),
          ngay_cap_nhat = now()
      where id = $1
-     returning ${reqCols()}`,
+     returning *`,
     [id, data.status, data.note || null, actorId || null],
     client
   );
@@ -158,7 +144,7 @@ async function linkConverted(id, { order_id, customer_id }, client) {
          ngay_duyet = now(),
          ngay_cap_nhat = now()
      where id = $1
-     returning ${reqCols()}`,
+     returning *`,
     [id, order_id, customer_id],
     client
   );
@@ -170,7 +156,7 @@ async function createAppointment(data, client) {
        yeu_cau_online_id, don_hang_id, ten_khach, so_dien_thoai, ngay_hen, khung_gio, trang_thai, ghi_chu, nguoi_xac_nhan
      )
      values ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-     returning ${aptCols()}`,
+     returning *`,
     [
       data.online_request_id || null,
       data.order_id || null,
@@ -188,7 +174,7 @@ async function createAppointment(data, client) {
 
 async function findAppointmentByRequest(requestId, client) {
   return one(
-    `select ${aptCols()} from public.lich_hen where yeu_cau_online_id = $1 order by ngay_tao desc limit 1`,
+    `select * from public.lich_hen where yeu_cau_online_id = $1 order by ngay_tao desc limit 1`,
     [requestId],
     client
   );
@@ -196,7 +182,7 @@ async function findAppointmentByRequest(requestId, client) {
 
 async function linkAppointmentOrder(id, orderId, client) {
   return one(
-    `update public.lich_hen set don_hang_id = $2, ngay_cap_nhat = now() where id = $1 returning ${aptCols()}`,
+    `update public.lich_hen set don_hang_id = $2, ngay_cap_nhat = now() where id = $1 returning *`,
     [id, orderId],
     client
   );
@@ -221,7 +207,7 @@ async function listAppointments(filters, { limit, offset }, client) {
 
   params.push(limit, offset);
   const rows = await many(
-    `select ${aptCols('a.')}, o.ma_don, count(*) over()::int as total
+    `select a.*, o.ma_don, count(*) over()::int as total
      from public.lich_hen a
      left join public.don_hang o on o.id = a.don_hang_id
      where ${where.join(' and ')}
@@ -234,7 +220,7 @@ async function listAppointments(filters, { limit, offset }, client) {
 }
 
 async function findAppointmentById(id, client) {
-  return one(`select ${aptCols()} from public.lich_hen where id = $1`, [id], client);
+  return one(`select * from public.lich_hen where id = $1`, [id], client);
 }
 
 async function updateAppointmentStatus(id, data, actorId, client) {
@@ -245,7 +231,7 @@ async function updateAppointmentStatus(id, data, actorId, client) {
          nguoi_xac_nhan = case when $2 in ('confirmed', 'done') then $4 else nguoi_xac_nhan end,
          ngay_cap_nhat = now()
      where id = $1
-     returning ${aptCols()}`,
+     returning *`,
     [id, data.status, data.note || null, actorId || null],
     client
   );

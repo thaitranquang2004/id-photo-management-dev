@@ -98,7 +98,7 @@ async function submitOnlineRequest(body, files, req) {
       }
     }, client);
 
-    return { request_id: request.id, status: request.status, photo_count: photoInputs.length };
+    return { request_id: request.id, trang_thai: request.trang_thai, photo_count: photoInputs.length };
   });
 
   // Fire-and-forget after commit so notification issues never break the submission.
@@ -132,17 +132,17 @@ async function acceptRequest(id, context) {
   const updated = await withTransaction(async (client) => {
     const request = await onlineRepository.findRequestById(id, client);
     if (!request) throw errors.notFound('Không tìm thấy yêu cầu online');
-    if (request.status !== 'new') {
-      throw errors.invalidState('Chỉ yêu cầu mới (new) mới được tiếp nhận', { status: request.status });
+    if (request.trang_thai !== 'new') {
+      throw errors.invalidState('Chỉ yêu cầu mới (new) mới được tiếp nhận', { trang_thai: request.trang_thai });
     }
     const next = await onlineRepository.updateRequestStatus(id, { status: 'accepted' }, context.user.id, client);
     await writeAudit('online_request.accepted', 'yeu_cau_online', id, context, { old_data: request, new_data: next }, client);
     return next;
   });
   await notificationService.notifyEvent('online_request_accepted', {
-    customer_name: updated.full_name,
+    customer_name: updated.ho_ten,
     email: updated.email,
-    phone: updated.phone,
+    phone: updated.so_dien_thoai,
     online_request_id: updated.id
   });
   return { request: updated };
@@ -152,17 +152,17 @@ async function rejectRequest(id, body, context) {
   const updated = await withTransaction(async (client) => {
     const request = await onlineRepository.findRequestById(id, client);
     if (!request) throw errors.notFound('Không tìm thấy yêu cầu online');
-    if (request.status === 'converted') {
-      throw errors.invalidState('Yêu cầu đã chuyển thành đơn, không thể từ chối', { status: request.status });
+    if (request.trang_thai === 'converted') {
+      throw errors.invalidState('Yêu cầu đã chuyển thành đơn, không thể từ chối', { trang_thai: request.trang_thai });
     }
     const next = await onlineRepository.updateRequestStatus(id, { status: 'rejected', note: body.note }, context.user.id, client);
     await writeAudit('online_request.rejected', 'yeu_cau_online', id, context, { old_data: request, new_data: next }, client);
     return next;
   });
   await notificationService.notifyEvent('online_request_rejected', {
-    customer_name: updated.full_name,
+    customer_name: updated.ho_ten,
     email: updated.email,
-    phone: updated.phone,
+    phone: updated.so_dien_thoai,
     online_request_id: updated.id,
     note: body.note
   });
@@ -177,20 +177,20 @@ async function convertToOrder(id, body, context) {
   return withTransaction(async (client) => {
     const request = await onlineRepository.findRequestById(id, client);
     if (!request) throw errors.notFound('Không tìm thấy yêu cầu online');
-    if (request.status === 'converted') {
-      throw errors.invalidState('Yêu cầu đã được chuyển thành đơn', { status: request.status });
+    if (request.trang_thai === 'converted') {
+      throw errors.invalidState('Yêu cầu đã được chuyển thành đơn', { trang_thai: request.trang_thai });
     }
 
-    const cardTypeId = body.card_type_id || request.card_type_id;
+    const cardTypeId = body.card_type_id || request.loai_the_id;
     if (!cardTypeId) {
       throw errors.validation('Cần chọn loại thẻ để tạo đơn', { field: 'card_type_id' });
     }
 
-    let customer = await customersRepository.findByPhone(request.phone, client);
+    let customer = await customersRepository.findByPhone(request.so_dien_thoai, client);
     if (!customer) {
       customer = await customersRepository.create({
-        full_name: request.full_name,
-        phone: request.phone,
+        full_name: request.ho_ten,
+        phone: request.so_dien_thoai,
         email: request.email
       }, context.user.id, client);
     }
@@ -200,14 +200,14 @@ async function convertToOrder(id, body, context) {
       card_type_id: cardTypeId,
       quantity: body.quantity,
       pickup_date: body.pickup_date,
-      notes: body.notes || request.note,
+      notes: body.notes || request.ghi_chu,
       intake_source: 'online',
       delivery_method: 'online'
     }, context, client);
 
     const requestPhotos = await onlineRepository.requestPhotos(id, client);
     for (const requestPhoto of requestPhotos) {
-      const asset = await assetService.downloadBuffer(requestPhoto.cloudinary_original_public_id);
+      const asset = await assetService.downloadBuffer(requestPhoto.cloudinary_anh_goc_id);
       const uploaded = await assetService.uploadBuffer(asset.buffer, {
         folder: `id-photo-management/orders/${order.id}/originals`,
         resource_type: 'image'
@@ -217,14 +217,14 @@ async function convertToOrder(id, body, context) {
         cloudinary_original_public_id: uploaded.public_id,
         original_asset_metadata: {
           ...assetService.cloudinaryMetadata(uploaded),
-          ...requestPhoto.original_asset_metadata,
+          ...requestPhoto.metadata_anh_goc,
           public_id: uploaded.public_id,
           secure_url: uploaded.secure_url,
           copied_from_online_request: id
         },
-        width_px: requestPhoto.width_px,
-        height_px: requestPhoto.height_px,
-        file_size_bytes: requestPhoto.file_size_bytes
+        width_px: requestPhoto.rong_px,
+        height_px: requestPhoto.cao_px,
+        file_size_bytes: requestPhoto.dung_luong_bytes
       }, client);
     }
 
@@ -276,12 +276,12 @@ async function updateAppointmentStatus(id, body, context) {
     await writeAudit('appointment.status_changed', 'lich_hen',id, context, { old_data: appointment, new_data: next }, client);
     return next;
   });
-  if (updated.status === 'confirmed') {
+  if (updated.trang_thai === 'confirmed') {
     await notificationService.notifyEvent('appointment_confirmed', {
-      customer_name: updated.customer_name,
-      phone: updated.phone,
-      preferred_date: updated.preferred_date,
-      time_slot: updated.time_slot
+      customer_name: updated.ten_khach,
+      phone: updated.so_dien_thoai,
+      preferred_date: updated.ngay_hen,
+      time_slot: updated.khung_gio
     });
   }
   return { appointment: updated };

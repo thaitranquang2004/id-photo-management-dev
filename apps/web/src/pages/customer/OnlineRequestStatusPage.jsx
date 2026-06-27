@@ -94,20 +94,20 @@ export default function OnlineRequestStatusPage() {
 
               {request ? (
                 <div className="mt-4">
-                  <div className="summary-box mb-2"><span>Tình trạng</span><strong>{STATUS_LABEL[request.status] || request.status}</strong></div>
-                  <div className="summary-box mb-2"><span>Ngày gửi</span><strong>{formatDate(request.created_at)}</strong></div>
-                  {request.appointment_status ? (
+                  <div className="summary-box mb-2"><span>Tình trạng</span><strong>{STATUS_LABEL[request.trang_thai] || request.trang_thai}</strong></div>
+                  <div className="summary-box mb-2"><span>Ngày gửi</span><strong>{formatDate(request.ngay_tao)}</strong></div>
+                  {request.trang_thai_lich_hen ? (
                     <div className="summary-box mb-2">
                       <span>Lịch hẹn</span>
-                      <strong>{formatDateOnly(request.preferred_date)} · {request.time_slot} · {APPT_LABEL[request.appointment_status] || request.appointment_status}</strong>
+                      <strong>{formatDateOnly(request.ngay_hen)} · {request.khung_gio} · {APPT_LABEL[request.trang_thai_lich_hen] || request.trang_thai_lich_hen}</strong>
                     </div>
                   ) : null}
-                  {request.converted_order_code ? (
+                  {request.ma_don_da_tao ? (
                     <Alert variant="success" className="mt-2 mb-0">
-                      Đã tạo đơn <strong>{request.converted_order_code}</strong>. Bạn có thể <a href="/tra-cuu">tra cứu đơn</a> để xem và tải ảnh khi sẵn sàng.
+                      Đã tạo đơn <strong>{request.ma_don_da_tao}</strong>. Bạn có thể <a href="/tra-cuu">tra cứu đơn</a> để xem và tải ảnh khi sẵn sàng.
                     </Alert>
                   ) : null}
-                  {request.status === 'rejected' ? (
+                  {request.trang_thai === 'rejected' ? (
                     <Alert variant="warning" className="mt-2 mb-0">Yêu cầu chưa được tiếp nhận. Vui lòng liên hệ tiệm để được hỗ trợ thêm.</Alert>
                   ) : null}
                 </div>

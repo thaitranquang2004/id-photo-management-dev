@@ -115,20 +115,20 @@ export default function AppointmentsPage() {
                 {appointments.map((item) => (
                   <tr key={item.id}>
                     <td>
-                      <div className="fw-semibold">{item.customer_name || '-'}</div>
-                      <div className="text-muted small">{item.phone || '-'}</div>
+                      <div className="fw-semibold">{item.ten_khach || '-'}</div>
+                      <div className="text-muted small">{item.so_dien_thoai || '-'}</div>
                     </td>
-                    <td>{formatDateOnly(item.preferred_date)}</td>
-                    <td>{item.time_slot}</td>
+                    <td>{formatDateOnly(item.ngay_hen)}</td>
+                    <td>{item.khung_gio}</td>
                     <td>
-                      {item.order_id ? (
-                        <Link to={`/staff/orders/${item.order_id}`}>{item.order_code || 'Mở đơn'}</Link>
+                      {item.don_hang_id ? (
+                        <Link to={`/staff/orders/${item.don_hang_id}`}>{item.ma_don || 'Mở đơn'}</Link>
                       ) : '-'}
                     </td>
-                    <td><StatusBadge status={item.status} /></td>
+                    <td><StatusBadge status={item.trang_thai} /></td>
                     <td className="text-end">
                       <div className="table-actions">
-                        {item.status === 'requested' ? (
+                        {item.trang_thai === 'requested' ? (
                           <Button
                             size="sm"
                             variant="outline-info"
@@ -138,7 +138,7 @@ export default function AppointmentsPage() {
                             Xác nhận
                           </Button>
                         ) : null}
-                        {item.status === 'confirmed' ? (
+                        {item.trang_thai === 'confirmed' ? (
                           <Button
                             size="sm"
                             variant="outline-success"
@@ -148,7 +148,7 @@ export default function AppointmentsPage() {
                             Hoàn tất
                           </Button>
                         ) : null}
-                        {['requested', 'confirmed'].includes(item.status) ? (
+                        {['requested', 'confirmed'].includes(item.trang_thai) ? (
                           <Button
                             size="sm"
                             variant="outline-danger"

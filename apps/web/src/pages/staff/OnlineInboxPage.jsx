@@ -60,7 +60,7 @@ export default function OnlineInboxPage() {
 
   useEffect(() => {
     if (request) {
-      setConvertForm((current) => ({ ...current, card_type_id: request.card_type_id || '' }));
+      setConvertForm((current) => ({ ...current, card_type_id: request.loai_the_id || '' }));
       setRejectNote('');
     }
   }, [request]);
@@ -140,14 +140,14 @@ export default function OnlineInboxPage() {
                 {requests.map((item) => (
                   <tr key={item.id}>
                     <td>
-                      <div className="fw-semibold">{item.full_name}</div>
-                      <div className="text-muted small">{item.phone}</div>
+                      <div className="fw-semibold">{item.ho_ten}</div>
+                      <div className="text-muted small">{item.so_dien_thoai}</div>
                     </td>
                     <td>{item.card_type_name || '-'}</td>
-                    <td>{REQUEST_TYPE_LABEL[item.request_type] || item.request_type}</td>
+                    <td>{REQUEST_TYPE_LABEL[item.loai_yeu_cau] || item.loai_yeu_cau}</td>
                     <td>{item.photo_count || 0}</td>
-                    <td><StatusBadge status={item.status} /></td>
-                    <td>{formatDate(item.created_at)}</td>
+                    <td><StatusBadge status={item.trang_thai} /></td>
+                    <td>{formatDate(item.ngay_tao)}</td>
                     <td className="text-end">
                       <Button size="sm" variant="outline-primary" onClick={() => setSelectedId(item.id)}>
                         Chi tiết
@@ -172,25 +172,25 @@ export default function OnlineInboxPage() {
             <>
               <Row className="g-3 mb-3">
                 <Col md={6}>
-                  <div className="summary-box"><span>Khách</span><strong>{request.full_name}</strong></div>
+                  <div className="summary-box"><span>Khách</span><strong>{request.ho_ten}</strong></div>
                 </Col>
                 <Col md={6}>
-                  <div className="summary-box"><span>SĐT</span><strong>{request.phone}</strong></div>
+                  <div className="summary-box"><span>SĐT</span><strong>{request.so_dien_thoai}</strong></div>
                 </Col>
                 <Col md={6}>
                   <div className="summary-box"><span>Email</span><strong>{request.email || '-'}</strong></div>
                 </Col>
                 <Col md={6}>
-                  <div className="summary-box"><span>Trạng thái</span><strong><StatusBadge status={request.status} /></strong></div>
+                  <div className="summary-box"><span>Trạng thái</span><strong><StatusBadge status={request.trang_thai} /></strong></div>
                 </Col>
               </Row>
 
-              {request.note ? <Alert variant="light">Ghi chú khách: {request.note}</Alert> : null}
+              {request.ghi_chu ? <Alert variant="light">Ghi chú khách: {request.ghi_chu}</Alert> : null}
 
               {appointment ? (
                 <Alert variant="info">
-                  Lịch hẹn: <strong>{appointment.preferred_date}</strong> · {appointment.time_slot} ·{' '}
-                  trạng thái <strong>{appointment.status}</strong>
+                  Lịch hẹn: <strong>{appointment.ngay_hen}</strong> · {appointment.khung_gio} ·{' '}
+                  trạng thái <strong>{appointment.trang_thai}</strong>
                 </Alert>
               ) : null}
 
@@ -209,7 +209,7 @@ export default function OnlineInboxPage() {
                 </>
               ) : <p className="text-muted">Khách không gửi ảnh (chỉ đặt lịch).</p>}
 
-              {request.status === 'converted' ? (
+              {request.trang_thai === 'converted' ? (
                 <Alert variant="success">
                   Đã tạo đơn.{' '}
                   {request.converted_order_id ? (
@@ -220,7 +220,7 @@ export default function OnlineInboxPage() {
                 </Alert>
               ) : null}
 
-              {['new', 'accepted'].includes(request.status) ? (
+              {['new', 'accepted'].includes(request.trang_thai) ? (
                 <div className="app-panel mt-3" style={{ background: 'var(--bs-light, #f8f9fa)' }}>
                   <h3 className="h6">Chuyển thành đơn</h3>
                   <Row className="g-3">
@@ -275,12 +275,12 @@ export default function OnlineInboxPage() {
         </Modal.Body>
         <Modal.Footer>
           <Button variant="outline-secondary" onClick={() => setSelectedId(null)}>Đóng</Button>
-          {request && request.status === 'new' ? (
+          {request && request.trang_thai === 'new' ? (
             <Button variant="outline-info" disabled={acceptMutation.isPending} onClick={() => acceptMutation.mutate()}>
               Tiếp nhận
             </Button>
           ) : null}
-          {request && ['new', 'accepted'].includes(request.status) ? (
+          {request && ['new', 'accepted'].includes(request.trang_thai) ? (
             <>
               <Button variant="outline-danger" disabled={rejectMutation.isPending} onClick={() => rejectMutation.mutate()}>
                 Từ chối

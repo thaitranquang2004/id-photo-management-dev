@@ -564,7 +564,7 @@ export default function OrderDetailPage() {
                     <tr><th>Nguồn đơn</th><td>{order.intake_source === 'online' ? 'Online' : 'Tại quầy'}</td></tr>
                     <tr><th>Hình thức giao</th><td>{order.delivery_method === 'online' ? 'Khách tải online' : 'Lấy tại quầy'}</td></tr>
                     {appointment ? (
-                      <tr><th>Lịch hẹn</th><td>{formatDate(appointment.preferred_date)} · {appointment.time_slot} · {appointment.status}</td></tr>
+                      <tr><th>Lịch hẹn</th><td>{formatDate(appointment.ngay_hen)} · {appointment.khung_gio} · {appointment.trang_thai}</td></tr>
                     ) : null}
                     <tr><th>Đã báo sẵn sàng</th><td>{order.ready_notified_at ? formatDate(order.ready_notified_at) : 'Chưa'}</td></tr>
                   </tbody>
