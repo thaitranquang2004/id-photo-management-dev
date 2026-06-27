@@ -100,15 +100,15 @@ export default function StaffDashboard() {
                   <tbody>
                     {pending.map((order) => (
                       <tr key={order.id}>
-                        <td className="fw-semibold">{order.order_code}</td>
+                        <td className="fw-semibold">{order.ma_don}</td>
                         <td>
                           <div>{order.customer_name}</div>
                           <div className="text-muted small">{order.customer_phone}</div>
                         </td>
                         <td>{order.card_type_name}</td>
-                        <td><OrderStatusBadge status={order.status} /></td>
-                        <td><PaymentStatusBadge total={order.total_amount} paid={order.amount_paid} /></td>
-                        <td>{formatDate(order.created_at)}</td>
+                        <td><OrderStatusBadge status={order.trang_thai} /></td>
+                        <td><PaymentStatusBadge total={order.tong_tien} paid={order.da_thanh_toan} /></td>
+                        <td>{formatDate(order.ngay_tao)}</td>
                         <td className="text-end">
                           <Button as={Link} to={`/staff/orders/${order.id}`} size="sm" variant="outline-primary">
                             Mở đơn
@@ -155,7 +155,7 @@ export default function StaffDashboard() {
               <div className="stack-list">
                 {reprints.map((item) => (
                   <div className="stack-list-item" key={item.id}>
-                    <div className="fw-semibold">{item.order_code || item.id}</div>
+                    <div className="fw-semibold">{item.ma_don || item.id}</div>
                     <div className="text-muted small">{item.reason || item.note || 'Không có ghi chú'}</div>
                   </div>
                 ))}

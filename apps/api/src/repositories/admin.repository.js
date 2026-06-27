@@ -41,8 +41,8 @@ async function orderReport(filters, client) {
   }
 
   return many(
-    `select o.ma_don as order_code, o.trang_thai as status, o.tong_tien as total_amount,
-            o.da_thanh_toan as amount_paid, o.so_luong as quantity, o.ngay_tao as created_at,
+    `select o.ma_don, o.trang_thai, o.tong_tien,
+            o.da_thanh_toan, o.so_luong, o.ngay_tao,
             c.ho_ten as customer_name, c.so_dien_thoai as customer_phone,
             ct.ten as card_type_name,
             p.ho_ten as staff_name

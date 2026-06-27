@@ -16,7 +16,7 @@ async function orderReport(query) {
 }
 
 function ordersCsv(rows) {
-  const header = ['order_code', 'status', 'total_amount', 'amount_paid', 'quantity', 'created_at', 'customer_name', 'customer_phone', 'card_type_name', 'staff_name'];
+  const header = ['ma_don', 'trang_thai', 'tong_tien', 'da_thanh_toan', 'so_luong', 'ngay_tao', 'customer_name', 'customer_phone', 'card_type_name', 'staff_name'];
   const lines = rows.map((row) => header.map((key) => JSON.stringify(row[key] ?? '')).join(','));
   return [header.join(','), ...lines].join('\n');
 }

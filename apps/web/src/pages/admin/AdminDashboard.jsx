@@ -94,12 +94,12 @@ export default function AdminDashboard() {
                   <tbody>
                     {orders.map((order) => (
                       <tr key={order.id}>
-                        <td className="fw-semibold">{order.order_code}</td>
+                        <td className="fw-semibold">{order.ma_don}</td>
                         <td>{order.customer_name}</td>
                         <td>{order.card_type_name}</td>
-                        <td><OrderStatusBadge status={order.status} /></td>
-                        <td><PaymentStatusBadge total={order.total_amount} paid={order.amount_paid} /></td>
-                        <td>{formatDate(order.created_at)}</td>
+                        <td><OrderStatusBadge status={order.trang_thai} /></td>
+                        <td><PaymentStatusBadge total={order.tong_tien} paid={order.da_thanh_toan} /></td>
+                        <td>{formatDate(order.ngay_tao)}</td>
                         <td className="text-end">
                           <Button as={Link} to={`/staff/orders/${order.id}`} size="sm" variant="outline-primary">
                             Mở
@@ -122,7 +122,7 @@ export default function AdminDashboard() {
               <div className="stack-list">
                 {reprints.map((request) => (
                   <div className="stack-list-item" key={request.id}>
-                    <strong>{request.order_code || request.id}</strong>
+                    <strong>{request.ma_don || request.id}</strong>
                     <span>{request.reason || request.note || 'Không có ghi chú'}</span>
                   </div>
                 ))}

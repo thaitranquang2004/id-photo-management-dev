@@ -128,10 +128,10 @@ export default function CustomerDetailPage() {
                   <tbody>
                     {recentOrders.map((order) => (
                       <tr key={order.id}>
-                        <td className="fw-semibold">{order.order_code}</td>
+                        <td className="fw-semibold">{order.ma_don}</td>
                         <td>{order.card_type_name}</td>
-                        <td><OrderStatusBadge status={order.status} /></td>
-                        <td>{formatDate(order.created_at)}</td>
+                        <td><OrderStatusBadge status={order.trang_thai} /></td>
+                        <td>{formatDate(order.ngay_tao)}</td>
                         <td className="text-end">
                           <Button as={Link} to={`/staff/orders/${order.id}`} size="sm" variant="outline-primary">
                             Mở đơn

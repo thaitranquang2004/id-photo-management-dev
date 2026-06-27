@@ -1,5 +1,4 @@
 const { one, many } = require('../db/pool');
-const { orderCols } = require('./orders.repository');
 
 async function list({ phone, limit, offset }, client) {
   const params = [];
@@ -85,7 +84,7 @@ async function countOrders(customerId, client) {
 
 async function recentOrders(customerId, client) {
   return many(
-    `select ${orderCols('o.')}, ct.ten as card_type_name
+    `select o.*, ct.ten as card_type_name
      from public.don_hang o
      join public.loai_the ct on ct.id = o.loai_the_id
      where o.khach_hang_id = $1

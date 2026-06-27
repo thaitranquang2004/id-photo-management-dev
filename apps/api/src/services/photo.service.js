@@ -255,7 +255,7 @@ async function runProcessingJob(jobId, context) {
   return withTransaction(async (client) => {
     const job = await photosRepository.markJobStarted(jobId, client);
     const order = await ordersRepository.findById(job.don_hang_id, client);
-    const cardType = await catalogRepository.findCardType(order.card_type_id, client);
+    const cardType = await catalogRepository.findCardType(order.loai_the_id, client);
     const photos = await photosRepository.photosForJob(job.id, client);
 
     const results = [];
@@ -284,8 +284,8 @@ async function batchProcess(body, context) {
   const created = await withTransaction(async (client) => {
     const order = await ordersRepository.findByIdForUpdate(body.order_id, client);
     if (!order) throw errors.notFound('Không tìm thấy đơn hàng');
-    if (!['pending', 'processing'].includes(order.status)) {
-      throw errors.invalidState('Chỉ đơn pending hoặc processing mới được batch-process', { status: order.status });
+    if (!['pending', 'processing'].includes(order.trang_thai)) {
+      throw errors.invalidState('Chỉ đơn pending hoặc processing mới được batch-process', { status: order.trang_thai });
     }
 
     const photos = await photosRepository.findManyByIds(body.photo_ids, client);
@@ -294,7 +294,7 @@ async function batchProcess(body, context) {
     }
 
     let updatedOrder = order;
-    if (order.status === 'pending') {
+    if (order.trang_thai === 'pending') {
       updatedOrder = await ordersRepository.updateStatus(order.id, 'processing', {}, client);
       await writeAudit('order.status_changed', 'don_hang', order.id, context, {
         old_data: order,
@@ -362,7 +362,7 @@ async function requalifyPhoto(id, context) {
     if (!publicId) throw errors.invalidState('Ảnh chưa có asset để kiểm tra QC');
 
     const order = await ordersRepository.findById(photo.don_hang_id, client);
-    const cardType = await catalogRepository.findCardType(order.card_type_id, client);
+    const cardType = await catalogRepository.findCardType(order.loai_the_id, client);
 
     const asset = await assetService.downloadBuffer(publicId);
     const aiFindings = await googleAiService.assessQuality({

@@ -68,7 +68,7 @@ async function createOrder(body, context) {
 // and build the photos_ready notification payload with a tokened lookup URL. This
 // closes the loop on the previously-unused ma_truy_cap_khach table.
 async function prepareReadyNotification(order, client) {
-  const customer = await customersRepository.findById(order.customer_id, client);
+  const customer = await customersRepository.findById(order.khach_hang_id, client);
   const token = crypto.randomBytes(24).toString('hex');
   const expiresAt = new Date(Date.now() + ACCESS_TOKEN_TTL_MS);
   await publicRepository.createAccessToken(order.id, sha256(token), expiresAt, client);
@@ -82,15 +82,15 @@ async function prepareReadyNotification(order, client) {
       email: customer?.email,
       phone: customer?.so_dien_thoai,
       order_id: order.id,
-      order_code: order.order_code,
-      pickup_date: order.pickup_date,
+      order_code: order.ma_don,
+      pickup_date: order.ngay_hen_lay,
       lookup_url: lookupUrl
     }
   };
 }
 
 async function prepareDeliveredNotification(order, client) {
-  const customer = await customersRepository.findById(order.customer_id, client);
+  const customer = await customersRepository.findById(order.khach_hang_id, client);
   return {
     event_type: 'order_delivered',
     payload: {
@@ -98,13 +98,13 @@ async function prepareDeliveredNotification(order, client) {
       email: customer?.email,
       phone: customer?.so_dien_thoai,
       order_id: order.id,
-      order_code: order.order_code
+      order_code: order.ma_don
     }
   };
 }
 
 async function prepareCancelledNotification(order, reason, client) {
-  const customer = await customersRepository.findById(order.customer_id, client);
+  const customer = await customersRepository.findById(order.khach_hang_id, client);
   return {
     event_type: 'order_cancelled',
     payload: {
@@ -112,7 +112,7 @@ async function prepareCancelledNotification(order, reason, client) {
       email: customer?.email,
       phone: customer?.so_dien_thoai,
       order_id: order.id,
-      order_code: order.order_code,
+      order_code: order.ma_don,
       reason
     }
   };
@@ -122,7 +122,7 @@ async function changeStatus(id, nextStatus, context, options = {}) {
   const outcome = await withTransaction(async (client) => {
     const order = await ordersRepository.findByIdForUpdate(id, client);
     if (!order) throw errors.notFound('Không tìm thấy đơn hàng');
-    assertTransition(order.status, nextStatus);
+    assertTransition(order.trang_thai, nextStatus);
 
     if (nextStatus === 'completed') {
       const approvedCount = await ordersRepository.countApprovedPhotos(id, client);
@@ -136,8 +136,8 @@ async function changeStatus(id, nextStatus, context, options = {}) {
     }
 
     if (nextStatus === 'delivered') {
-      const total = Number(order.total_amount || 0);
-      const paid = Number(order.amount_paid || 0);
+      const total = Number(order.tong_tien || 0);
+      const paid = Number(order.da_thanh_toan || 0);
       if (paid < total && !options.allow_unpaid_reason) {
         throw errors.invalidState('Đơn chưa thanh toán đủ. Hãy thu đủ tiền hoặc nhập lý do giao nợ.', {
           total_amount: total, amount_paid: paid, balance: total - paid
@@ -155,7 +155,7 @@ async function changeStatus(id, nextStatus, context, options = {}) {
     }, client);
 
     let notify = null;
-    if (nextStatus === 'completed' && !order.ready_notified_at) {
+    if (nextStatus === 'completed' && !order.ngay_bao_san_sang) {
       notify = await prepareReadyNotification(updated, client);
     } else if (nextStatus === 'delivered') {
       notify = await prepareDeliveredNotification(updated, client);

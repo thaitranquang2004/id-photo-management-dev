@@ -14,8 +14,8 @@ import OrderStatusBadge from '../../components/status/OrderStatusBadge.jsx';
 import { formatCurrency, formatDate } from '../../utils/format';
 
 function reportTotals(rows) {
-  const revenue = rows.reduce((sum, row) => sum + Number(row.total_amount || 0), 0);
-  const paid = rows.reduce((sum, row) => sum + Number(row.amount_paid || 0), 0);
+  const revenue = rows.reduce((sum, row) => sum + Number(row.tong_tien || 0), 0);
+  const paid = rows.reduce((sum, row) => sum + Number(row.da_thanh_toan || 0), 0);
   return {
     orders: rows.length,
     revenue,
@@ -159,19 +159,19 @@ export default function ReportsPage() {
               </thead>
               <tbody>
                 {orders.map((order) => (
-                  <tr key={`${order.order_code}-${order.created_at}`}>
-                    <td className="fw-semibold">{order.order_code}</td>
+                  <tr key={`${order.ma_don}-${order.ngay_tao}`}>
+                    <td className="fw-semibold">{order.ma_don}</td>
                     <td>
                       <div>{order.customer_name}</div>
                       <div className="text-muted small">{order.customer_phone}</div>
                     </td>
                     <td>{order.card_type_name}</td>
                     <td>{order.staff_name || '—'}</td>
-                    <td><OrderStatusBadge status={order.status} /></td>
-                    <td>{order.quantity}</td>
-                    <td>{formatCurrency(order.total_amount)}</td>
-                    <td>{formatCurrency(order.amount_paid)}</td>
-                    <td>{formatDate(order.created_at)}</td>
+                    <td><OrderStatusBadge status={order.trang_thai} /></td>
+                    <td>{order.so_luong}</td>
+                    <td>{formatCurrency(order.tong_tien)}</td>
+                    <td>{formatCurrency(order.da_thanh_toan)}</td>
+                    <td>{formatDate(order.ngay_tao)}</td>
                   </tr>
                 ))}
               </tbody>

@@ -70,11 +70,11 @@ async function convertToOrder(id, body, context) {
     if (!origOrder) throw errors.invalidState('Đơn gốc không còn tồn tại');
 
     const { order, pricing_snapshot: pricingSnapshot } = await orderService.createOrderCore({
-      customer_id: origOrder.customer_id,
-      card_type_id: origOrder.card_type_id,
+      customer_id: origOrder.khach_hang_id,
+      card_type_id: origOrder.loai_the_id,
       quantity: body.quantity || request.so_luong,
       pickup_date: body.pickup_date,
-      notes: body.notes || `In lại từ đơn ${origOrder.order_code}`,
+      notes: body.notes || `In lại từ đơn ${origOrder.ma_don}`,
       intake_source: 'reprint',
       delivery_method: 'pickup'
     }, context, client);
@@ -112,7 +112,7 @@ async function convertToOrder(id, body, context) {
       new_data: { request: updatedRequest, order_id: order.id }
     }, client);
 
-    const customer = await customersRepository.findById(origOrder.customer_id, client);
+    const customer = await customersRepository.findById(origOrder.khach_hang_id, client);
     return { request: updatedRequest, order, pricing_snapshot: pricingSnapshot, customer };
   });
 
@@ -122,8 +122,8 @@ async function convertToOrder(id, body, context) {
     email: outcome.customer?.email,
     phone: outcome.customer?.so_dien_thoai,
     order_id: outcome.order.id,
-    order_code: outcome.order.order_code,
-    quantity: outcome.order.quantity
+    order_code: outcome.order.ma_don,
+    quantity: outcome.order.so_luong
   });
 
   return { request: outcome.request, order: outcome.order, pricing_snapshot: outcome.pricing_snapshot };

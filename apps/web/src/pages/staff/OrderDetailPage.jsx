@@ -235,8 +235,8 @@ export default function OrderDetailPage() {
 
   const canComplete = approvedPhotos.length > 0;
   const payments = paymentsQuery.data?.payments || [];
-  const totalAmount = Number(order.total_amount || 0);
-  const amountPaid = Number(order.amount_paid || 0);
+  const totalAmount = Number(order.tong_tien || 0);
+  const amountPaid = Number(order.da_thanh_toan || 0);
   const balance = totalAmount - amountPaid;
   const isAiProcessing = autoProcessMutation.isPending || processMutation.isPending;
   const isPhotoPipelineActive = uploadMutation.isPending || isAiProcessing;
@@ -257,46 +257,46 @@ export default function OrderDetailPage() {
           <div className="breadcrumb-line">
             <Link to="/staff">Staff</Link>
             <span>/</span>
-            <span>{order.order_code}</span>
+            <span>{order.ma_don}</span>
           </div>
-          <h1>Đơn {order.order_code}</h1>
+          <h1>Đơn {order.ma_don}</h1>
           <p>{order.customer_name} · {order.customer_phone} · {order.card_type_name}</p>
           <div className="d-flex gap-2 mt-1">
-            <Badge bg={order.intake_source === 'online' ? 'info' : 'secondary'} text={order.intake_source === 'online' ? 'dark' : undefined}>
-              {order.intake_source === 'online' ? 'Đơn online' : 'Tại quầy'}
+            <Badge bg={order.nguon_don === 'online' ? 'info' : 'secondary'} text={order.nguon_don === 'online' ? 'dark' : undefined}>
+              {order.nguon_don === 'online' ? 'Đơn online' : 'Tại quầy'}
             </Badge>
             <Badge bg="light" text="dark">
-              {order.delivery_method === 'online' ? 'Giao online' : 'Lấy tại quầy'}
+              {order.hinh_thuc_giao === 'online' ? 'Giao online' : 'Lấy tại quầy'}
             </Badge>
           </div>
         </div>
         <div className="header-actions">
-          <OrderStatusBadge status={order.status} />
+          <OrderStatusBadge status={order.trang_thai} />
           <Button
             variant="outline-primary"
             onClick={() => startMutation.mutate()}
-            disabled={startMutation.isPending || order.status !== 'pending'}
+            disabled={startMutation.isPending || order.trang_thai !== 'pending'}
           >
             Bắt đầu xử lý
           </Button>
           <Button
             variant="outline-success"
             onClick={() => completeMutation.mutate()}
-            disabled={completeMutation.isPending || order.status === 'completed' || !canComplete}
+            disabled={completeMutation.isPending || order.trang_thai === 'completed' || !canComplete}
           >
             Hoàn tất
           </Button>
           <Button
             variant="outline-secondary"
             onClick={() => { if (balance > 0) setShowDeliver(true); else deliverMutation.mutate(); }}
-            disabled={deliverMutation.isPending || order.status !== 'completed'}
+            disabled={deliverMutation.isPending || order.trang_thai !== 'completed'}
           >
             Đã giao
           </Button>
           <Button
             variant="outline-danger"
             onClick={() => setShowCancel(true)}
-            disabled={order.status === 'delivered' || order.status === 'cancelled'}
+            disabled={order.trang_thai === 'delivered' || order.trang_thai === 'cancelled'}
           >
             Huỷ đơn
           </Button>
@@ -304,10 +304,10 @@ export default function OrderDetailPage() {
       </div>
 
       <Row className="g-3">
-        <Col md={3}><div className="summary-box"><span>Tổng tiền</span><strong>{formatCurrency(order.total_amount)}</strong></div></Col>
-        <Col md={3}><div className="summary-box"><span>Số lượng</span><strong>{order.quantity}</strong></div></Col>
-        <Col md={3}><div className="summary-box"><span>Ngày hẹn</span><strong>{order.pickup_date ? formatDate(order.pickup_date) : '-'}</strong></div></Col>
-        <Col md={3}><div className="summary-box"><span>Ngày tạo</span><strong>{formatDate(order.created_at)}</strong></div></Col>
+        <Col md={3}><div className="summary-box"><span>Tổng tiền</span><strong>{formatCurrency(order.tong_tien)}</strong></div></Col>
+        <Col md={3}><div className="summary-box"><span>Số lượng</span><strong>{order.so_luong}</strong></div></Col>
+        <Col md={3}><div className="summary-box"><span>Ngày hẹn</span><strong>{order.ngay_hen_lay ? formatDate(order.ngay_hen_lay) : '-'}</strong></div></Col>
+        <Col md={3}><div className="summary-box"><span>Ngày tạo</span><strong>{formatDate(order.ngay_tao)}</strong></div></Col>
       </Row>
 
       <section className="app-panel">
@@ -538,7 +538,7 @@ export default function OrderDetailPage() {
                   <tbody>
                     <tr><th>Họ tên</th><td>{order.customer_name}</td></tr>
                     <tr><th>SĐT</th><td>{order.customer_phone}</td></tr>
-                    <tr><th>Ghi chú</th><td>{order.notes || '-'}</td></tr>
+                    <tr><th>Ghi chú</th><td>{order.ghi_chu || '-'}</td></tr>
                   </tbody>
                 </Table>
               </Col>
@@ -561,12 +561,12 @@ export default function OrderDetailPage() {
               <Col md={6}>
                 <Table className="detail-table">
                   <tbody>
-                    <tr><th>Nguồn đơn</th><td>{order.intake_source === 'online' ? 'Online' : 'Tại quầy'}</td></tr>
-                    <tr><th>Hình thức giao</th><td>{order.delivery_method === 'online' ? 'Khách tải online' : 'Lấy tại quầy'}</td></tr>
+                    <tr><th>Nguồn đơn</th><td>{order.nguon_don === 'online' ? 'Online' : 'Tại quầy'}</td></tr>
+                    <tr><th>Hình thức giao</th><td>{order.hinh_thuc_giao === 'online' ? 'Khách tải online' : 'Lấy tại quầy'}</td></tr>
                     {appointment ? (
                       <tr><th>Lịch hẹn</th><td>{formatDate(appointment.ngay_hen)} · {appointment.khung_gio} · {appointment.trang_thai}</td></tr>
                     ) : null}
-                    <tr><th>Đã báo sẵn sàng</th><td>{order.ready_notified_at ? formatDate(order.ready_notified_at) : 'Chưa'}</td></tr>
+                    <tr><th>Đã báo sẵn sàng</th><td>{order.ngay_bao_san_sang ? formatDate(order.ngay_bao_san_sang) : 'Chưa'}</td></tr>
                   </tbody>
                 </Table>
               </Col>
@@ -645,7 +645,7 @@ export default function OrderDetailPage() {
 
       <Modal show={showCancel} onHide={() => setShowCancel(false)} centered>
         <Modal.Header closeButton>
-          <Modal.Title>Huỷ đơn {order.order_code}</Modal.Title>
+          <Modal.Title>Huỷ đơn {order.ma_don}</Modal.Title>
         </Modal.Header>
         <Modal.Body>
           {amountPaid > 0 ? (

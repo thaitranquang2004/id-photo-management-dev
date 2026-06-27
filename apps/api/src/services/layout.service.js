@@ -86,7 +86,7 @@ async function renderLayoutBuffer(body, order, cardType, photos) {
           <rect width="100%" height="100%" fill="white"/>
           <text x="50%" y="55%" dominant-baseline="middle" text-anchor="middle"
             font-family="Arial, sans-serif" font-size="${Math.max(12, Math.round(labelHeightPx * 0.42))}" fill="#111">
-            ${order.order_code}
+            ${order.ma_don}
           </text>
         </svg>
       `);
@@ -128,7 +128,7 @@ async function renderLayoutBuffer(body, order, cardType, photos) {
 async function validatedLayoutInputs(body, client) {
   const order = await ordersRepository.findById(body.order_id, client);
   if (!order) throw errors.notFound('Không tìm thấy đơn hàng');
-  const cardType = await catalogRepository.findCardType(order.card_type_id, client);
+  const cardType = await catalogRepository.findCardType(order.loai_the_id, client);
   const photos = await photosRepository.findManyByIds(body.photo_ids, client);
   if (photos.length !== body.photo_ids.length || photos.some((photo) => photo.don_hang_id !== body.order_id || photo.trang_thai !== 'approved')) {
     throw errors.validation('Layout chỉ được dùng ảnh approved thuộc cùng order', { order_id: body.order_id });
@@ -171,7 +171,7 @@ async function generateLayout(body, context) {
     const order = await ordersRepository.findByIdForUpdate(body.order_id, client);
     if (!order) throw errors.notFound('Không tìm thấy đơn hàng');
 
-    const cardType = await catalogRepository.findCardType(order.card_type_id, client);
+    const cardType = await catalogRepository.findCardType(order.loai_the_id, client);
     const photos = await photosRepository.findManyByIds(body.photo_ids, client);
     if (photos.length !== body.photo_ids.length || photos.some((photo) => photo.don_hang_id !== body.order_id || photo.trang_thai !== 'approved')) {
       throw errors.validation('Layout chỉ được dùng ảnh approved thuộc cùng order', { order_id: body.order_id });
@@ -206,7 +206,7 @@ async function generateLayout(body, context) {
     await writeAudit('layout.created', 'bo_cuc_in', printLayout.id, context, { new_data: { print_layout: printLayout, items } }, client);
 
     let updatedOrder = order;
-    if (order.status === 'processing') {
+    if (order.trang_thai === 'processing') {
       updatedOrder = await ordersRepository.updateStatus(order.id, 'completed', {}, client);
       await writeAudit('order.status_changed', 'don_hang', order.id, context, { old_data: order, new_data: updatedOrder }, client);
     }

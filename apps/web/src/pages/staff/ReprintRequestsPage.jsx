@@ -140,7 +140,7 @@ export default function ReprintRequestsPage() {
           {detailQuery.isLoading ? <LoadingState label="Đang tải..." /> : null}
           {request ? (
             <>
-              <div className="summary-box mb-2"><span>Đơn gốc</span><strong>{request.ma_don || detail?.order?.order_code || '-'}</strong></div>
+              <div className="summary-box mb-2"><span>Đơn gốc</span><strong>{request.ma_don || detail?.order?.ma_don || '-'}</strong></div>
               <div className="summary-box mb-2"><span>SĐT</span><strong>{request.so_dien_thoai || '-'}</strong></div>
               <div className="summary-box mb-2"><span>Số lượng</span><strong>{request.so_luong}</strong></div>
               <div className="summary-box mb-2"><span>Số ảnh yêu cầu</span><strong>{photos.length}</strong></div>

@@ -23,10 +23,10 @@ async function resolvePublicOrder(input, client) {
 function publicOrderInfo(order) {
   return {
     id: order.id,
-    order_code: order.order_code,
+    order_code: order.ma_don,
     card_type_name: order.card_type_name,
-    status: order.status,
-    created_at: order.created_at
+    status: order.trang_thai,
+    created_at: order.ngay_tao
   };
 }
 
@@ -57,7 +57,7 @@ async function customerLookup(query, req) {
     const photos = await publicRepository.approvedPhotos(order.id, client);
     const layouts = await publicRepository.generatedLayouts(order.id, client);
     // Bộ sưu tập: toàn bộ ảnh đã duyệt của khách qua mọi đơn (không chỉ đơn đang tra).
-    const collectionPhotos = await customersRepository.approvedPhotos(order.customer_id, client);
+    const collectionPhotos = await customersRepository.approvedPhotos(order.khach_hang_id, client);
 
     await publicRepository.logLookupEvent({
       order_id: order.id,
@@ -163,7 +163,7 @@ async function createReprintRequest(body, req) {
 
     if (body.layout_id) {
       const layout = await layoutsRepository.findById(body.layout_id, client);
-      if (!layout || layout.order_id !== order.id || layout.status !== 'generated') {
+      if (!layout || layout.don_hang_id !== order.id || layout.trang_thai !== 'generated') {
         throw errors.validation('layout_id không hợp lệ cho đơn này', { layout_id: body.layout_id });
       }
     }
