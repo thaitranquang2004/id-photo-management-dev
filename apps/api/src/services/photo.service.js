@@ -166,7 +166,7 @@ async function processPhoto(photo, order, cardType, job, client) {
     const original = await assetService.downloadBuffer(photo.cloudinary_original_public_id);
     const sourceMeta = await sharp(original.buffer).metadata();
     let sourceBuffer = original.buffer;
-    let providerMetadata = { provider: job.provider, processing_mode: job.processing_mode };
+    let providerMetadata = { provider: job.nha_cung_cap, processing_mode: job.che_do_xu_ly };
     const aiAssist = {
       ai_edited: false,
       background: false,
@@ -175,8 +175,8 @@ async function processPhoto(photo, order, cardType, job, client) {
       identity_preserved: true
     };
 
-    const useAi = job.processing_mode === 'safe_assist'
-      && (job.provider === 'google_ai' || job.provider === 'hybrid');
+    const useAi = job.che_do_xu_ly === 'safe_assist'
+      && (job.nha_cung_cap === 'google_ai' || job.nha_cung_cap === 'hybrid');
 
     if (useAi) {
       try {
@@ -193,7 +193,7 @@ async function processPhoto(photo, order, cardType, job, client) {
         };
         Object.assign(aiAssist, { ai_edited: true, background: true, lighting: true, straighten: true });
       } catch (error) {
-        if (job.strict_quality_check) throw error;
+        if (job.kiem_tra_nghiem_ngat) throw error;
         providerMetadata = { ...providerMetadata, google_ai_fallback_reason: error.message };
         aiAssist.fallback_reason = error.message;
       }
@@ -237,7 +237,7 @@ async function processPhoto(photo, order, cardType, job, client) {
       ai_assist_applied: aiAssist
     }, client);
 
-    if (job.strict_quality_check && qc.qc_status === 'fail') {
+    if (job.kiem_tra_nghiem_ngat && qc.qc_status === 'fail') {
       const reason = `QC thất bại: ${qc.quality_issues
         .filter((item) => item.severity === 'fail')
         .map((item) => item.message)
@@ -254,7 +254,7 @@ async function processPhoto(photo, order, cardType, job, client) {
 async function runProcessingJob(jobId, context) {
   return withTransaction(async (client) => {
     const job = await photosRepository.markJobStarted(jobId, client);
-    const order = await ordersRepository.findById(job.order_id, client);
+    const order = await ordersRepository.findById(job.don_hang_id, client);
     const cardType = await catalogRepository.findCardType(order.card_type_id, client);
     const photos = await photosRepository.photosForJob(job.id, client);
 
@@ -266,10 +266,10 @@ async function runProcessingJob(jobId, context) {
     const processedCount = results.filter((photo) => photo.status === 'processed').length;
     const failedCount = results.length - processedCount;
     const finishedJob = await photosRepository.finishProcessingJob(job.id, {
-      status: processedCount > 0 ? 'completed' : 'failed',
-      processed_count: processedCount,
-      failed_count: failedCount,
-      error_message: failedCount > 0 ? 'Một số ảnh xử lý thất bại' : null
+      trang_thai: processedCount > 0 ? 'completed' : 'failed',
+      so_da_xu_ly: processedCount,
+      so_that_bai: failedCount,
+      loi: failedCount > 0 ? 'Một số ảnh xử lý thất bại' : null
     }, client);
 
     await writeAudit('processing_job.completed', 'tac_vu_xu_ly', job.id, context, {

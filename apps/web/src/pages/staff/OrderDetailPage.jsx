@@ -99,8 +99,8 @@ export default function OrderDetailPage() {
     mutationFn: () => batchProcessPhotos({
       order_id: id,
       photo_ids: pendingAiPhotos.map((photo) => photo.id),
-      provider: 'google_ai',
-      strict_quality_check: false
+      nha_cung_cap: 'google_ai',
+      kiem_tra_nghiem_ngat: false
     }),
     onSuccess: (result) => {
       if (result.job?.id) setActiveJobId(result.job.id);
@@ -112,8 +112,8 @@ export default function OrderDetailPage() {
     mutationFn: (photoIds) => batchProcessPhotos({
       order_id: id,
       photo_ids: photoIds,
-      provider: 'google_ai',
-      strict_quality_check: false
+      nha_cung_cap: 'google_ai',
+      kiem_tra_nghiem_ngat: false
     }),
     onSuccess: (result) => {
       if (result.job?.id) setActiveJobId(result.job.id);
@@ -431,8 +431,8 @@ export default function OrderDetailPage() {
               </Alert>
             ) : null}
             {jobQuery.data?.job ? (
-              <Alert variant={jobQuery.data.job.status === 'failed' ? 'danger' : 'info'} className="mt-3">
-                Job xử lý ảnh: <strong>{jobQuery.data.job.status}</strong>
+              <Alert variant={jobQuery.data.job.trang_thai === 'failed' ? 'danger' : 'info'} className="mt-3">
+                Job xử lý ảnh: <strong>{jobQuery.data.job.trang_thai}</strong>
               </Alert>
             ) : null}
 

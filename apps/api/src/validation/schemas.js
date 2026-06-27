@@ -109,9 +109,9 @@ const photoCreateBody = z.object({
 const batchProcessBody = z.object({
   order_id: uuid,
   photo_ids: z.array(uuid).min(1),
-  provider: z.enum(PROCESSING_PROVIDERS).default('google_ai'),
-  processing_mode: z.enum(PROCESSING_MODES).default('safe_assist'),
-  strict_quality_check: z.boolean().default(false)
+  nha_cung_cap: z.enum(PROCESSING_PROVIDERS).default('google_ai'),
+  che_do_xu_ly: z.enum(PROCESSING_MODES).default('safe_assist'),
+  kiem_tra_nghiem_ngat: z.boolean().default(false)
 });
 
 const rejectPhotoBody = z.object({ reason: longText.min(1) });

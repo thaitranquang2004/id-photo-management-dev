@@ -29,7 +29,7 @@ test('batch processing defaults to Google AI provider', () => {
     photo_ids: ['30000000-0000-4000-8000-000000000001']
   });
 
-  assert.equal(body.provider, 'google_ai');
+  assert.equal(body.nha_cung_cap, 'google_ai');
 });
 
 test('batch processing defaults to safe_assist mode (AI must not alter identity)', () => {
@@ -38,14 +38,14 @@ test('batch processing defaults to safe_assist mode (AI must not alter identity)
     photo_ids: ['30000000-0000-4000-8000-000000000001']
   });
 
-  assert.equal(body.processing_mode, 'safe_assist');
+  assert.equal(body.che_do_xu_ly, 'safe_assist');
 });
 
 test('batch processing rejects unknown processing_mode', () => {
   assert.throws(() => schemas.batchProcessBody.parse({
     order_id: '20000000-0000-4000-8000-000000000001',
     photo_ids: ['30000000-0000-4000-8000-000000000001'],
-    processing_mode: 'beautify'
+    che_do_xu_ly: 'beautify'
   }));
 });
 
@@ -53,7 +53,7 @@ test('batch processing rejects Banana.dev provider value', () => {
   assert.throws(() => schemas.batchProcessBody.parse({
     order_id: '20000000-0000-4000-8000-000000000001',
     photo_ids: ['30000000-0000-4000-8000-000000000001'],
-    provider: 'banana'
+    nha_cung_cap: 'banana'
   }));
 });
 

@@ -121,25 +121,19 @@ async function markProcessingFailed(id, message, client) {
   );
 }
 
-// Alias cột tac_vu_xu_ly về tên tiếng Anh để engine photo.service + frontend không phải đổi.
-const JOB_COLS = `id, don_hang_id as order_id, nguoi_yeu_cau as requested_by, nha_cung_cap as provider,
-  trang_thai as status, kiem_tra_nghiem_ngat as strict_quality_check, che_do_xu_ly as processing_mode,
-  so_anh as photo_count, so_da_xu_ly as processed_count, so_that_bai as failed_count,
-  loi as error_message, bat_dau_luc as started_at, hoan_tat_luc as completed_at, ngay_tao as created_at`;
-
 async function createProcessingJob(data, actorId, client) {
   return one(
     `insert into public.tac_vu_xu_ly (
        don_hang_id, nguoi_yeu_cau, nha_cung_cap, trang_thai, kiem_tra_nghiem_ngat, che_do_xu_ly, so_anh
      )
      values ($1, $2, $3, 'queued', $4, $5, $6)
-     returning ${JOB_COLS}`,
+     returning *`,
     [
       data.order_id,
       actorId,
-      data.provider || 'google_ai',
-      data.strict_quality_check || false,
-      data.processing_mode || 'safe_assist',
+      data.nha_cung_cap || 'google_ai',
+      data.kiem_tra_nghiem_ngat || false,
+      data.che_do_xu_ly || 'safe_assist',
       data.photo_ids.length
     ],
     client
@@ -161,7 +155,7 @@ async function markPhotosProcessing(photoIds, jobId, client) {
 }
 
 async function findProcessingJob(id, client) {
-  return one(`select ${JOB_COLS} from public.tac_vu_xu_ly where id = $1`, [id], client);
+  return one('select * from public.tac_vu_xu_ly where id = $1', [id], client);
 }
 
 async function markJobStarted(id, client) {
@@ -170,7 +164,7 @@ async function markJobStarted(id, client) {
      set trang_thai = 'processing',
          bat_dau_luc = coalesce(bat_dau_luc, now())
      where id = $1
-     returning ${JOB_COLS}`,
+     returning *`,
     [id],
     client
   );
@@ -185,13 +179,13 @@ async function finishProcessingJob(id, patch, client) {
          loi = $5,
          hoan_tat_luc = now()
      where id = $1
-     returning ${JOB_COLS}`,
+     returning *`,
     [
       id,
-      patch.status,
-      patch.processed_count,
-      patch.failed_count,
-      patch.error_message || null
+      patch.trang_thai,
+      patch.so_da_xu_ly,
+      patch.so_that_bai,
+      patch.loi || null
     ],
     client
   );
