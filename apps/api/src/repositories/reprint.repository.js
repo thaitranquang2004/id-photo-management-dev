@@ -1,5 +1,4 @@
 const { one, many } = require('../db/pool');
-const { PHOTO_COLS } = require('./photos.repository');
 const { orderCols } = require('./orders.repository');
 
 async function list(filters, { limit, offset }, client) {
@@ -41,7 +40,7 @@ async function details(id, client) {
   if (!request) return null;
   const order = await one(`select ${orderCols()} from public.don_hang where id = $1`, [request.don_hang_id], client);
   const photos = request.danh_sach_anh_id?.length
-    ? await many(`select ${PHOTO_COLS} from public.anh where id = any($1::uuid[])`, [request.danh_sach_anh_id], client)
+    ? await many(`select * from public.anh where id = any($1::uuid[])`, [request.danh_sach_anh_id], client)
     : [];
   return { request, order, photos };
 }

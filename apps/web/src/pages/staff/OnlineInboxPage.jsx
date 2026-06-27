@@ -200,8 +200,8 @@ export default function OnlineInboxPage() {
                   <Row className="g-2 mb-3">
                     {photos.map((photo) => (
                       <Col xs={6} md={3} key={photo.id}>
-                        {photo.original_asset_metadata?.secure_url ? (
-                          <Image src={photo.original_asset_metadata.secure_url} alt="Ảnh khách gửi" fluid thumbnail />
+                        {photo.metadata_anh_goc?.secure_url ? (
+                          <Image src={photo.metadata_anh_goc.secure_url} alt="Ảnh khách gửi" fluid thumbnail />
                         ) : <div className="text-muted small">Không xem được</div>}
                       </Col>
                     ))}

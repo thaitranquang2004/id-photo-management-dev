@@ -73,12 +73,12 @@ async function customerLookup(query, req) {
     return {
       order_info: publicOrderInfo(order),
       photos: photos.map((photo) => {
-        const publicId = photo.cloudinary_processed_public_id || photo.cloudinary_original_public_id;
+        const publicId = photo.cloudinary_anh_xu_ly_id || photo.cloudinary_anh_goc_id;
         return {
           id: photo.id,
-          status: photo.status,
-          purged: Boolean(photo.purged_at),
-          signed_url: photo.purged_at ? null : signedOrNull(publicId, { format: 'jpg' }).signed_url
+          status: photo.trang_thai,
+          purged: Boolean(photo.ngay_don_dep),
+          signed_url: photo.ngay_don_dep ? null : signedOrNull(publicId, { format: 'jpg' }).signed_url
         };
       }),
       print_layouts: layouts.map((layout) => ({
@@ -93,13 +93,13 @@ async function customerLookup(query, req) {
         }).signed_url
       })),
       collection: collectionPhotos.map((photo) => {
-        const publicId = photo.cloudinary_processed_public_id || photo.cloudinary_original_public_id;
+        const publicId = photo.cloudinary_anh_xu_ly_id || photo.cloudinary_anh_goc_id;
         return {
           id: photo.id,
           order_code: photo.order_code,
-          created_at: photo.created_at,
-          purged: Boolean(photo.purged_at),
-          signed_url: photo.purged_at ? null : signedOrNull(publicId, { format: 'jpg' }).signed_url
+          created_at: photo.ngay_tao,
+          purged: Boolean(photo.ngay_don_dep),
+          signed_url: photo.ngay_don_dep ? null : signedOrNull(publicId, { format: 'jpg' }).signed_url
         };
       })
     };
@@ -126,11 +126,11 @@ async function photoDownloadUrl(photoId, body, req) {
       }, client);
       throw errors.notFound('Không tìm thấy ảnh approved');
     }
-    if (photo.purged_at) {
+    if (photo.ngay_don_dep) {
       throw errors.invalidState('Ảnh đã hết hạn lưu trữ (quá 6 tháng), không thể tải.');
     }
 
-    const publicId = photo.cloudinary_processed_public_id || photo.cloudinary_original_public_id;
+    const publicId = photo.cloudinary_anh_xu_ly_id || photo.cloudinary_anh_goc_id;
     const signed = assetService.signedDownloadUrl(publicId, { format: 'jpg', attachment: true });
     await publicRepository.logLookupEvent({
       order_id: order.id,

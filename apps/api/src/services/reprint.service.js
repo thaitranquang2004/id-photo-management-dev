@@ -85,7 +85,7 @@ async function convertToOrder(id, body, context) {
       ? await photosRepository.findManyByIds(request.danh_sach_anh_id, client)
       : await photosRepository.findApprovedByOrder(origOrder.id, client);
     for (const src of sourcePhotos) {
-      const printablePublicId = src.cloudinary_processed_public_id || src.cloudinary_original_public_id;
+      const printablePublicId = src.cloudinary_anh_xu_ly_id || src.cloudinary_anh_goc_id;
       const asset = await assetService.downloadBuffer(printablePublicId);
       const uploaded = await assetService.uploadBuffer(asset.buffer, {
         folder: `id-photo-management/orders/${order.id}/originals`,
@@ -99,9 +99,9 @@ async function convertToOrder(id, body, context) {
           copied_from_photo: src.id,
           copied_from_order: origOrder.id
         },
-        width_px: src.width_px,
-        height_px: src.height_px,
-        file_size_bytes: src.file_size_bytes
+        width_px: src.rong_px,
+        height_px: src.cao_px,
+        file_size_bytes: src.dung_luong_bytes
       }, client);
       await photosRepository.updateStatus(photo.id, 'approved', {}, client);
     }

@@ -39,7 +39,7 @@ function photoSize(body, cardType) {
 }
 
 async function loadPrintablePhoto(photo) {
-  const publicId = photo.cloudinary_processed_public_id || photo.cloudinary_original_public_id;
+  const publicId = photo.cloudinary_anh_xu_ly_id || photo.cloudinary_anh_goc_id;
   const asset = await assetService.downloadBuffer(publicId);
   return sharp(asset.buffer).rotate().toBuffer();
 }
@@ -130,7 +130,7 @@ async function validatedLayoutInputs(body, client) {
   if (!order) throw errors.notFound('Không tìm thấy đơn hàng');
   const cardType = await catalogRepository.findCardType(order.card_type_id, client);
   const photos = await photosRepository.findManyByIds(body.photo_ids, client);
-  if (photos.length !== body.photo_ids.length || photos.some((photo) => photo.order_id !== body.order_id || photo.status !== 'approved')) {
+  if (photos.length !== body.photo_ids.length || photos.some((photo) => photo.don_hang_id !== body.order_id || photo.trang_thai !== 'approved')) {
     throw errors.validation('Layout chỉ được dùng ảnh approved thuộc cùng order', { order_id: body.order_id });
   }
   return { order, cardType, photos };
@@ -138,7 +138,7 @@ async function validatedLayoutInputs(body, client) {
 
 async function validateConfig(body) {
   const photos = await photosRepository.findManyByIds(body.photo_ids);
-  const invalid = photos.filter((photo) => photo.order_id !== body.order_id || photo.status !== 'approved');
+  const invalid = photos.filter((photo) => photo.don_hang_id !== body.order_id || photo.trang_thai !== 'approved');
   return {
     valid: photos.length === body.photo_ids.length && invalid.length === 0,
     warnings: invalid.length ? ['Chỉ ảnh approved thuộc cùng order mới được dùng cho layout'] : []
@@ -173,7 +173,7 @@ async function generateLayout(body, context) {
 
     const cardType = await catalogRepository.findCardType(order.card_type_id, client);
     const photos = await photosRepository.findManyByIds(body.photo_ids, client);
-    if (photos.length !== body.photo_ids.length || photos.some((photo) => photo.order_id !== body.order_id || photo.status !== 'approved')) {
+    if (photos.length !== body.photo_ids.length || photos.some((photo) => photo.don_hang_id !== body.order_id || photo.trang_thai !== 'approved')) {
       throw errors.validation('Layout chỉ được dùng ảnh approved thuộc cùng order', { order_id: body.order_id });
     }
 

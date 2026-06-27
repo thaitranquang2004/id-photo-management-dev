@@ -47,9 +47,9 @@ function orderData(queryData) {
 }
 
 function photoPreviewUrl(photo) {
-  if (photo.purged_at) return null;
-  return photo.processed_asset_metadata?.secure_url
-    || photo.original_asset_metadata?.secure_url
+  if (photo.ngay_don_dep) return null;
+  return photo.metadata_anh_xu_ly?.secure_url
+    || photo.metadata_anh_goc?.secure_url
     || null;
 }
 
@@ -82,8 +82,8 @@ export default function OrderDetailPage() {
     queryKey: ['notifications', 'order', id],
     queryFn: () => listNotifications({ order_id: id, limit: 20 })
   });
-  const approvedPhotos = useMemo(() => photos.filter((photo) => photo.status === 'approved'), [photos]);
-  const pendingAiPhotos = useMemo(() => photos.filter((photo) => photo.status === 'raw'), [photos]);
+  const approvedPhotos = useMemo(() => photos.filter((photo) => photo.trang_thai === 'approved'), [photos]);
+  const pendingAiPhotos = useMemo(() => photos.filter((photo) => photo.trang_thai === 'raw'), [photos]);
 
   useEffect(() => {
     const previews = selectedFiles.map((file) => ({
@@ -138,17 +138,17 @@ export default function OrderDetailPage() {
     queryFn: () => getProcessingJob(activeJobId),
     enabled: Boolean(activeJobId),
     refetchInterval: (query) => {
-      const status = query.state.data?.job?.status;
+      const status = query.state.data?.job?.trang_thai;
       return status && !terminalJobStatuses.has(status) ? 1500 : false;
     }
   });
 
   useEffect(() => {
-    const status = jobQuery.data?.job?.status;
+    const status = jobQuery.data?.job?.trang_thai;
     if (status && terminalJobStatuses.has(status)) {
       queryClient.invalidateQueries({ queryKey: ['orders', id] });
     }
-  }, [id, jobQuery.data?.job?.status, queryClient]);
+  }, [id, jobQuery.data?.job?.trang_thai, queryClient]);
 
   const approveMutation = useMutation({
     mutationFn: (photoId) => approvePhoto(photoId),
@@ -456,32 +456,32 @@ export default function OrderDetailPage() {
                     )}
                     <div className="photo-card-body">
                       <div className="photo-card-badges">
-                        <PhotoStatusBadge status={photo.status} />
-                        <QcStatusBadge status={photo.qc_status} />
+                        <PhotoStatusBadge status={photo.trang_thai} />
+                        <QcStatusBadge status={photo.trang_thai_qc} />
                       </div>
                       <div className="photo-card-file" title={photo.original_filename || photo.id}>
                         {photo.original_filename || photo.id}
                       </div>
                       <div className="text-muted small">
-                        {photo.width_px || '-'} x {photo.height_px || '-'} px
-                        {photo.quality_score != null ? ` · QC ${Math.round(Number(photo.quality_score))}` : ''}
+                        {photo.rong_px || '-'} x {photo.cao_px || '-'} px
+                        {photo.diem_chat_luong != null ? ` · QC ${Math.round(Number(photo.diem_chat_luong))}` : ''}
                       </div>
-                      {Array.isArray(photo.quality_issues) && photo.quality_issues.length > 0 ? (
+                      {Array.isArray(photo.loi_chat_luong) && photo.loi_chat_luong.length > 0 ? (
                         <ul className="photo-card-issues">
-                          {photo.quality_issues.map((issue, index) => (
+                          {photo.loi_chat_luong.map((issue, index) => (
                             <li key={issue.code || index} className={issue.severity === 'fail' ? 'text-danger' : 'text-warning-emphasis'}>
                               {issue.message}
                             </li>
                           ))}
                         </ul>
                       ) : null}
-                      {photo.processing_error ? <div className="text-danger small">{photo.processing_error}</div> : null}
+                      {photo.loi_xu_ly ? <div className="text-danger small">{photo.loi_xu_ly}</div> : null}
                     </div>
                     <div className="photo-card-actions">
                       <Button
                         size="sm"
                         variant="outline-success"
-                        disabled={approveMutation.isPending || !['processed', 'approved'].includes(photo.status)}
+                        disabled={approveMutation.isPending || !['processed', 'approved'].includes(photo.trang_thai)}
                         onClick={() => approveMutation.mutate(photo.id)}
                       >
                         <Check size={15} aria-hidden="true" /> Duyệt
@@ -489,7 +489,7 @@ export default function OrderDetailPage() {
                       <Button
                         size="sm"
                         variant="outline-danger"
-                        disabled={rejectMutation.isPending || photo.status === 'rejected'}
+                        disabled={rejectMutation.isPending || photo.trang_thai === 'rejected'}
                         onClick={() => setRejectTarget(photo)}
                       >
                         <X size={15} aria-hidden="true" /> Từ chối
@@ -497,7 +497,7 @@ export default function OrderDetailPage() {
                       <Button
                         size="sm"
                         variant="outline-info"
-                        disabled={requalifyMutation.isPending || photo.status === 'processing' || isPhotoPipelineActive}
+                        disabled={requalifyMutation.isPending || photo.trang_thai === 'processing' || isPhotoPipelineActive}
                         onClick={() => requalifyMutation.mutate(photo.id)}
                       >
                         <RefreshCw size={15} aria-hidden="true" /> QC
@@ -799,27 +799,27 @@ export default function OrderDetailPage() {
               <Row className="g-3">
                 <Col md={6}>
                   <div className="text-muted small mb-1">Ảnh gốc</div>
-                  {previewPhoto.original_asset_metadata?.secure_url ? (
-                    <Image src={previewPhoto.original_asset_metadata.secure_url} alt="Ảnh gốc" fluid />
+                  {previewPhoto.metadata_anh_goc?.secure_url ? (
+                    <Image src={previewPhoto.metadata_anh_goc.secure_url} alt="Ảnh gốc" fluid />
                   ) : <span className="text-muted">-</span>}
                 </Col>
                 <Col md={6}>
                   <div className="text-muted small mb-1">Đã xử lý (giữ nguyên khuôn mặt)</div>
-                  {previewPhoto.processed_asset_metadata?.secure_url ? (
-                    <Image src={previewPhoto.processed_asset_metadata.secure_url} alt="Ảnh đã xử lý" fluid />
+                  {previewPhoto.metadata_anh_xu_ly?.secure_url ? (
+                    <Image src={previewPhoto.metadata_anh_xu_ly.secure_url} alt="Ảnh đã xử lý" fluid />
                   ) : <span className="text-muted">Chưa xử lý</span>}
                 </Col>
               </Row>
               <div className="photo-preview-meta mt-3">
                 <strong>{previewPhoto.original_filename || previewPhoto.id}</strong>
                 <span className="d-inline-flex gap-2">
-                  <PhotoStatusBadge status={previewPhoto.status} />
-                  <QcStatusBadge status={previewPhoto.qc_status} />
+                  <PhotoStatusBadge status={previewPhoto.trang_thai} />
+                  <QcStatusBadge status={previewPhoto.trang_thai_qc} />
                 </span>
               </div>
-              {Array.isArray(previewPhoto.quality_issues) && previewPhoto.quality_issues.length > 0 ? (
+              {Array.isArray(previewPhoto.loi_chat_luong) && previewPhoto.loi_chat_luong.length > 0 ? (
                 <ul className="small mt-2 mb-0 ps-3">
-                  {previewPhoto.quality_issues.map((issue, index) => (
+                  {previewPhoto.loi_chat_luong.map((issue, index) => (
                     <li
                       key={issue.code || index}
                       className={issue.severity === 'fail' ? 'text-danger' : 'text-warning-emphasis'}

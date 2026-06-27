@@ -1,16 +1,5 @@
 const { one, many } = require('../db/pool');
 
-// Alias cột bảng anh về tên tiếng Anh: engine photo.service + frontend đọc ảnh không phải đổi.
-const PHOTO_COLS = `id, don_hang_id as order_id, tac_vu_xu_ly_id as last_processing_job_id,
-  cloudinary_anh_goc_id as cloudinary_original_public_id, cloudinary_anh_xu_ly_id as cloudinary_processed_public_id,
-  metadata_anh_goc as original_asset_metadata, metadata_anh_xu_ly as processed_asset_metadata,
-  rong_px as width_px, cao_px as height_px, dung_luong_bytes as file_size_bytes,
-  diem_chat_luong as quality_score, loi_chat_luong as quality_issues,
-  loi_xu_ly as processing_error, so_lan_xu_ly as processing_attempts,
-  trang_thai as status, trang_thai_qc as qc_status, qc_kiem_luc as qc_checked_at,
-  ai_da_ap_dung as ai_assist_applied, ngay_xu_ly as processed_at, ngay_duyet as approved_at,
-  ngay_don_dep as purged_at, ngay_tao as created_at, ngay_cap_nhat as updated_at`;
-
 async function create(data, client) {
   return one(
     `insert into public.anh (
@@ -18,7 +7,7 @@ async function create(data, client) {
        rong_px, cao_px, dung_luong_bytes
      )
      values ($1, $2, $3, $4, $5, $6)
-     returning ${PHOTO_COLS}`,
+     returning *`,
     [
       data.order_id,
       data.cloudinary_original_public_id,
@@ -32,16 +21,16 @@ async function create(data, client) {
 }
 
 async function findById(id, client) {
-  return one(`select ${PHOTO_COLS} from public.anh where id = $1`, [id], client);
+  return one(`select * from public.anh where id = $1`, [id], client);
 }
 
 async function findManyByIds(ids, client) {
-  return many(`select ${PHOTO_COLS} from public.anh where id = any($1::uuid[])`, [ids], client);
+  return many(`select * from public.anh where id = any($1::uuid[])`, [ids], client);
 }
 
 async function findApprovedByOrder(orderId, client) {
   return many(
-    `select ${PHOTO_COLS}
+    `select *
      from public.anh
      where don_hang_id = $1 and trang_thai = 'approved'
      order by ngay_tao desc`,
@@ -58,7 +47,7 @@ async function updateStatus(id, status, patch, client) {
          loi_xu_ly = coalesce($3, loi_xu_ly),
          ngay_cap_nhat = now()
      where id = $1
-     returning ${PHOTO_COLS}`,
+     returning *`,
     [id, status, patch?.processing_error || null],
     client
   );
@@ -79,7 +68,7 @@ async function markProcessed(id, data, client) {
          ngay_xu_ly = now(),
          ngay_cap_nhat = now()
      where id = $1
-     returning ${PHOTO_COLS}`,
+     returning *`,
     [
       id,
       data.cloudinary_processed_public_id,
@@ -102,7 +91,7 @@ async function updateQc(id, data, client) {
          qc_kiem_luc = now(),
          ngay_cap_nhat = now()
      where id = $1
-     returning ${PHOTO_COLS}`,
+     returning *`,
     [id, data.quality_score ?? null, JSON.stringify(data.quality_issues || []), data.qc_status],
     client
   );
@@ -115,7 +104,7 @@ async function markProcessingFailed(id, message, client) {
          loi_xu_ly = $2,
          ngay_cap_nhat = now()
      where id = $1
-     returning ${PHOTO_COLS}`,
+     returning *`,
     [id, message],
     client
   );
@@ -148,7 +137,7 @@ async function markPhotosProcessing(photoIds, jobId, client) {
          so_lan_xu_ly = so_lan_xu_ly + 1,
          ngay_cap_nhat = now()
      where id = any($1::uuid[])
-     returning ${PHOTO_COLS}`,
+     returning *`,
     [photoIds, jobId],
     client
   );
@@ -193,7 +182,7 @@ async function finishProcessingJob(id, patch, client) {
 
 async function photosForJob(jobId, client) {
   return many(
-    `select ${PHOTO_COLS}
+    `select *
      from public.anh
      where tac_vu_xu_ly_id = $1
      order by ngay_tao desc`,
@@ -203,7 +192,6 @@ async function photosForJob(jobId, client) {
 }
 
 module.exports = {
-  PHOTO_COLS,
   create,
   findById,
   findManyByIds,

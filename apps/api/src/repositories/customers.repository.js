@@ -104,9 +104,9 @@ async function recentOrders(customerId, client) {
 // Tất cả ảnh đã duyệt của 1 khách qua mọi đơn (mới nhất trước). Kèm order_code để biết ảnh thuộc đơn nào.
 async function approvedPhotos(customerId, client) {
   return many(
-    `select p.id, p.trang_thai as status, p.ngay_tao as created_at, p.ngay_don_dep as purged_at,
-            p.cloudinary_anh_xu_ly_id as cloudinary_processed_public_id, p.cloudinary_anh_goc_id as cloudinary_original_public_id,
-            p.metadata_anh_xu_ly as processed_asset_metadata, p.metadata_anh_goc as original_asset_metadata,
+    `select p.id, p.trang_thai, p.ngay_tao, p.ngay_don_dep,
+            p.cloudinary_anh_xu_ly_id, p.cloudinary_anh_goc_id,
+            p.metadata_anh_xu_ly, p.metadata_anh_goc,
             o.ma_don as order_code
      from public.anh p
      join public.don_hang o on o.id = p.don_hang_id

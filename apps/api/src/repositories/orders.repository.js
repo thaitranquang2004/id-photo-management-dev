@@ -1,5 +1,4 @@
 const { one, many } = require('../db/pool');
-const { PHOTO_COLS } = require('./photos.repository');
 
 // Alias cột don_hang về tiếng Anh (p = prefix, vd 'o.') để order.service + frontend không phải đổi.
 const orderCols = (p = '') => `${p}id, ${p}ma_don as order_code, ${p}khach_hang_id as customer_id, ${p}loai_the_id as card_type_id,
@@ -87,7 +86,7 @@ async function details(id, client) {
 
   const [pricingSnapshot, photos, printLayouts, appointment] = await Promise.all([
     one('select * from public.ban_luu_gia where don_hang_id = $1', [id], client),
-    many(`select ${PHOTO_COLS} from public.anh where don_hang_id = $1 order by ngay_tao desc`, [id], client),
+    many(`select * from public.anh where don_hang_id = $1 order by ngay_tao desc`, [id], client),
     many('select * from public.bo_cuc_in where don_hang_id = $1 order by ngay_tao desc', [id], client),
     one('select * from public.lich_hen where don_hang_id = $1 order by ngay_tao desc limit 1', [id], client)
   ]);

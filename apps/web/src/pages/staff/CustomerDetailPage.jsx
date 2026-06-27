@@ -13,8 +13,8 @@ import { useFormErrors } from '../../hooks/useFormErrors.js';
 
 // URL hiển thị ảnh: ưu tiên ảnh đã xử lý, fallback ảnh gốc; null nếu đã hết hạn lưu trữ.
 function photoPreviewUrl(photo) {
-  if (photo.purged_at) return null;
-  return photo.processed_asset_metadata?.secure_url || photo.original_asset_metadata?.secure_url || null;
+  if (photo.ngay_don_dep) return null;
+  return photo.metadata_anh_xu_ly?.secure_url || photo.metadata_anh_goc?.secure_url || null;
 }
 
 export default function CustomerDetailPage() {
@@ -167,7 +167,7 @@ export default function CustomerDetailPage() {
                     <div className="photo-placeholder">Ảnh đã hết hạn lưu trữ</div>
                   )}
                   <div className="public-photo-actions">
-                    <span className="small text-muted">{photo.order_code} · {formatDate(photo.created_at)}</span>
+                    <span className="small text-muted">{photo.order_code} · {formatDate(photo.ngay_tao)}</span>
                   </div>
                 </div>
               );

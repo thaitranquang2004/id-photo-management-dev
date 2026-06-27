@@ -163,7 +163,7 @@ async function createPhotos(body, files, context) {
 
 async function processPhoto(photo, order, cardType, job, client) {
   try {
-    const original = await assetService.downloadBuffer(photo.cloudinary_original_public_id);
+    const original = await assetService.downloadBuffer(photo.cloudinary_anh_goc_id);
     const sourceMeta = await sharp(original.buffer).metadata();
     let sourceBuffer = original.buffer;
     let providerMetadata = { provider: job.nha_cung_cap, processing_mode: job.che_do_xu_ly };
@@ -214,8 +214,8 @@ async function processPhoto(photo, order, cardType, job, client) {
     });
 
     const qc = computeQc({
-      sourceWidthPx: sourceMeta.width || photo.width_px,
-      sourceHeightPx: sourceMeta.height || photo.height_px,
+      sourceWidthPx: sourceMeta.width || photo.rong_px,
+      sourceHeightPx: sourceMeta.height || photo.cao_px,
       cardType,
       aiFindings
     });
@@ -263,7 +263,7 @@ async function runProcessingJob(jobId, context) {
       results.push(await processPhoto(photo, order, cardType, job, client));
     }
 
-    const processedCount = results.filter((photo) => photo.status === 'processed').length;
+    const processedCount = results.filter((photo) => photo.trang_thai === 'processed').length;
     const failedCount = results.length - processedCount;
     const finishedJob = await photosRepository.finishProcessingJob(job.id, {
       trang_thai: processedCount > 0 ? 'completed' : 'failed',
@@ -289,7 +289,7 @@ async function batchProcess(body, context) {
     }
 
     const photos = await photosRepository.findManyByIds(body.photo_ids, client);
-    if (photos.length !== body.photo_ids.length || photos.some((photo) => photo.order_id !== body.order_id)) {
+    if (photos.length !== body.photo_ids.length || photos.some((photo) => photo.don_hang_id !== body.order_id)) {
       throw errors.validation('photo_ids phải thuộc cùng order_id', { order_id: body.order_id });
     }
 
@@ -358,10 +358,10 @@ async function requalifyPhoto(id, context) {
     const photo = await photosRepository.findById(id, client);
     if (!photo) throw errors.notFound('Không tìm thấy ảnh');
 
-    const publicId = photo.cloudinary_processed_public_id || photo.cloudinary_original_public_id;
+    const publicId = photo.cloudinary_anh_xu_ly_id || photo.cloudinary_anh_goc_id;
     if (!publicId) throw errors.invalidState('Ảnh chưa có asset để kiểm tra QC');
 
-    const order = await ordersRepository.findById(photo.order_id, client);
+    const order = await ordersRepository.findById(photo.don_hang_id, client);
     const cardType = await catalogRepository.findCardType(order.card_type_id, client);
 
     const asset = await assetService.downloadBuffer(publicId);
@@ -372,8 +372,8 @@ async function requalifyPhoto(id, context) {
     });
 
     const qc = computeQc({
-      sourceWidthPx: photo.width_px,
-      sourceHeightPx: photo.height_px,
+      sourceWidthPx: photo.rong_px,
+      sourceHeightPx: photo.cao_px,
       cardType,
       aiFindings
     });

@@ -12,14 +12,14 @@ async function purgeOldOrders() {
   let requestPhotos = 0;
 
   const oldPhotos = await many(
-    `select ph.id, ph.cloudinary_anh_goc_id as cloudinary_original_public_id, ph.cloudinary_anh_xu_ly_id as cloudinary_processed_public_id
+    `select ph.id, ph.cloudinary_anh_goc_id, ph.cloudinary_anh_xu_ly_id
      from public.anh ph
      join public.don_hang o on o.id = ph.don_hang_id
      where o.ngay_tao < now() - interval '${PURGE_AFTER_DAYS} days' and ph.ngay_don_dep is null`
   );
   for (const p of oldPhotos) {
-    await assetService.destroyAsset(p.cloudinary_original_public_id);
-    if (p.cloudinary_processed_public_id) await assetService.destroyAsset(p.cloudinary_processed_public_id);
+    await assetService.destroyAsset(p.cloudinary_anh_goc_id);
+    if (p.cloudinary_anh_xu_ly_id) await assetService.destroyAsset(p.cloudinary_anh_xu_ly_id);
     await query('update public.anh set ngay_don_dep = now() where id = $1', [p.id]);
     photos += 1;
   }
@@ -37,13 +37,13 @@ async function purgeOldOrders() {
   }
 
   const oldRequestPhotos = await many(
-    `select rp.id, rp.cloudinary_anh_goc_id as cloudinary_original_public_id
+    `select rp.id, rp.cloudinary_anh_goc_id
      from public.anh_yeu_cau_online rp
      join public.yeu_cau_online r on r.id = rp.yeu_cau_online_id
      where r.ngay_tao < now() - interval '${PURGE_AFTER_DAYS} days' and rp.ngay_don_dep is null`
   );
   for (const rp of oldRequestPhotos) {
-    await assetService.destroyAsset(rp.cloudinary_original_public_id);
+    await assetService.destroyAsset(rp.cloudinary_anh_goc_id);
     await query('update public.anh_yeu_cau_online set ngay_don_dep = now() where id = $1', [rp.id]);
     requestPhotos += 1;
   }
