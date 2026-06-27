@@ -197,13 +197,13 @@ async function listPublicCardTypes() {
   return {
     card_types: cardTypes.map((cardType) => ({
       id: cardType.id,
-      name: cardType.ten,
-      short_code: cardType.ma_viet_tat,
-      width_mm: cardType.rong_mm,
-      height_mm: cardType.cao_mm,
-      background_color: cardType.mau_nen,
-      requirements: cardType.yeu_cau,
-      current_price_per_copy: cardType.current_price_per_copy ?? null
+      ten: cardType.ten,
+      ma_viet_tat: cardType.ma_viet_tat,
+      rong_mm: cardType.rong_mm,
+      cao_mm: cardType.cao_mm,
+      mau_nen: cardType.mau_nen,
+      yeu_cau: cardType.yeu_cau,
+      gia_moi_ban_hien_hanh: cardType.gia_moi_ban_hien_hanh ?? null
     }))
   };
 }

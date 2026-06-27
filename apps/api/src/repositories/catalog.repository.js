@@ -1,12 +1,12 @@
 const { one, many } = require('../db/pool');
 
 async function listCardTypes(client) {
-  // Trả về cột thật của loai_the (tiếng Việt) + giá hiện hành (alias tiếng Anh: current_*).
+  // Trả về cột thật của loai_the (tiếng Việt) + giá hiện hành (field ghép: *_hien_hanh).
   return many(
     `select ct.*,
-            p.id as current_pricing_id,
-            p.gia_moi_ban as current_price_per_copy,
-            p.phi_xu_ly as current_processing_fee
+            p.id as bang_gia_hien_hanh_id,
+            p.gia_moi_ban as gia_moi_ban_hien_hanh,
+            p.phi_xu_ly as phi_xu_ly_hien_hanh
      from public.loai_the ct
      left join lateral (
        select *
@@ -25,16 +25,7 @@ async function listCardTypes(client) {
 }
 
 async function findCardType(id, client) {
-  // Alias về tiếng Anh: hàm này nuôi engine xử lý ảnh/AI/layout (photo/google-ai/layout.service)
-  // vốn đọc cardType.width_mm/background_color..., nên giữ ổn định để không phải sửa engine.
-  return one(
-    `select id, ten as name, ma_viet_tat as short_code, rong_mm as width_mm, cao_mm as height_mm,
-            mau_nen as background_color, yeu_cau as requirements, thu_tu_hien_thi as display_order,
-            dang_hoat_dong as is_active, ngay_luu_tru as archived_at, ngay_tao as created_at, ngay_cap_nhat as updated_at
-     from public.loai_the where id = $1`,
-    [id],
-    client
-  );
+  return one('select * from public.loai_the where id = $1', [id], client);
 }
 
 async function createCardType(data, client) {
@@ -121,13 +112,9 @@ async function lockPricingForCardType(cardTypeId, client) {
 }
 
 async function getCurrentPricing(cardTypeId, effectiveDate, client) {
-  // Output alias tiếng Anh để engine tạo đơn (order.service/createPricingSnapshot) không phải đổi.
   return one(
-    `select p.id, p.loai_the_id as card_type_id,
-            p.gia_moi_ban as price_per_copy, p.phi_xu_ly as processing_fee,
-            p.hieu_luc_tu as effective_from, p.hieu_luc_den as effective_to,
-            ct.ten as card_type_name, ct.rong_mm as width_mm, ct.cao_mm as height_mm,
-            ct.mau_nen as background_color
+    `select p.id, p.loai_the_id, p.gia_moi_ban, p.phi_xu_ly, p.hieu_luc_tu, p.hieu_luc_den,
+            ct.ten as ten_loai_the, ct.rong_mm, ct.cao_mm, ct.mau_nen
      from public.bang_gia p
      join public.loai_the ct on ct.id = p.loai_the_id
      where p.loai_the_id = $1

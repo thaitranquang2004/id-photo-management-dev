@@ -157,7 +157,7 @@ export default function OnlineBookingPage() {
                           <option value="">-- Chọn loại ảnh --</option>
                           {cardTypes.map((ct) => (
                             <option key={ct.id} value={ct.id}>
-                              {ct.name} ({ct.width_mm}x{ct.height_mm}mm)
+                              {ct.ten} ({ct.rong_mm}x{ct.cao_mm}mm)
                             </option>
                           ))}
                         </Form.Select>

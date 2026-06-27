@@ -14,7 +14,7 @@ const { writeAudit } = require('./audit.service');
 const ACCESS_TOKEN_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 
 function totalFromPricing(pricing, quantity) {
-  return Number(pricing.price_per_copy) * quantity + Number(pricing.processing_fee);
+  return Number(pricing.gia_moi_ban) * quantity + Number(pricing.phi_xu_ly);
 }
 
 function assertTransition(current, next) {

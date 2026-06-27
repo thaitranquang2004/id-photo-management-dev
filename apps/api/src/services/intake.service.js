@@ -42,7 +42,7 @@ async function uploadRequestFile(file, requestId) {
 async function submitOnlineRequest(body, files, req) {
   if (body.card_type_id) {
     const cardType = await catalogRepository.findCardType(body.card_type_id);
-    if (!cardType || !cardType.is_active) {
+    if (!cardType || !cardType.dang_hoat_dong) {
       throw errors.validation('Loại ảnh không hợp lệ', { card_type_id: body.card_type_id });
     }
   }

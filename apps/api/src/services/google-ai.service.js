@@ -111,12 +111,12 @@ async function editImage({ imageBuffer, mimeType, prompt, model = env.GEMINI_IMA
 // straightening. It must NEVER alter the face/identity — legal requirement for
 // ID/passport photos. Cropping/resizing to exact card size is done by Sharp, not here.
 function buildSafeAssistPrompt(cardType) {
-  const requirements = cardType.requirements ? JSON.stringify(cardType.requirements) : '{}';
-  const background = cardType.background_color || '#FFFFFF';
-  const w = Number(cardType.width_mm);
-  const h = Number(cardType.height_mm);
+  const requirements = cardType.yeu_cau ? JSON.stringify(cardType.yeu_cau) : '{}';
+  const background = cardType.mau_nen || '#FFFFFF';
+  const w = Number(cardType.rong_mm);
+  const h = Number(cardType.cao_mm);
   return [
-    `You are producing an official ID/passport photo (${cardType.name}, ${w}x${h} mm, portrait orientation). This is a legal identity document.`,
+    `You are producing an official ID/passport photo (${cardType.ten}, ${w}x${h} mm, portrait orientation). This is a legal identity document.`,
     'Recompose the supplied photo into a STANDARD head-and-shoulders ID portrait:',
     '- Frame to the head and the top of the shoulders / upper chest ONLY. Remove the full body, crossed arms, waist and legs — do not keep a far/zoomed-out shot.',
     '- The person must be centered horizontally and face straight toward the camera; straighten any head tilt.',
@@ -130,13 +130,13 @@ function buildSafeAssistPrompt(cardType) {
 }
 
 function buildQualityCheckPrompt(cardType) {
-  const requirements = cardType.requirements ? JSON.stringify(cardType.requirements) : '{}';
+  const requirements = cardType.yeu_cau ? JSON.stringify(cardType.yeu_cau) : '{}';
   return [
     'You are a strict compliance checker for official ID/passport photos. Analyze the supplied image and report findings ONLY as a single minified JSON object. No markdown, no code fences, no commentary.',
     'Use exactly these keys with boolean/number values:',
     '{"face_detected":true,"face_count":1,"face_centered":true,"face_height_ratio":0.65,"background_uniform":true,"background_matches_required_color":true,"glare_or_strong_shadow":false,"eyes_open":true,"neutral_expression":true,"sufficient_sharpness":true}',
     'face_height_ratio = approximate head/face height divided by total image height (0..1).',
-    `Required background color: ${cardType.background_color || '#FFFFFF'}. Card type: ${cardType.name}. Requirements JSON: ${requirements}.`,
+    `Required background color: ${cardType.mau_nen || '#FFFFFF'}. Card type: ${cardType.ten}. Requirements JSON: ${requirements}.`,
     'Respond with JSON only.'
   ].join(' ');
 }

@@ -148,7 +148,7 @@ export default function CardTypesPage() {
                       <span className="color-swatch" style={{ backgroundColor: cardType.mau_nen }} />
                       {cardType.mau_nen}
                     </td>
-                    <td>{formatCurrency(Number(cardType.current_price_per_copy || 0) + Number(cardType.current_processing_fee || 0))}</td>
+                    <td>{formatCurrency(Number(cardType.gia_moi_ban_hien_hanh || 0) + Number(cardType.phi_xu_ly_hien_hanh || 0))}</td>
                     <td className="requirements-cell">{JSON.stringify(cardType.yeu_cau || {})}</td>
                     <td className="text-end">
                       <div className="table-actions justify-content-end">

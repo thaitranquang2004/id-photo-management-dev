@@ -33,8 +33,8 @@ function paperSize(body) {
 function photoSize(body, cardType) {
   const configured = body.layout_config || {};
   return {
-    width: Number(configured.photo_width_mm || cardType.width_mm),
-    height: Number(configured.photo_height_mm || cardType.height_mm)
+    width: Number(configured.photo_width_mm || cardType.rong_mm),
+    height: Number(configured.photo_height_mm || cardType.cao_mm)
   };
 }
 

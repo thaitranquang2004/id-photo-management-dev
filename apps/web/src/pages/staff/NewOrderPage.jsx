@@ -63,8 +63,8 @@ export default function NewOrderPage() {
   const selectedCardType = cardTypes.find((cardType) => cardType.id === orderForm.card_type_id);
   const estimatedTotal = useMemo(() => {
     if (!selectedCardType) return 0;
-    return Number(selectedCardType.current_price_per_copy || 0) * Number(orderForm.quantity || 0)
-      + Number(selectedCardType.current_processing_fee || 0);
+    return Number(selectedCardType.gia_moi_ban_hien_hanh || 0) * Number(orderForm.quantity || 0)
+      + Number(selectedCardType.phi_xu_ly_hien_hanh || 0);
   }, [orderForm.quantity, selectedCardType]);
 
   function handleSearch(event) {
@@ -280,7 +280,7 @@ export default function NewOrderPage() {
                           <span className="color-swatch" style={{ backgroundColor: cardType.mau_nen }} />
                           {cardType.mau_nen}
                         </td>
-                        <td>{formatCurrency(Number(cardType.current_price_per_copy || 0) + Number(cardType.current_processing_fee || 0))}</td>
+                        <td>{formatCurrency(Number(cardType.gia_moi_ban_hien_hanh || 0) + Number(cardType.phi_xu_ly_hien_hanh || 0))}</td>
                         <td className="requirements-cell">{JSON.stringify(cardType.yeu_cau || {})}</td>
                       </tr>
                     ))}

@@ -28,8 +28,8 @@ function aspectWithinTolerance(a, b, tolerance) {
 // staff always reviews. In strict mode a `fail` rollup rejects the photo.
 function computeQc({ sourceWidthPx, sourceHeightPx, cardType, aiFindings }) {
   const issues = [];
-  const targetWidth = mmToPx(cardType.width_mm);
-  const targetHeight = mmToPx(cardType.height_mm);
+  const targetWidth = mmToPx(cardType.rong_mm);
+  const targetHeight = mmToPx(cardType.cao_mm);
 
   if (sourceWidthPx && sourceHeightPx) {
     const minRatio = Math.min(sourceWidthPx / targetWidth, sourceHeightPx / targetHeight);
@@ -53,7 +53,7 @@ function computeQc({ sourceWidthPx, sourceHeightPx, cardType, aiFindings }) {
   }
 
   if (aiFindings) {
-    const req = cardType.requirements || {};
+    const req = cardType.yeu_cau || {};
     if (aiFindings.face_detected === false || aiFindings.face_count === 0) {
       issues.push(qcIssue('no_face', 'fail', 'Không phát hiện khuôn mặt trong ảnh'));
     }
@@ -77,7 +77,7 @@ function computeQc({ sourceWidthPx, sourceHeightPx, cardType, aiFindings }) {
     }
     if (aiFindings.background_matches_required_color === false) {
       issues.push(qcIssue('background_wrong_color', 'warn',
-        `Nền chưa đúng màu yêu cầu (${cardType.background_color || '#FFFFFF'})`));
+        `Nền chưa đúng màu yêu cầu (${cardType.mau_nen || '#FFFFFF'})`));
     }
     if (aiFindings.glare_or_strong_shadow === true) {
       issues.push(qcIssue('glare_or_shadow', 'warn', 'Có loá sáng hoặc bóng đổ mạnh'));
@@ -108,9 +108,9 @@ function computeQc({ sourceWidthPx, sourceHeightPx, cardType, aiFindings }) {
 // ratio. Here we only fit to the exact card dimensions, padding with the uniform card
 // background color so any small ratio mismatch is invisible. `contain` never cuts the head.
 async function normalizeIdPhoto(buffer, cardType) {
-  const width = mmToPx(cardType.width_mm);
-  const height = mmToPx(cardType.height_mm);
-  const background = cardType.background_color || '#FFFFFF';
+  const width = mmToPx(cardType.rong_mm);
+  const height = mmToPx(cardType.cao_mm);
+  const background = cardType.mau_nen || '#FFFFFF';
   return sharp(buffer)
     .rotate()
     .resize(width, height, { fit: 'contain', position: 'centre', background })
@@ -225,8 +225,8 @@ async function processPhoto(photo, order, cardType, job, client) {
       processed_asset_metadata: {
         ...assetService.cloudinaryMetadata(upload),
         ...providerMetadata,
-        target_width_mm: Number(cardType.width_mm),
-        target_height_mm: Number(cardType.height_mm),
+        target_width_mm: Number(cardType.rong_mm),
+        target_height_mm: Number(cardType.cao_mm),
         dpi: DEFAULT_DPI,
         ai_safe_assist: aiAssist,
         qc_findings: aiFindings || null
