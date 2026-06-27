@@ -221,18 +221,18 @@ const notificationListQuery = paginationQuery.extend({
 const adminUserCreateBody = z.object({
   email: z.email(),
   password: z.string().min(8).optional(),
-  full_name: z.string().trim().min(1),
-  phone: z.string().trim().optional(),
-  role: z.enum(['staff', 'admin']).default('staff'),
-  is_active: z.boolean().default(true)
+  ho_ten: z.string().trim().min(1),
+  so_dien_thoai: z.string().trim().optional(),
+  vai_tro: z.enum(['staff', 'admin']).default('staff'),
+  dang_hoat_dong: z.boolean().default(true)
 });
 
 const adminUserUpdateBody = z.object({
-  full_name: z.string().trim().min(1).optional(),
-  phone: z.string().trim().optional(),
-  role: z.enum(['staff', 'admin']).optional(),
-  is_active: z.boolean().optional(),
-  disabled_at: z.coerce.date().nullable().optional()
+  ho_ten: z.string().trim().min(1).optional(),
+  so_dien_thoai: z.string().trim().optional(),
+  vai_tro: z.enum(['staff', 'admin']).optional(),
+  dang_hoat_dong: z.boolean().optional(),
+  ngay_luu_tru: z.coerce.date().nullable().optional()
 });
 
 module.exports = {

@@ -27,13 +27,13 @@ async function authenticate(req, res, next) {
     if (!profile) {
       throw errors.forbidden('Tài khoản chưa được cấp profile nội bộ');
     }
-    if (!profile.is_active) {
+    if (!profile.dang_hoat_dong) {
       throw errors.forbidden('Tài khoản đã bị vô hiệu hóa');
     }
 
     req.user = {
       id: data.user.id,
-      role: profile.role,
+      role: profile.vai_tro,
       profile
     };
 

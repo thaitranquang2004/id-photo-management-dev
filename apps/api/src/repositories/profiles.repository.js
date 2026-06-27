@@ -1,16 +1,12 @@
 const { one, many } = require('../db/pool');
 
-// Alias cột nguoi_dung về tiếng Anh để auth.middleware + admin.service không phải đổi.
-const PROF_COLS = `id, ho_ten as full_name, so_dien_thoai as phone, vai_tro as role,
-  dang_hoat_dong as is_active, ngay_luu_tru as disabled_at, ngay_tao as created_at, ngay_cap_nhat as updated_at`;
-
 async function findById(id, client) {
-  return one(`select ${PROF_COLS} from public.nguoi_dung where id = $1`, [id], client);
+  return one('select * from public.nguoi_dung where id = $1', [id], client);
 }
 
 async function list({ limit, offset }, client) {
   const rows = await many(
-    `select ${PROF_COLS}, count(*) over()::int as total
+    `select *, count(*) over()::int as total
      from public.nguoi_dung
      order by ngay_tao desc
      limit $1 offset $2`,
@@ -31,14 +27,14 @@ async function upsertProfile(profile, client) {
        dang_hoat_dong = excluded.dang_hoat_dong,
        ngay_luu_tru = excluded.ngay_luu_tru,
        ngay_cap_nhat = now()
-     returning ${PROF_COLS}`,
+     returning *`,
     [
       profile.id,
-      profile.full_name,
-      profile.phone || null,
-      profile.role,
-      profile.is_active,
-      profile.disabled_at || null
+      profile.ho_ten,
+      profile.so_dien_thoai || null,
+      profile.vai_tro,
+      profile.dang_hoat_dong,
+      profile.ngay_luu_tru || null
     ],
     client
   );
@@ -57,14 +53,14 @@ async function updateProfile(id, patch, client) {
          ngay_luu_tru = $6,
          ngay_cap_nhat = now()
      where id = $1
-     returning ${PROF_COLS}`,
+     returning *`,
     [
       id,
-      patch.full_name ?? null,
-      patch.phone ?? null,
-      patch.role ?? null,
-      patch.is_active ?? null,
-      Object.prototype.hasOwnProperty.call(patch, 'disabled_at') ? patch.disabled_at : current.disabled_at
+      patch.ho_ten ?? null,
+      patch.so_dien_thoai ?? null,
+      patch.vai_tro ?? null,
+      patch.dang_hoat_dong ?? null,
+      Object.prototype.hasOwnProperty.call(patch, 'ngay_luu_tru') ? patch.ngay_luu_tru : current.ngay_luu_tru
     ],
     client
   );

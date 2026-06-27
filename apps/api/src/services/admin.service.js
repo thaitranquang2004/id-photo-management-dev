@@ -58,11 +58,11 @@ async function createUser(body, context) {
   return withTransaction(async (client) => {
     const profile = await profilesRepository.upsertProfile({
       id: data.user.id,
-      full_name: body.full_name,
-      phone: body.phone,
-      role: body.role,
-      is_active: body.is_active,
-      disabled_at: body.is_active ? null : new Date()
+      ho_ten: body.ho_ten,
+      so_dien_thoai: body.so_dien_thoai,
+      vai_tro: body.vai_tro,
+      dang_hoat_dong: body.dang_hoat_dong,
+      ngay_luu_tru: body.dang_hoat_dong ? null : new Date()
     }, client);
     await writeAudit('user.created', 'nguoi_dung', profile.id, context, { new_data: profile }, client);
     return { user: data.user, profile };
@@ -75,7 +75,7 @@ async function updateUser(id, body, context) {
     if (!oldProfile) throw errors.notFound('Không tìm thấy nhân viên');
     const patch = {
       ...body,
-      disabled_at: body.is_active === false ? new Date() : body.disabled_at
+      ngay_luu_tru: body.dang_hoat_dong === false ? new Date() : body.ngay_luu_tru
     };
     const profile = await profilesRepository.updateProfile(id, patch, client);
     await writeAudit('user.updated', 'nguoi_dung', id, context, { old_data: oldProfile, new_data: profile }, client);

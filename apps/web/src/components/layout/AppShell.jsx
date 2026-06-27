@@ -125,7 +125,7 @@ export default function AppShell() {
             <ReceiptText size={16} />
           </Dropdown.Toggle>
           <Dropdown.Menu>
-            <Dropdown.Header>{profile?.full_name || role}</Dropdown.Header>
+            <Dropdown.Header>{profile?.ho_ten || role}</Dropdown.Header>
             <Dropdown.Divider />
             <Dropdown.Item onClick={handleLogout}>
               <LogOut size={16} />
@@ -225,10 +225,10 @@ export default function AppShell() {
         <div className="sidebar-footer">
           <div className="user-profile">
             <div className="user-avatar">
-              {(profile?.full_name || role || 'U').charAt(0).toUpperCase()}
+              {(profile?.ho_ten || role || 'U').charAt(0).toUpperCase()}
             </div>
             <div className="user-info">
-              <span className="user-name">{profile?.full_name || role || 'Tài khoản'}</span>
+              <span className="user-name">{profile?.ho_ten || role || 'Tài khoản'}</span>
               <span className="user-role">{role === 'admin' ? 'Quản trị viên' : 'Nhân viên'}</span>
             </div>
           </div>

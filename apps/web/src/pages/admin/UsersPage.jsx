@@ -17,10 +17,10 @@ import { useFormErrors } from '../../hooks/useFormErrors.js';
 const emptyForm = {
   email: '',
   password: '',
-  full_name: '',
-  phone: '',
-  role: 'staff',
-  is_active: true
+  ho_ten: '',
+  so_dien_thoai: '',
+  vai_tro: 'staff',
+  dang_hoat_dong: true
 };
 
 export default function UsersPage() {
@@ -68,7 +68,7 @@ export default function UsersPage() {
 
   function submitCreate(event) {
     event.preventDefault();
-    if (!createErrors.validate(form, { full_name: 'Vui lòng nhập họ tên', email: 'Vui lòng nhập email' })) return;
+    if (!createErrors.validate(form, { ho_ten: 'Vui lòng nhập họ tên', email: 'Vui lòng nhập email' })) return;
     createMutation.mutate({
       ...form,
       password: form.password || undefined
@@ -79,10 +79,10 @@ export default function UsersPage() {
     setSelectedUser(user);
     editErrors.setErrors({});
     setEditForm({
-      full_name: user.full_name || '',
-      phone: user.phone || '',
-      role: user.role || 'staff',
-      is_active: Boolean(user.is_active)
+      ho_ten: user.ho_ten || '',
+      so_dien_thoai: user.so_dien_thoai || '',
+      vai_tro: user.vai_tro || 'staff',
+      dang_hoat_dong: Boolean(user.dang_hoat_dong)
     });
   }
 
@@ -95,13 +95,13 @@ export default function UsersPage() {
     event.preventDefault();
     if (!selectedUser || !editForm) return;
 
-    if (!editErrors.validate(editForm, { full_name: 'Vui lòng nhập họ tên' })) return;
+    if (!editErrors.validate(editForm, { ho_ten: 'Vui lòng nhập họ tên' })) return;
 
     const payload = {};
-    if (editForm.full_name !== (selectedUser.full_name || '')) payload.full_name = editForm.full_name;
-    if (editForm.phone !== (selectedUser.phone || '')) payload.phone = editForm.phone;
-    if (editForm.role !== selectedUser.role) payload.role = editForm.role;
-    if (editForm.is_active !== Boolean(selectedUser.is_active)) payload.is_active = editForm.is_active;
+    if (editForm.ho_ten !== (selectedUser.ho_ten || '')) payload.ho_ten = editForm.ho_ten;
+    if (editForm.so_dien_thoai !== (selectedUser.so_dien_thoai || '')) payload.so_dien_thoai = editForm.so_dien_thoai;
+    if (editForm.vai_tro !== selectedUser.vai_tro) payload.vai_tro = editForm.vai_tro;
+    if (editForm.dang_hoat_dong !== Boolean(selectedUser.dang_hoat_dong)) payload.dang_hoat_dong = editForm.dang_hoat_dong;
 
     if (Object.keys(payload).length === 0) {
       closeEdit();
@@ -113,7 +113,7 @@ export default function UsersPage() {
       id: selectedUser.id,
       payload,
       title: 'Xác nhận sửa nhân viên',
-      description: `Bạn chắc chắn muốn cập nhật thông tin của ${selectedUser.full_name || selectedUser.email || selectedUser.id}?`
+      description: `Bạn chắc chắn muốn cập nhật thông tin của ${selectedUser.ho_ten || selectedUser.email || selectedUser.id}?`
     });
   }
 
@@ -122,7 +122,7 @@ export default function UsersPage() {
       type: 'reset-password',
       id: user.id,
       title: 'Xác nhận reset password',
-      description: `Bạn chắc chắn muốn tạo yêu cầu reset password cho ${user.full_name || user.email || user.id}?`
+      description: `Bạn chắc chắn muốn tạo yêu cầu reset password cho ${user.ho_ten || user.email || user.id}?`
     });
   }
 
@@ -141,7 +141,7 @@ export default function UsersPage() {
       <div className="page-header">
         <div>
           <h1>Nhân viên</h1>
-          <p>Quản lý profile nội bộ, role và trạng thái tài khoản.</p>
+          <p>Quản lý profile nội bộ, vai_tro và trạng thái tài khoản.</p>
         </div>
         <Button onClick={() => { setForm(emptyForm); createErrors.setErrors({}); setShowCreate(true); }} className="button-nowrap">
           <Plus size={17} aria-hidden="true" />
@@ -173,14 +173,14 @@ export default function UsersPage() {
               <tbody>
                 {users.map((user) => (
                   <tr key={user.id} className="clickable-row" onDoubleClick={() => openEdit(user)}>
-                    <td className="fw-semibold">{user.full_name || '-'}</td>
+                    <td className="fw-semibold">{user.ho_ten || '-'}</td>
                     <td className="small">{user.email || user.id}</td>
-                    <td>{user.phone || '-'}</td>
-                    <td><Badge bg={user.role === 'admin' ? 'primary' : 'secondary'}>{user.role}</Badge></td>
+                    <td>{user.so_dien_thoai || '-'}</td>
+                    <td><Badge bg={user.vai_tro === 'admin' ? 'primary' : 'secondary'}>{user.vai_tro}</Badge></td>
                     <td>
-                      {user.is_active ? <Badge bg="success">active</Badge> : <Badge bg="secondary">disabled</Badge>}
+                      {user.dang_hoat_dong ? <Badge bg="success">active</Badge> : <Badge bg="secondary">disabled</Badge>}
                     </td>
-                    <td>{formatDate(user.created_at)}</td>
+                    <td>{formatDate(user.ngay_tao)}</td>
                     <td className="text-end">
                       <Button size="sm" variant="outline-primary" onClick={() => openEdit(user)}>
                         <Pencil size={15} aria-hidden="true" />
@@ -206,11 +206,11 @@ export default function UsersPage() {
                 <Form.Group>
                   <Form.Label>Họ tên</Form.Label>
                   <Form.Control
-                    value={form.full_name}
-                    onChange={(event) => { setForm((current) => ({ ...current, full_name: event.target.value })); createErrors.clearError('full_name'); }}
-                    isInvalid={!!createErrors.errors.full_name}
+                    value={form.ho_ten}
+                    onChange={(event) => { setForm((current) => ({ ...current, ho_ten: event.target.value })); createErrors.clearError('ho_ten'); }}
+                    isInvalid={!!createErrors.errors.ho_ten}
                   />
-                  <Form.Control.Feedback type="invalid">{createErrors.errors.full_name}</Form.Control.Feedback>
+                  <Form.Control.Feedback type="invalid">{createErrors.errors.ho_ten}</Form.Control.Feedback>
                 </Form.Group>
               </Col>
               <Col md={6}>
@@ -228,13 +228,13 @@ export default function UsersPage() {
               <Col md={6}>
                 <Form.Group>
                   <Form.Label>SĐT</Form.Label>
-                  <Form.Control value={form.phone} onChange={(event) => setForm((current) => ({ ...current, phone: event.target.value }))} />
+                  <Form.Control value={form.so_dien_thoai} onChange={(event) => setForm((current) => ({ ...current, so_dien_thoai: event.target.value }))} />
                 </Form.Group>
               </Col>
               <Col md={6}>
                 <Form.Group>
                   <Form.Label>Role</Form.Label>
-                  <Form.Select value={form.role} onChange={(event) => setForm((current) => ({ ...current, role: event.target.value }))}>
+                  <Form.Select value={form.vai_tro} onChange={(event) => setForm((current) => ({ ...current, vai_tro: event.target.value }))}>
                     <option value="staff">staff</option>
                     <option value="admin">admin</option>
                   </Form.Select>
@@ -248,8 +248,8 @@ export default function UsersPage() {
               </Col>
               <Col md={12}>
                 <Form.Check
-                  checked={form.is_active}
-                  onChange={(event) => setForm((current) => ({ ...current, is_active: event.target.checked }))}
+                  checked={form.dang_hoat_dong}
+                  onChange={(event) => setForm((current) => ({ ...current, dang_hoat_dong: event.target.checked }))}
                   label="Kích hoạt tài khoản"
                 />
               </Col>
@@ -283,26 +283,26 @@ export default function UsersPage() {
                 <Col md={6}>
                   <div className="summary-box">
                     <span>Ngày tạo</span>
-                    <strong>{formatDate(selectedUser.created_at)}</strong>
+                    <strong>{formatDate(selectedUser.ngay_tao)}</strong>
                   </div>
                 </Col>
                 <Col md={6}>
                   <Form.Group>
                     <Form.Label>Họ tên</Form.Label>
                     <Form.Control
-                      value={editForm.full_name}
-                      onChange={(event) => { setEditForm((current) => ({ ...current, full_name: event.target.value })); editErrors.clearError('full_name'); }}
-                      isInvalid={!!editErrors.errors.full_name}
+                      value={editForm.ho_ten}
+                      onChange={(event) => { setEditForm((current) => ({ ...current, ho_ten: event.target.value })); editErrors.clearError('ho_ten'); }}
+                      isInvalid={!!editErrors.errors.ho_ten}
                     />
-                    <Form.Control.Feedback type="invalid">{editErrors.errors.full_name}</Form.Control.Feedback>
+                    <Form.Control.Feedback type="invalid">{editErrors.errors.ho_ten}</Form.Control.Feedback>
                   </Form.Group>
                 </Col>
                 <Col md={6}>
                   <Form.Group>
                     <Form.Label>SĐT</Form.Label>
                     <Form.Control
-                      value={editForm.phone}
-                      onChange={(event) => setEditForm((current) => ({ ...current, phone: event.target.value }))}
+                      value={editForm.so_dien_thoai}
+                      onChange={(event) => setEditForm((current) => ({ ...current, so_dien_thoai: event.target.value }))}
                     />
                   </Form.Group>
                 </Col>
@@ -310,8 +310,8 @@ export default function UsersPage() {
                   <Form.Group>
                     <Form.Label>Role</Form.Label>
                     <Form.Select
-                      value={editForm.role}
-                      onChange={(event) => setEditForm((current) => ({ ...current, role: event.target.value }))}
+                      value={editForm.vai_tro}
+                      onChange={(event) => setEditForm((current) => ({ ...current, vai_tro: event.target.value }))}
                     >
                       <option value="staff">staff</option>
                       <option value="admin">admin</option>
@@ -320,8 +320,8 @@ export default function UsersPage() {
                 </Col>
                 <Col md={6} className="d-flex align-items-end">
                   <Form.Check
-                    checked={editForm.is_active}
-                    onChange={(event) => setEditForm((current) => ({ ...current, is_active: event.target.checked }))}
+                    checked={editForm.dang_hoat_dong}
+                    onChange={(event) => setEditForm((current) => ({ ...current, dang_hoat_dong: event.target.checked }))}
                     label="Tài khoản đang hoạt động"
                   />
                 </Col>
