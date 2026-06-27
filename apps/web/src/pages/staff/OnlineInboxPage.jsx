@@ -143,9 +143,9 @@ export default function OnlineInboxPage() {
                       <div className="fw-semibold">{item.ho_ten}</div>
                       <div className="text-muted small">{item.so_dien_thoai}</div>
                     </td>
-                    <td>{item.card_type_name || '-'}</td>
+                    <td>{item.ten_loai_the || '-'}</td>
                     <td>{REQUEST_TYPE_LABEL[item.loai_yeu_cau] || item.loai_yeu_cau}</td>
-                    <td>{item.photo_count || 0}</td>
+                    <td>{item.so_anh || 0}</td>
                     <td><StatusBadge status={item.trang_thai} /></td>
                     <td>{formatDate(item.ngay_tao)}</td>
                     <td className="text-end">

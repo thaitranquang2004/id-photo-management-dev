@@ -162,11 +162,11 @@ export default function ReportsPage() {
                   <tr key={`${order.ma_don}-${order.ngay_tao}`}>
                     <td className="fw-semibold">{order.ma_don}</td>
                     <td>
-                      <div>{order.customer_name}</div>
-                      <div className="text-muted small">{order.customer_phone}</div>
+                      <div>{order.ten_khach_hang}</div>
+                      <div className="text-muted small">{order.sdt_khach_hang}</div>
                     </td>
-                    <td>{order.card_type_name}</td>
-                    <td>{order.staff_name || '—'}</td>
+                    <td>{order.ten_loai_the}</td>
+                    <td>{order.ten_nhan_vien || '—'}</td>
                     <td><OrderStatusBadge status={order.trang_thai} /></td>
                     <td>{order.so_luong}</td>
                     <td>{formatCurrency(order.tong_tien)}</td>

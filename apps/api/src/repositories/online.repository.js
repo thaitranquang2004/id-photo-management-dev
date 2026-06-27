@@ -54,8 +54,8 @@ async function listRequests(filters, { limit, offset }, client) {
 
   params.push(limit, offset);
   const rows = await many(
-    `select orq.*, ct.ten as card_type_name,
-            (select count(*)::int from public.anh_yeu_cau_online orp where orp.yeu_cau_online_id = orq.id) as photo_count,
+    `select orq.*, ct.ten as ten_loai_the,
+            (select count(*)::int from public.anh_yeu_cau_online orp where orp.yeu_cau_online_id = orq.id) as so_anh,
             count(*) over()::int as total
      from public.yeu_cau_online orq
      left join public.loai_the ct on ct.id = orq.loai_the_id
@@ -96,7 +96,7 @@ async function findPublicStatus(requestId, phone, client) {
 
 async function requestDetails(id, client) {
   const request = await one(
-    `select orq.*, ct.ten as card_type_name, ct.ma_viet_tat as card_type_short_code
+    `select orq.*, ct.ten as ten_loai_the, ct.ma_viet_tat as ma_viet_tat_loai_the
      from public.yeu_cau_online orq
      left join public.loai_the ct on ct.id = orq.loai_the_id
      where orq.id = $1`,

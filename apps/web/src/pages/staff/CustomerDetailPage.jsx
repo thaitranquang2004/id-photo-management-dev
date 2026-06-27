@@ -129,7 +129,7 @@ export default function CustomerDetailPage() {
                     {recentOrders.map((order) => (
                       <tr key={order.id}>
                         <td className="fw-semibold">{order.ma_don}</td>
-                        <td>{order.card_type_name}</td>
+                        <td>{order.ten_loai_the}</td>
                         <td><OrderStatusBadge status={order.trang_thai} /></td>
                         <td>{formatDate(order.ngay_tao)}</td>
                         <td className="text-end">

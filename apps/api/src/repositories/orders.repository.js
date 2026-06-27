@@ -28,8 +28,8 @@ async function list(filters, { limit, offset }, client) {
   params.push(limit, offset);
 
   const rows = await many(
-    `select o.*, c.ho_ten as customer_name, c.so_dien_thoai as customer_phone,
-            ct.ten as card_type_name, count(*) over()::int as total
+    `select o.*, c.ho_ten as ten_khach_hang, c.so_dien_thoai as sdt_khach_hang,
+            ct.ten as ten_loai_the, count(*) over()::int as total
      from public.don_hang o
      join public.khach_hang c on c.id = o.khach_hang_id
      join public.loai_the ct on ct.id = o.loai_the_id
@@ -52,7 +52,7 @@ async function findByIdForUpdate(id, client) {
 
 async function findByCodeAndPhone(orderCode, phone, client) {
   return one(
-    `select o.*, ct.ten as card_type_name
+    `select o.*, ct.ten as ten_loai_the
      from public.don_hang o
      join public.khach_hang c on c.id = o.khach_hang_id
      join public.loai_the ct on ct.id = o.loai_the_id
@@ -65,8 +65,8 @@ async function findByCodeAndPhone(orderCode, phone, client) {
 
 async function details(id, client) {
   const order = await one(
-    `select o.*, c.ho_ten as customer_name, c.so_dien_thoai as customer_phone,
-            ct.ten as card_type_name, ct.ma_viet_tat as card_type_short_code
+    `select o.*, c.ho_ten as ten_khach_hang, c.so_dien_thoai as sdt_khach_hang,
+            ct.ten as ten_loai_the, ct.ma_viet_tat as ma_viet_tat_loai_the
      from public.don_hang o
      join public.khach_hang c on c.id = o.khach_hang_id
      join public.loai_the ct on ct.id = o.loai_the_id

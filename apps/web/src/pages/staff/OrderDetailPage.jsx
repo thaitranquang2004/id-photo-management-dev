@@ -260,7 +260,7 @@ export default function OrderDetailPage() {
             <span>{order.ma_don}</span>
           </div>
           <h1>Đơn {order.ma_don}</h1>
-          <p>{order.customer_name} · {order.customer_phone} · {order.card_type_name}</p>
+          <p>{order.ten_khach_hang} · {order.sdt_khach_hang} · {order.ten_loai_the}</p>
           <div className="d-flex gap-2 mt-1">
             <Badge bg={order.nguon_don === 'online' ? 'info' : 'secondary'} text={order.nguon_don === 'online' ? 'dark' : undefined}>
               {order.nguon_don === 'online' ? 'Đơn online' : 'Tại quầy'}
@@ -536,8 +536,8 @@ export default function OrderDetailPage() {
                 <h2>Khách hàng</h2>
                 <Table className="detail-table">
                   <tbody>
-                    <tr><th>Họ tên</th><td>{order.customer_name}</td></tr>
-                    <tr><th>SĐT</th><td>{order.customer_phone}</td></tr>
+                    <tr><th>Họ tên</th><td>{order.ten_khach_hang}</td></tr>
+                    <tr><th>SĐT</th><td>{order.sdt_khach_hang}</td></tr>
                     <tr><th>Ghi chú</th><td>{order.ghi_chu || '-'}</td></tr>
                   </tbody>
                 </Table>
@@ -546,7 +546,7 @@ export default function OrderDetailPage() {
                 <h2>Snapshot giá</h2>
                 <Table className="detail-table">
                   <tbody>
-                    <tr><th>Loại thẻ</th><td>{pricingSnapshot?.ten_loai_the || order.card_type_name}</td></tr>
+                    <tr><th>Loại thẻ</th><td>{pricingSnapshot?.ten_loai_the || order.ten_loai_the}</td></tr>
                     <tr><th>Kích thước</th><td>{pricingSnapshot ? `${pricingSnapshot.rong_mm} x ${pricingSnapshot.cao_mm} mm` : '-'}</td></tr>
                     <tr><th>Giá mỗi bản</th><td>{formatCurrency(pricingSnapshot?.gia_moi_ban)}</td></tr>
                     <tr><th>Phí xử lý</th><td>{formatCurrency(pricingSnapshot?.phi_xu_ly)}</td></tr>

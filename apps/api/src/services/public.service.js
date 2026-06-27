@@ -24,7 +24,7 @@ function publicOrderInfo(order) {
   return {
     id: order.id,
     order_code: order.ma_don,
-    card_type_name: order.card_type_name,
+    card_type_name: order.ten_loai_the,
     status: order.trang_thai,
     created_at: order.ngay_tao
   };

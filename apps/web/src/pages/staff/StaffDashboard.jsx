@@ -102,10 +102,10 @@ export default function StaffDashboard() {
                       <tr key={order.id}>
                         <td className="fw-semibold">{order.ma_don}</td>
                         <td>
-                          <div>{order.customer_name}</div>
-                          <div className="text-muted small">{order.customer_phone}</div>
+                          <div>{order.ten_khach_hang}</div>
+                          <div className="text-muted small">{order.sdt_khach_hang}</div>
                         </td>
-                        <td>{order.card_type_name}</td>
+                        <td>{order.ten_loai_the}</td>
                         <td><OrderStatusBadge status={order.trang_thai} /></td>
                         <td><PaymentStatusBadge total={order.tong_tien} paid={order.da_thanh_toan} /></td>
                         <td>{formatDate(order.ngay_tao)}</td>
@@ -135,7 +135,7 @@ export default function StaffDashboard() {
                 {newOnlineRequests.map((item) => (
                   <div className="stack-list-item" key={item.id}>
                     <div className="fw-semibold">{item.ho_ten} · {item.so_dien_thoai}</div>
-                    <div className="text-muted small">{item.card_type_name || 'Chưa chọn loại'} · {item.photo_count || 0} ảnh</div>
+                    <div className="text-muted small">{item.ten_loai_the || 'Chưa chọn loại'} · {item.so_anh || 0} ảnh</div>
                   </div>
                 ))}
               </div>

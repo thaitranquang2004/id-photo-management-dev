@@ -8,7 +8,7 @@ async function getWithItems(id, client) {
   const printLayout = await findById(id, client);
   if (!printLayout) return null;
   const items = await many(
-    `select pli.*, p.trang_thai as photo_status
+    `select pli.*, p.trang_thai as trang_thai_anh
      from public.chi_tiet_bo_cuc pli
      join public.anh p on p.id = pli.anh_id
      where pli.bo_cuc_id = $1

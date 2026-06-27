@@ -43,9 +43,9 @@ async function orderReport(filters, client) {
   return many(
     `select o.ma_don, o.trang_thai, o.tong_tien,
             o.da_thanh_toan, o.so_luong, o.ngay_tao,
-            c.ho_ten as customer_name, c.so_dien_thoai as customer_phone,
-            ct.ten as card_type_name,
-            p.ho_ten as staff_name
+            c.ho_ten as ten_khach_hang, c.so_dien_thoai as sdt_khach_hang,
+            ct.ten as ten_loai_the,
+            p.ho_ten as ten_nhan_vien
      from public.don_hang o
      join public.khach_hang c on c.id = o.khach_hang_id
      join public.loai_the ct on ct.id = o.loai_the_id
