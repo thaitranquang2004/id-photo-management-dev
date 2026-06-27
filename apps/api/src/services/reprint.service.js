@@ -118,9 +118,9 @@ async function convertToOrder(id, body, context) {
 
   // After commit so a mail/Zalo issue never rolls back the conversion.
   await notificationService.notifyEvent('reprint_approved', {
-    customer_name: outcome.customer?.full_name,
+    customer_name: outcome.customer?.ho_ten,
     email: outcome.customer?.email,
-    phone: outcome.customer?.phone,
+    phone: outcome.customer?.so_dien_thoai,
     order_id: outcome.order.id,
     order_code: outcome.order.order_code,
     quantity: outcome.order.quantity

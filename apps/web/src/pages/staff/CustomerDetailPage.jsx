@@ -57,10 +57,10 @@ export default function CustomerDetailPage() {
 
   function openEdit() {
     setEditForm({
-      full_name: customer?.full_name || '',
-      phone: customer?.phone || '',
+      full_name: customer?.ho_ten || '',
+      phone: customer?.so_dien_thoai || '',
       email: customer?.email || '',
-      notes: customer?.notes || ''
+      notes: customer?.ghi_chu || ''
     });
     setErrors({});
     setShowEdit(true);
@@ -84,8 +84,8 @@ export default function CustomerDetailPage() {
     <div className="page-stack">
       <div className="page-header">
         <div>
-          <h1>{customer?.full_name}</h1>
-          <p>{customer?.phone} · {customer?.email || 'Chưa có email'}</p>
+          <h1>{customer?.ho_ten}</h1>
+          <p>{customer?.so_dien_thoai} · {customer?.email || 'Chưa có email'}</p>
         </div>
         <div className="header-actions">
           <Button variant="outline-primary" onClick={openEdit}>Sửa thông tin</Button>
@@ -99,11 +99,11 @@ export default function CustomerDetailPage() {
             <h2>Thông tin khách</h2>
             <Table className="detail-table">
               <tbody>
-                <tr><th>Họ tên</th><td>{customer?.full_name}</td></tr>
-                <tr><th>SĐT</th><td>{customer?.phone}</td></tr>
+                <tr><th>Họ tên</th><td>{customer?.ho_ten}</td></tr>
+                <tr><th>SĐT</th><td>{customer?.so_dien_thoai}</td></tr>
                 <tr><th>Email</th><td>{customer?.email || '-'}</td></tr>
-                <tr><th>Ghi chú</th><td>{customer?.notes || '-'}</td></tr>
-                <tr><th>Ngày tạo</th><td>{formatDate(customer?.created_at)}</td></tr>
+                <tr><th>Ghi chú</th><td>{customer?.ghi_chu || '-'}</td></tr>
+                <tr><th>Ngày tạo</th><td>{formatDate(customer?.ngay_tao)}</td></tr>
               </tbody>
             </Table>
           </section>

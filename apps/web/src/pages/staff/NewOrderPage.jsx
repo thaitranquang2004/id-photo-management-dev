@@ -163,8 +163,8 @@ export default function NewOrderPage() {
                       active={selectedCustomer?.id === customer.id}
                       onClick={() => setSelectedCustomer(customer)}
                     >
-                      <div className="fw-semibold">{customer.full_name}</div>
-                      <div className="small">{customer.phone}</div>
+                      <div className="fw-semibold">{customer.ho_ten}</div>
+                      <div className="small">{customer.so_dien_thoai}</div>
                     </ListGroup.Item>
                   ))}
                 </ListGroup>
@@ -351,8 +351,8 @@ export default function NewOrderPage() {
             <Col md={6}>
               <div className="summary-box">
                 <span>Khách hàng</span>
-                <strong>{selectedCustomer?.full_name}</strong>
-                <small>{selectedCustomer?.phone}</small>
+                <strong>{selectedCustomer?.ho_ten}</strong>
+                <small>{selectedCustomer?.so_dien_thoai}</small>
               </div>
             </Col>
             <Col md={6}>

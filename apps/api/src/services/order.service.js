@@ -78,9 +78,9 @@ async function prepareReadyNotification(order, client) {
     event_type: 'photos_ready',
     lookup_url: lookupUrl,
     payload: {
-      customer_name: customer?.full_name,
+      customer_name: customer?.ho_ten,
       email: customer?.email,
-      phone: customer?.phone,
+      phone: customer?.so_dien_thoai,
       order_id: order.id,
       order_code: order.order_code,
       pickup_date: order.pickup_date,
@@ -94,9 +94,9 @@ async function prepareDeliveredNotification(order, client) {
   return {
     event_type: 'order_delivered',
     payload: {
-      customer_name: customer?.full_name,
+      customer_name: customer?.ho_ten,
       email: customer?.email,
-      phone: customer?.phone,
+      phone: customer?.so_dien_thoai,
       order_id: order.id,
       order_code: order.order_code
     }
@@ -108,9 +108,9 @@ async function prepareCancelledNotification(order, reason, client) {
   return {
     event_type: 'order_cancelled',
     payload: {
-      customer_name: customer?.full_name,
+      customer_name: customer?.ho_ten,
       email: customer?.email,
-      phone: customer?.phone,
+      phone: customer?.so_dien_thoai,
       order_id: order.id,
       order_code: order.order_code,
       reason

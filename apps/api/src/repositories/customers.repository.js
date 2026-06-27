@@ -1,11 +1,6 @@
 const { one, many } = require('../db/pool');
 const { orderCols } = require('./orders.repository');
 
-// Alias cột khach_hang về tiếng Anh để customer.service + frontend không phải đổi.
-const CUST_COLS = `id, ho_ten as full_name, so_dien_thoai as phone, email, ghi_chu as notes,
-  dang_hoat_dong as is_active, ngay_luu_tru as archived_at, nguoi_tao as created_by,
-  ngay_tao as created_at, ngay_cap_nhat as updated_at`;
-
 async function list({ phone, limit, offset }, client) {
   const params = [];
   const where = ['dang_hoat_dong = true'];
@@ -18,7 +13,7 @@ async function list({ phone, limit, offset }, client) {
   params.push(limit, offset);
 
   const rows = await many(
-    `select ${CUST_COLS}, count(*) over()::int as total
+    `select *, count(*) over()::int as total
      from public.khach_hang
      where ${where.join(' and ')}
      order by ngay_tao desc
@@ -31,12 +26,12 @@ async function list({ phone, limit, offset }, client) {
 }
 
 async function findById(id, client) {
-  return one(`select ${CUST_COLS} from public.khach_hang where id = $1`, [id], client);
+  return one(`select * from public.khach_hang where id = $1`, [id], client);
 }
 
 async function findByPhone(phone, client) {
   return one(
-    `select ${CUST_COLS} from public.khach_hang
+    `select * from public.khach_hang
      where so_dien_thoai = $1 and dang_hoat_dong = true
      order by ngay_tao desc
      limit 1`,
@@ -49,7 +44,7 @@ async function create(data, actorId, client) {
   return one(
     `insert into public.khach_hang (ho_ten, so_dien_thoai, email, ghi_chu, nguoi_tao)
      values ($1, $2, $3, $4, $5)
-     returning ${CUST_COLS}`,
+     returning *`,
     [data.full_name, data.phone, data.email || null, data.notes || null, actorId],
     client
   );
@@ -64,7 +59,7 @@ async function update(id, patch, client) {
          ghi_chu = coalesce($5, ghi_chu),
          ngay_cap_nhat = now()
      where id = $1
-     returning ${CUST_COLS}`,
+     returning *`,
     [id, patch.full_name ?? null, patch.phone ?? null, patch.email ?? null, patch.notes ?? null],
     client
   );
@@ -77,7 +72,7 @@ async function archive(id, client) {
          ngay_luu_tru = now(),
          ngay_cap_nhat = now()
      where id = $1
-     returning ${CUST_COLS}`,
+     returning *`,
     [id],
     client
   );
