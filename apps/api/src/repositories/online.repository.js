@@ -56,9 +56,17 @@ async function listRequests(filters, { limit, offset }, client) {
   const rows = await many(
     `select orq.*, ct.ten as ten_loai_the,
             (select count(*)::int from public.anh_yeu_cau_online orp where orp.yeu_cau_online_id = orq.id) as so_anh,
+            lh.ngay_hen, lh.khung_gio, lh.trang_thai as trang_thai_lich_hen,
             count(*) over()::int as total
      from public.yeu_cau_online orq
      left join public.loai_the ct on ct.id = orq.loai_the_id
+     left join lateral (
+       select ngay_hen, khung_gio, trang_thai
+       from public.lich_hen
+       where yeu_cau_online_id = orq.id
+       order by ngay_tao desc
+       limit 1
+     ) lh on true
      where ${where.join(' and ')}
      order by orq.ngay_tao desc
      limit $${params.length - 1} offset $${params.length}`,
@@ -72,9 +80,10 @@ async function findRequestById(id, client) {
   return one(`select * from public.yeu_cau_online where id = $1`, [id], client);
 }
 
-// Public, customer-facing: limited safe fields, gated by id + phone match.
-async function findPublicStatus(requestId, phone, client) {
-  return one(
+// Public, customer-facing: limited safe fields, gated by phone match.
+// Trả về mọi yêu cầu online của SĐT (mới nhất trước).
+async function listPublicStatus(phone, client) {
+  return many(
     `select r.id, r.trang_thai, r.loai_yeu_cau, r.ngay_tao,
             o.ma_don as ma_don_da_tao,
             a.ngay_hen, a.khung_gio, a.trang_thai as trang_thai_lich_hen
@@ -87,9 +96,10 @@ async function findPublicStatus(requestId, phone, client) {
        order by ngay_tao desc
        limit 1
      ) a on true
-     where r.id = $1
-       and regexp_replace(r.so_dien_thoai, '[^0-9]', '', 'g') = regexp_replace($2, '[^0-9]', '', 'g')`,
-    [requestId, phone],
+     where regexp_replace(r.so_dien_thoai, '[^0-9]', '', 'g') = regexp_replace($1, '[^0-9]', '', 'g')
+     order by r.ngay_tao desc
+     limit 50`,
+    [phone],
     client
   );
 }
@@ -153,18 +163,20 @@ async function linkConverted(id, { don_hang_id, khach_hang_id }, client) {
 async function createAppointment(data, client) {
   return one(
     `insert into public.lich_hen (
-       yeu_cau_online_id, don_hang_id, ten_khach, so_dien_thoai, ngay_hen, khung_gio, trang_thai, ghi_chu, nguoi_xac_nhan
+       yeu_cau_online_id, don_hang_id, ten_khach, so_dien_thoai, email, ngay_hen, khung_gio, loai_lich, trang_thai, ghi_chu, nguoi_xac_nhan
      )
-     values ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+     values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
      returning *`,
     [
       data.yeu_cau_online_id || null,
       data.don_hang_id || null,
       data.ten_khach || null,
       data.so_dien_thoai || null,
+      data.email || null,
       data.ngay_hen,
       data.khung_gio,
-      data.trang_thai || 'requested',
+      data.loai_lich || 'hen_lay_hinh',
+      data.trang_thai || 'cho_xac_nhan',
       data.ghi_chu || null,
       data.nguoi_xac_nhan || null
     ],
@@ -180,10 +192,20 @@ async function findAppointmentByRequest(requestId, client) {
   );
 }
 
-async function linkAppointmentOrder(id, orderId, client) {
+// Gắn lịch hẹn (mong muốn lấy) của yêu cầu online vào đơn khi convert -> thành lịch
+// hẹn LẤY đã xác nhận; cập nhật ngày/giờ nếu staff đổi lúc tạo đơn.
+async function linkAppointmentOrder(id, data, client) {
   return one(
-    `update public.lich_hen set don_hang_id = $2, ngay_cap_nhat = now() where id = $1 returning *`,
-    [id, orderId],
+    `update public.lich_hen
+     set don_hang_id = $2,
+         ngay_hen = coalesce($3, ngay_hen),
+         khung_gio = coalesce($4, khung_gio),
+         loai_lich = 'hen_lay_hinh',
+         trang_thai = 'da_xac_nhan',
+         ngay_cap_nhat = now()
+     where id = $1
+     returning *`,
+    [id, data.don_hang_id, data.ngay_hen || null, data.khung_gio || null],
     client
   );
 }
@@ -228,7 +250,7 @@ async function updateAppointmentStatus(id, data, actorId, client) {
     `update public.lich_hen
      set trang_thai = $2,
          ghi_chu = coalesce($3, ghi_chu),
-         nguoi_xac_nhan = case when $2 in ('confirmed', 'done') then $4 else nguoi_xac_nhan end,
+         nguoi_xac_nhan = case when $2 in ('da_xac_nhan', 'da_xong') then $4 else nguoi_xac_nhan end,
          ngay_cap_nhat = now()
      where id = $1
      returning *`,
@@ -242,7 +264,7 @@ module.exports = {
   addRequestPhoto,
   listRequests,
   findRequestById,
-  findPublicStatus,
+  listPublicStatus,
   requestDetails,
   requestPhotos,
   updateRequestStatus,

@@ -76,14 +76,13 @@ async function details(id, client) {
   );
   if (!order) return null;
 
-  const [pricingSnapshot, photos, printLayouts, appointment] = await Promise.all([
+  const [pricingSnapshot, photos, appointment] = await Promise.all([
     one('select * from public.ban_luu_gia where don_hang_id = $1', [id], client),
     many(`select * from public.anh where don_hang_id = $1 order by ngay_tao desc`, [id], client),
-    many('select * from public.bo_cuc_in where don_hang_id = $1 order by ngay_tao desc', [id], client),
     one('select * from public.lich_hen where don_hang_id = $1 order by ngay_tao desc limit 1', [id], client)
   ]);
 
-  return { order, pricing_snapshot: pricingSnapshot, photos, print_layouts: printLayouts, appointment };
+  return { order, pricing_snapshot: pricingSnapshot, photos, appointment };
 }
 
 // Order code format: IN-T{month}{year}-{seq3}, e.g. IN-T62026-001. The sequence
@@ -95,28 +94,30 @@ async function createOrder(data, actorId, totalAmount, client) {
        select 'IN-T' || extract(month from now())::int || extract(year from now())::int || '-' as prefix
      )
      insert into public.don_hang (
-       ma_don, khach_hang_id, loai_the_id, nguoi_tao, trang_thai, tong_tien, so_luong,
+       id, ma_don, khach_hang_id, loai_the_id, nguoi_tao, trang_thai, tong_tien, so_luong,
        ngay_hen_lay, ghi_chu, nguon_don, hinh_thuc_giao
      )
      select
+       coalesce($1, extensions.gen_random_uuid()),
        (select prefix from px) || lpad(
          (coalesce(
             (select max(substring(o.ma_don from '[0-9]+$')::int)
              from public.don_hang o
              where o.ma_don like (select prefix from px) || '%'),
             0) + 1)::text, 3, '0'),
-       $1, $2, $3, 'pending', $4, $5, $6, $7, $8, $9
+       $2, $3, $4, 'pending', $5, $6, $7, $8, $9, $10
      returning *`,
     [
+      data.id || null,
       data.khach_hang_id,
       data.loai_the_id,
-      actorId,
+      actorId || null,
       totalAmount,
       data.so_luong,
       data.ngay_hen_lay || null,
       data.ghi_chu || null,
-      data.nguon_don || 'walk_in',
-      data.hinh_thuc_giao || 'pickup'
+      data.nguon_don || 'tai_tiem',
+      data.hinh_thuc_giao || 'lay_hinh_ngay'
     ],
     client
   );
@@ -189,17 +190,6 @@ async function countApprovedPhotos(orderId, client) {
   return row?.count || 0;
 }
 
-async function countGeneratedLayouts(orderId, client) {
-  const row = await one(
-    `select count(*)::int as count
-     from public.bo_cuc_in
-     where don_hang_id = $1 and trang_thai = 'generated'`,
-    [orderId],
-    client
-  );
-  return row?.count || 0;
-}
-
 module.exports = {
   list,
   findById,
@@ -211,6 +201,5 @@ module.exports = {
   setAmountPaid,
   createPricingSnapshot,
   updateStatus,
-  countApprovedPhotos,
-  countGeneratedLayouts
+  countApprovedPhotos
 };

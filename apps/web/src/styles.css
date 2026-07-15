@@ -1236,30 +1236,6 @@ h2 svg {
   padding-top: 0.5rem;
 }
 
-.layout-config {
-  border: 1px solid var(--app-border);
-  border-radius: var(--app-radius-lg);
-  padding: 1.25rem;
-  background: rgba(255, 255, 255, 0.5);
-}
-
-.layout-preview {
-  margin-top: 1.5rem;
-  padding: 1rem;
-  border: 1px solid var(--app-border);
-  border-radius: var(--app-radius-lg);
-  background: #f8fafc;
-  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.02);
-}
-
-.layout-preview img {
-  display: block;
-  max-height: 34rem;
-  margin: 0 auto;
-  border-radius: var(--app-radius-sm);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
-}
-
 .selected-preview-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr));
@@ -1268,12 +1244,21 @@ h2 svg {
 }
 
 .selected-preview {
+  position: relative;
   overflow: hidden;
   border: 1px solid var(--app-border);
   border-radius: var(--app-radius);
   background: #ffffff;
   box-shadow: var(--app-shadow-soft);
   transition: all 0.2s ease;
+}
+
+.selected-preview-badge {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  z-index: 1;
+  box-shadow: var(--app-shadow-soft);
 }
 
 .selected-preview:hover {
@@ -1289,15 +1274,31 @@ h2 svg {
   background: #f1f5f9;
 }
 
-.selected-preview span {
-  display: block;
-  padding: 0.6rem;
+.selected-preview-foot {
+  padding: 0.55rem 0.6rem 0.65rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.selected-preview-name {
   color: var(--app-muted);
-  font-size: 0.8rem;
+  font-size: 0.78rem;
   font-weight: 500;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.selected-preview-crop {
+  width: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  font-size: 0.78rem;
+  padding-top: 0.3rem;
+  padding-bottom: 0.3rem;
 }
 
 /* AI Pipeline Progress */
@@ -1346,22 +1347,6 @@ h2 svg {
   object-fit: cover;
   background: #f1f5f9;
   transition: all 0.2s ease;
-}
-
-.photo-thumb-button {
-  display: inline-flex;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  cursor: zoom-in;
-  border-radius: var(--app-radius-sm);
-  overflow: hidden;
-}
-
-.photo-thumb-button:hover .photo-thumb {
-  border-color: var(--app-primary);
-  transform: scale(1.05);
-  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.2);
 }
 
 .placeholder-thumb {
@@ -1510,7 +1495,9 @@ h2 svg {
 /* Customer Portal Portal Page */
 .public-page {
   min-height: 100vh;
-  padding: 1.5rem 0 3.5rem;
+  display: flex;
+  flex-direction: column;
+  padding: 1.5rem 0 0;
   background:
     radial-gradient(circle at top right, rgba(99, 102, 241, 0.07), transparent 45rem),
     radial-gradient(circle at 10% 80%, rgba(6, 182, 212, 0.05), transparent 40rem),
@@ -1521,8 +1508,14 @@ h2 svg {
   max-width: 1180px;
 }
 
+/* Khoảng cách tối thiểu giữa nội dung chính và footer (margin-top:auto của footer
+   co về 0 khi trang dài, nên cần chặn dưới ở đây). */
+.public-page > .container {
+  margin-bottom: 3rem;
+}
+
 .public-footer {
-  margin-top: 2.5rem;
+  margin-top: auto;
   padding: 2rem 0 1.25rem;
   border-top: 1px solid var(--app-border);
   background: rgba(255, 255, 255, 0.55);
@@ -1531,10 +1524,44 @@ h2 svg {
   font-size: 0.88rem;
 }
 
-.public-footer-grid {
+.public-footer-inner {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
-  gap: 1.5rem;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+  gap: 2rem;
+  align-items: stretch;
+}
+
+.public-footer-info {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1.25rem 1.5rem;
+  align-content: start;
+}
+
+.public-footer-brand {
+  grid-column: 1 / -1;
+}
+
+.public-footer-social {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-top: 0.65rem;
+  padding: 0.4rem 0.85rem;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  font-weight: 650;
+  color: #1877f2;
+  background: rgba(24, 119, 242, 0.1);
+  border: 1px solid rgba(24, 119, 242, 0.2);
+  text-decoration: none;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.public-footer-social:hover {
+  color: #fff;
+  background: #1877f2;
+  border-color: #1877f2;
 }
 
 .public-footer h5 {
@@ -1549,20 +1576,31 @@ h2 svg {
   line-height: 1.7;
 }
 
-.public-footer-links {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-  display: grid;
-  gap: 0.35rem;
+.public-footer-map {
+  border-radius: 0.75rem;
+  overflow: hidden;
+  border: 1px solid var(--app-border);
+  line-height: 0;
+  min-height: 15rem;
+  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.06);
 }
 
-.public-footer-bottom {
-  margin-top: 1.5rem;
-  padding-top: 1rem;
-  border-top: 1px solid var(--app-border);
-  text-align: center;
-  font-size: 0.82rem;
+.public-footer-map iframe {
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-height: 15rem;
+}
+
+@media (max-width: 768px) {
+  .public-footer-inner {
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+  }
+
+  .public-footer-info {
+    grid-template-columns: 1fr;
+  }
 }
 
 .public-topbar {
@@ -1578,6 +1616,49 @@ h2 svg {
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   box-shadow: var(--app-shadow-soft);
+}
+
+/* Điều hướng trang khách: hiện đủ các trang, trang hiện tại được tô sáng. */
+.public-nav {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.public-nav-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.4rem 0.85rem;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  font-weight: 650;
+  color: var(--app-muted);
+  border: 1px solid transparent;
+  text-decoration: none;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.public-nav-link:hover {
+  color: var(--app-primary);
+  background: var(--app-primary-soft);
+}
+
+.public-nav-link.active {
+  color: #fff;
+  background: var(--app-primary);
+  border-color: var(--app-primary);
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.25);
+}
+
+.public-nav-link-icon {
+  width: 2.2rem;
+  height: 2.2rem;
+  padding: 0;
+  justify-content: center;
+  color: var(--app-primary);
+  border-color: var(--app-border);
 }
 
 .public-heading {
@@ -1608,8 +1689,130 @@ h2 svg {
   color: #0f172a;
 }
 
+.public-form-title {
+  margin: 0 0 1.25rem;
+  font-size: 1.15rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: #0f172a;
+}
+
+/* Lưới ảnh khách gửi (đặt lịch): thẻ có preview + nút cắt khổ/kiểm tra QC. */
+.qc-photo-grid {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.85rem;
+  margin-top: 0.85rem;
+}
+
+.qc-photo-card {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 0.6rem;
+  max-width: 100%;
+  border: 1px solid var(--app-border);
+  border-radius: var(--app-radius-lg);
+  background: var(--app-surface-soft);
+}
+
+.qc-photo-thumb {
+  position: relative;
+  flex: 0 0 auto;
+  width: 4.5rem;
+  height: 4.5rem;
+  border-radius: 0.5rem;
+  overflow: hidden;
+  background: #fff;
+  border: 1px solid var(--app-border);
+}
+
+.qc-photo-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.qc-photo-remove {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.35rem;
+  height: 1.35rem;
+  border: none;
+  border-radius: 50%;
+  color: #fff;
+  background: rgba(15, 23, 42, 0.6);
+  cursor: pointer;
+}
+
+.qc-photo-remove:hover {
+  background: var(--app-danger, #dc3545);
+}
+
+.qc-photo-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.qc-photo-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.qc-photo-status {
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+.qc-photo-verdict {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.qc-photo-score {
+  color: var(--app-muted);
+  font-weight: 600;
+}
+
+.qc-photo-issues {
+  margin: 0.4rem 0 0;
+  padding-left: 1.1rem;
+  display: grid;
+  gap: 0.15rem;
+}
+
+.qc-photo-ok {
+  margin-top: 0.35rem;
+  color: var(--app-muted);
+}
+
+.qc-photo-note {
+  margin-top: 0.35rem;
+  font-size: 0.78rem;
+  color: var(--app-muted);
+  font-style: italic;
+}
+
 .public-panel {
   min-height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.public-panel > .empty-state {
+  flex: 1;
 }
 
 .public-panel p {
@@ -1630,6 +1833,47 @@ h2 svg {
   margin-top: 1.5rem;
   padding-top: 1.5rem;
   border-top: 1px solid var(--app-border);
+}
+
+/* Card hỗ trợ ghim đáy cột trái để lấp khoảng trống khi panel cao bằng cột form. */
+.public-panel-support {
+  margin-top: auto;
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 1rem 1.15rem;
+  border-radius: var(--app-radius-lg);
+  background: var(--app-primary-soft);
+  border: 1px solid rgba(99, 102, 241, 0.15);
+}
+
+.public-panel-support .support-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 50%;
+  color: var(--app-primary);
+  background: #fff;
+}
+
+.public-panel-support strong {
+  display: block;
+  color: var(--app-text);
+  font-size: 0.95rem;
+}
+
+.public-panel-support span {
+  color: var(--app-muted);
+  font-size: 0.88rem;
+}
+
+.public-panel-support a {
+  color: var(--app-primary);
+  font-weight: 700;
+  text-decoration: none;
 }
 
 .lookup-tip {
@@ -1678,26 +1922,6 @@ h2 svg {
   margin-top: 0.15rem;
 }
 
-.public-divider {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  color: var(--app-muted);
-  font-size: 0.82rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  margin: 1.25rem 0;
-}
-
-.public-divider::before,
-.public-divider::after {
-  content: "";
-  flex: 1;
-  height: 1px;
-  background: var(--app-border);
-}
-
 .public-result {
   display: grid;
   gap: 1.25rem;
@@ -1729,6 +1953,13 @@ h2 svg {
   gap: 1rem;
 }
 
+/* Bộ sưu tập: luôn 1 dòng (4 ảnh/trang), phân trang khi nhiều ảnh. */
+.public-photo-row {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1rem;
+}
+
 .public-photo {
   border: 1px solid var(--app-border);
   border-radius: var(--app-radius);
@@ -1736,6 +1967,11 @@ h2 svg {
   background: #ffffff;
   box-shadow: var(--app-shadow-soft);
   transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.public-photo.selected {
+  border-color: var(--app-primary);
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.35);
 }
 
 .public-photo:hover {
@@ -1865,8 +2101,17 @@ h2 svg {
     padding: 1rem;
   }
 
-  .public-topbar .btn {
+  .public-nav {
     width: 100%;
+  }
+
+  .public-nav-link {
+    flex: 1;
+    justify-content: center;
+  }
+
+  .public-nav-link-icon {
+    flex: 0 0 auto;
   }
 
   .lookup-form-actions {
@@ -1891,19 +2136,6 @@ h2 svg {
 }
 
 /* A4 layout composer (kéo-sắp-xếp + in trực tiếp) */
-.layout-composer-panel {
-  padding: 1rem;
-  border: 1px dashed var(--app-border-strong);
-  border-radius: var(--app-radius);
-  background: rgba(99, 102, 241, 0.03);
-}
-
-.layout-composer-title {
-  font-size: 1rem;
-  font-weight: 750;
-  margin-bottom: 0.75rem;
-}
-
 .a4-print-wrap {
   margin-top: 1rem;
   padding: 1rem;
@@ -1924,10 +2156,100 @@ h2 svg {
 }
 
 .a4-tile {
+  position: relative;
   overflow: hidden;
   cursor: grab;
   background: #f1f5f9;
   border: 0.2mm solid #e2e8f0;
+}
+
+.a4-tile-remove {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: rgba(15, 23, 42, 0.55);
+  color: #fff;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.a4-tile:hover .a4-tile-remove {
+  opacity: 1;
+}
+
+.layout-palette {
+  margin-bottom: 0.75rem;
+}
+
+.layout-palette-label {
+  display: block;
+  font-size: 0.85rem;
+  color: var(--app-muted);
+  margin-bottom: 0.4rem;
+}
+
+.layout-palette-items {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.layout-palette-item {
+  position: relative;
+  width: 64px;
+  height: 84px;
+  padding: 0;
+  border: 1px solid var(--app-border-strong);
+  border-radius: 6px;
+  overflow: hidden;
+  background: #f1f5f9;
+  cursor: pointer;
+}
+
+.layout-palette-item img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.layout-palette-count {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9px;
+  background: var(--bs-primary, #6366f1);
+  color: #fff;
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+.layout-palette-add {
+  position: absolute;
+  bottom: 2px;
+  right: 2px;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: rgba(15, 23, 42, 0.6);
+  color: #fff;
 }
 
 .a4-tile:active {

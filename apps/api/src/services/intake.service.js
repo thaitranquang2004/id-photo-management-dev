@@ -4,18 +4,13 @@ const onlineRepository = require('../repositories/online.repository');
 const customersRepository = require('../repositories/customers.repository');
 const catalogRepository = require('../repositories/catalog.repository');
 const photosRepository = require('../repositories/photos.repository');
-const publicRepository = require('../repositories/public.repository');
 const orderService = require('./order.service');
 const assetService = require('./asset.service');
 const notificationService = require('./notification.service');
 const { writeAudit } = require('./audit.service');
 const { parsePagination, buildPagination } = require('../utils/pagination');
 const { errors } = require('../utils/app-error');
-const { sha256 } = require('../utils/hash');
-
-function ipHash(req) {
-  return sha256(req.ip || 'unknown');
-}
+const { ipHash } = require('../utils/hash');
 
 async function uploadRequestFile(file, requestId) {
   const result = await assetService.uploadBuffer(file.buffer, {
@@ -70,33 +65,19 @@ async function submitOnlineRequest(body, files, req) {
       await onlineRepository.addRequestPhoto(input, client);
     }
 
-    let appointment = null;
-    if (body.ngay_hen && body.khung_gio) {
-      appointment = await onlineRepository.createAppointment({
+    // Ngày mong muốn lấy (tùy chọn). Có ngày là ghi nhận, giờ mặc định 'Cả ngày'.
+    if (body.ngay_hen) {
+      await onlineRepository.createAppointment({
         yeu_cau_online_id: requestId,
         ten_khach: body.ho_ten,
         so_dien_thoai: body.so_dien_thoai,
         ngay_hen: body.ngay_hen,
-        khung_gio: body.khung_gio,
-        trang_thai: 'requested',
+        khung_gio: body.khung_gio || 'Cả ngày',
+        loai_lich: 'hen_lay_hinh',
+        trang_thai: 'cho_xac_nhan',
         ghi_chu: body.ghi_chu
       }, client);
     }
-
-    await publicRepository.logLookupEvent({
-      action: 'online_request',
-      result: 'success',
-      phone: body.so_dien_thoai,
-      success: true,
-      ip_hash: ipHash(req),
-      user_agent: req.get('user-agent'),
-      metadata: {
-        online_request_id: requestId,
-        request_type: body.loai_yeu_cau,
-        photo_count: photoInputs.length,
-        has_appointment: Boolean(appointment)
-      }
-    }, client);
 
     return { ma_yeu_cau: request.id, trang_thai: request.trang_thai, so_anh: photoInputs.length };
   });
@@ -195,14 +176,18 @@ async function convertToOrder(id, body, context) {
       }, context.user.id, client);
     }
 
+    // Lịch hẹn "mong muốn lấy" khách gửi kèm (nếu có) -> dùng làm mặc định ngày lấy.
+    const wishAppointment = await onlineRepository.findAppointmentByRequest(id, client);
+    const pickupDate = body.ngay_hen_lay || wishAppointment?.ngay_hen || null;
+
     const { order, pricing_snapshot: pricingSnapshot } = await orderService.createOrderCore({
       khach_hang_id: customer.id,
       loai_the_id: cardTypeId,
       so_luong: body.so_luong,
-      ngay_hen_lay: body.ngay_hen_lay,
+      ngay_hen_lay: pickupDate || undefined,
       ghi_chu: body.ghi_chu || request.ghi_chu,
-      nguon_don: 'online',
-      hinh_thuc_giao: 'online'
+      nguon_don: 'gui_anh_tu_xa',
+      hinh_thuc_giao: 'lay_file_truc_tuyen'
     }, context, client);
 
     const requestPhotos = await onlineRepository.requestPhotos(id, client);
@@ -228,9 +213,24 @@ async function convertToOrder(id, body, context) {
       }, client);
     }
 
-    const appointment = await onlineRepository.findAppointmentByRequest(id, client);
-    if (appointment) {
-      await onlineRepository.linkAppointmentOrder(appointment.id, order.id, client);
+    // Tạo/gắn lịch hẹn LẤY cho đơn khi có ngày lấy.
+    if (wishAppointment) {
+      await onlineRepository.linkAppointmentOrder(wishAppointment.id, {
+        don_hang_id: order.id,
+        ngay_hen: pickupDate,
+        khung_gio: body.khung_gio_lay || wishAppointment.khung_gio
+      }, client);
+    } else if (pickupDate) {
+      await onlineRepository.createAppointment({
+        don_hang_id: order.id,
+        ten_khach: request.ho_ten,
+        so_dien_thoai: request.so_dien_thoai,
+        ngay_hen: pickupDate,
+        khung_gio: body.khung_gio_lay || 'Cả ngày',
+        loai_lich: 'hen_lay_hinh',
+        trang_thai: 'da_xac_nhan',
+        nguoi_xac_nhan: context.user.id
+      }, client);
     }
 
     const updatedRequest = await onlineRepository.linkConverted(id, { don_hang_id: order.id, khach_hang_id: customer.id }, client);
@@ -252,21 +252,6 @@ async function listAppointments(query) {
   };
 }
 
-async function createAppointment(body, context) {
-  return withTransaction(async (client) => {
-    const appointment = await onlineRepository.createAppointment({
-      ten_khach: body.ten_khach,
-      so_dien_thoai: body.so_dien_thoai,
-      ngay_hen: body.ngay_hen,
-      khung_gio: body.khung_gio,
-      trang_thai: 'confirmed',
-      ghi_chu: body.ghi_chu,
-      nguoi_xac_nhan: context.user.id
-    }, client);
-    await writeAudit('appointment.created', 'lich_hen',appointment.id, context, { new_data: appointment }, client);
-    return { appointment };
-  });
-}
 
 async function updateAppointmentStatus(id, body, context) {
   const updated = await withTransaction(async (client) => {
@@ -276,7 +261,7 @@ async function updateAppointmentStatus(id, body, context) {
     await writeAudit('appointment.status_changed', 'lich_hen',id, context, { old_data: appointment, new_data: next }, client);
     return next;
   });
-  if (updated.trang_thai === 'confirmed') {
+  if (updated.trang_thai === 'da_xac_nhan') {
     await notificationService.notifyEvent('appointment_confirmed', {
       customer_name: updated.ten_khach,
       phone: updated.so_dien_thoai,
@@ -287,11 +272,12 @@ async function updateAppointmentStatus(id, body, context) {
   return { appointment: updated };
 }
 
-// Public, customer-facing status lookup by request id + phone (no login).
-async function onlineRequestStatus(requestId, phone) {
-  const row = await onlineRepository.findPublicStatus(requestId, phone);
-  if (!row) throw errors.notFound('Không tìm thấy yêu cầu. Vui lòng kiểm tra mã yêu cầu và số điện thoại.');
-  return { data: { request: row } };
+// Public, customer-facing status lookup by phone (no login).
+// Trả về danh sách mọi yêu cầu online của SĐT (mới nhất trước).
+async function onlineRequestStatus(phone) {
+  const requests = await onlineRepository.listPublicStatus(phone);
+  if (!requests.length) throw errors.notFound('Không tìm thấy yêu cầu nào khớp số điện thoại. Vui lòng kiểm tra lại.');
+  return { data: { requests } };
 }
 
 module.exports = {
@@ -302,7 +288,6 @@ module.exports = {
   rejectRequest,
   convertToOrder,
   listAppointments,
-  createAppointment,
   updateAppointmentStatus,
   onlineRequestStatus
 };

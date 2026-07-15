@@ -1,11 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { KeyRound, Pencil, Plus, Save } from 'lucide-react';
+import { Pencil, Plus, Save } from 'lucide-react';
 import { useState } from 'react';
 import { Alert, Badge, Button, Col, Form, Modal, Row, Table } from 'react-bootstrap';
 import {
   createAdminUser,
   listAdminUsers,
-  resetUserPassword,
   updateAdminUser
 } from '../../api/admin';
 import EmptyState from '../../components/feedback/EmptyState.jsx';
@@ -54,11 +53,6 @@ export default function UsersPage() {
       setEditForm(null);
       queryClient.invalidateQueries({ queryKey: ['admin', 'users'] });
     }
-  });
-
-  const resetMutation = useMutation({
-    mutationFn: resetUserPassword,
-    onSuccess: () => setConfirmAction(null)
   });
 
   if (query.isLoading) return <LoadingState label="Đang tải nhân viên..." />;
@@ -117,22 +111,10 @@ export default function UsersPage() {
     });
   }
 
-  function requestPasswordReset(user) {
-    setConfirmAction({
-      type: 'reset-password',
-      id: user.id,
-      title: 'Xác nhận reset password',
-      description: `Bạn chắc chắn muốn tạo yêu cầu reset password cho ${user.ho_ten || user.email || user.id}?`
-    });
-  }
-
   function confirmSubmit() {
     if (!confirmAction) return;
     if (confirmAction.type === 'update') {
       updateMutation.mutate({ id: confirmAction.id, payload: confirmAction.payload });
-    }
-    if (confirmAction.type === 'reset-password') {
-      resetMutation.mutate(confirmAction.id);
     }
   }
 
@@ -141,7 +123,7 @@ export default function UsersPage() {
       <div className="page-header">
         <div>
           <h1>Nhân viên</h1>
-          <p>Quản lý profile nội bộ, vai_tro và trạng thái tài khoản.</p>
+          <p>Quản lý nội bộ, vai trò và trạng thái tài khoản.</p>
         </div>
         <Button onClick={() => { setForm(emptyForm); createErrors.setErrors({}); setShowCreate(true); }} className="button-nowrap">
           <Plus size={17} aria-hidden="true" />
@@ -150,8 +132,6 @@ export default function UsersPage() {
       </div>
 
       {updateMutation.error ? <Alert variant="danger">{updateMutation.error.message}</Alert> : null}
-      {resetMutation.data ? <Alert variant="info">{resetMutation.data.message}</Alert> : null}
-      {resetMutation.error ? <Alert variant="danger">{resetMutation.error.message}</Alert> : null}
 
       <section className="app-panel">
         {users.length === 0 ? (
@@ -328,22 +308,12 @@ export default function UsersPage() {
               </Row>
               {updateMutation.error ? <Alert variant="danger" className="mt-3">{updateMutation.error.message}</Alert> : null}
             </Modal.Body>
-            <Modal.Footer className="justify-content-between">
-              <Button
-                variant="outline-danger"
-                disabled={resetMutation.isPending}
-                onClick={() => requestPasswordReset(selectedUser)}
-              >
-                <KeyRound size={16} aria-hidden="true" />
-                Reset password
+            <Modal.Footer>
+              <Button variant="outline-secondary" onClick={closeEdit}>Đóng</Button>
+              <Button type="submit" disabled={updateMutation.isPending}>
+                <Save size={16} aria-hidden="true" />
+                Lưu thay đổi
               </Button>
-              <div className="d-flex gap-2">
-                <Button variant="outline-secondary" onClick={closeEdit}>Đóng</Button>
-                <Button type="submit" disabled={updateMutation.isPending}>
-                  <Save size={16} aria-hidden="true" />
-                  Lưu thay đổi
-                </Button>
-              </div>
             </Modal.Footer>
           </Form>
         ) : null}
@@ -355,17 +325,17 @@ export default function UsersPage() {
         </Modal.Header>
         <Modal.Body>
           <p className="mb-0">{confirmAction?.description}</p>
-          {(updateMutation.error || resetMutation.error) ? (
+          {updateMutation.error ? (
             <Alert variant="danger" className="mt-3">
-              {(updateMutation.error || resetMutation.error).message}
+              {updateMutation.error.message}
             </Alert>
           ) : null}
         </Modal.Body>
         <Modal.Footer>
           <Button variant="outline-secondary" onClick={() => setConfirmAction(null)}>Không</Button>
           <Button
-            variant={confirmAction?.type === 'reset-password' ? 'danger' : 'primary'}
-            disabled={updateMutation.isPending || resetMutation.isPending}
+            variant="primary"
+            disabled={updateMutation.isPending}
             onClick={confirmSubmit}
           >
             Chắc chắn

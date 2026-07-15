@@ -8,7 +8,7 @@ const { parsePagination, buildPagination } = require('../utils/pagination');
 // Records one notification row and dispatches it through the channel adapter.
 // Channel errors are swallowed (row marked failed) so a mail outage never breaks
 // the calling flow.
-async function notify({ event_type, channel, recipient, subject, body, order_id, online_request_id, metadata }, client) {
+async function notify({ event_type, channel, recipient, subject, body, html, order_id, online_request_id, metadata }, client) {
   if (!recipient) return null;
 
   const row = await notificationRepository.create({
@@ -30,7 +30,7 @@ async function notify({ event_type, channel, recipient, subject, body, order_id,
   try {
     const adapter = channels[channel];
     if (!adapter) throw new Error(`Kênh thông báo không hỗ trợ: ${channel}`);
-    const result = await adapter.send({ to: recipient, subject, body });
+    const result = await adapter.send({ to: recipient, subject, body, html });
     return notificationRepository.markStatus(
       row.id,
       result?.simulated ? 'simulated' : 'sent',
@@ -63,6 +63,7 @@ async function notifyEvent(event_type, payload = {}) {
         recipient: payload.email,
         subject: rendered.subject,
         body: rendered.body,
+        html: rendered.html,
         order_id: payload.order_id,
         online_request_id: payload.online_request_id,
         metadata: payload.metadata

@@ -13,6 +13,7 @@ import ErrorState from '../../components/feedback/ErrorState.jsx';
 import LoadingState from '../../components/feedback/LoadingState.jsx';
 import PaginationBar from '../../components/common/Pagination.jsx';
 import { formatDate } from '../../utils/format';
+import { useToast } from '../../hooks/useToast.jsx';
 
 const PAGE_SIZE = 20;
 const STATUS_META = {
@@ -30,6 +31,7 @@ function StatusBadge({ status }) {
 
 export default function ReprintRequestsPage() {
   const queryClient = useQueryClient();
+  const toast = useToast();
   const [statusFilter, setStatusFilter] = useState('');
   const [page, setPage] = useState(1);
   const [selectedId, setSelectedId] = useState(null);
@@ -37,7 +39,7 @@ export default function ReprintRequestsPage() {
 
   const listQuery = useQuery({
     queryKey: ['reprint-requests', statusFilter, page],
-    queryFn: () => listReprintRequests({ status: statusFilter || undefined, page, limit: PAGE_SIZE })
+    queryFn: () => listReprintRequests({ trang_thai: statusFilter || undefined, page, limit: PAGE_SIZE })
   });
 
   const detailQuery = useQuery({
@@ -49,13 +51,19 @@ export default function ReprintRequestsPage() {
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ['reprint-requests'] });
 
   const statusMutation = useMutation({
-    mutationFn: ({ status, note }) => updateReprintStatus(selectedId, { status, note }),
-    onSuccess: invalidate
+    mutationFn: ({ trang_thai, ghi_chu }) => updateReprintStatus(selectedId, { trang_thai, ghi_chu }),
+    onSuccess: () => {
+      invalidate();
+      toast.success('Đã cập nhật trạng thái yêu cầu');
+    }
   });
 
   const convertMutation = useMutation({
     mutationFn: () => convertReprintToOrder(selectedId, {}),
-    onSuccess: invalidate
+    onSuccess: () => {
+      invalidate();
+      toast.success('Đã tạo đơn từ yêu cầu in lại');
+    }
   });
 
   const requests = listQuery.data?.requests || [];
@@ -141,7 +149,7 @@ export default function ReprintRequestsPage() {
           {request ? (
             <>
               <div className="summary-box mb-2"><span>Đơn gốc</span><strong>{request.ma_don || detail?.order?.ma_don || '-'}</strong></div>
-              <div className="summary-box mb-2"><span>SĐT</span><strong>{request.so_dien_thoai || '-'}</strong></div>
+              <div className="summary-box mb-2"><span>SĐT</span><strong>{request.so_dien_thoai || detail?.order?.sdt_khach_hang || '-'}</strong></div>
               <div className="summary-box mb-2"><span>Số lượng</span><strong>{request.so_luong}</strong></div>
               <div className="summary-box mb-2"><span>Số ảnh yêu cầu</span><strong>{photos.length}</strong></div>
               <div className="summary-box mb-2"><span>Lý do</span><strong>{request.ly_do || '-'}</strong></div>

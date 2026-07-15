@@ -25,8 +25,3 @@ export async function updateCustomer(id, payload) {
 export async function getCustomerPhotos(id) {
   return apiData(`/customers/${id}/photos`);
 }
-
-export async function getCustomerPrintLayouts(id, params = {}) {
-  const result = await apiRequest(`/customers/${id}/print-layouts`, { query: params });
-  return result;
-}

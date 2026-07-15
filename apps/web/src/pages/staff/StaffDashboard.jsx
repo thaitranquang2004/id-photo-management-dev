@@ -38,7 +38,7 @@ export default function StaffDashboard() {
   });
   const onlineRequests = useQuery({
     queryKey: ['staff', 'online-requests', 'new'],
-    queryFn: () => listOnlineRequests({ status: 'new', limit: 5 })
+    queryFn: () => listOnlineRequests({ trang_thai: 'new', limit: 5 })
   });
 
   const loading = pendingOrders.isLoading || completedOrders.isLoading || monthlyCustomers.isLoading || reprintRequests.isLoading || onlineRequests.isLoading;
@@ -46,7 +46,7 @@ export default function StaffDashboard() {
   const pending = ordersFrom(pendingOrders.data);
   const completedTotal = completedOrders.data?.pagination?.total ?? ordersFrom(completedOrders.data).length;
   const customersThisMonth = (monthlyCustomers.data?.data?.customers || [])
-    .filter((customer) => new Date(customer.created_at) >= thisMonthStart()).length;
+    .filter((customer) => new Date(customer.ngay_tao) >= thisMonthStart()).length;
   const reprints = reprintRequests.data?.requests || [];
   const newOnlineRequests = onlineRequests.data?.online_requests || [];
   const newOnlineCount = onlineRequests.data?.total ?? newOnlineRequests.length;
@@ -70,7 +70,7 @@ export default function StaffDashboard() {
       <Row className="g-3">
         <Col sm={6} xl={3}><KpiCard label="Đơn chờ hôm nay" value={pendingOrders.data?.pagination?.total ?? pending.length} /></Col>
         <Col sm={6} xl={3}><KpiCard label="Đơn hoàn thành hôm nay" value={completedTotal} /></Col>
-        <Col sm={6} xl={3}><KpiCard label="Yêu cầu online mới" value={newOnlineCount} hint="Khách đặt lịch / gửi ảnh online" /></Col>
+        <Col sm={6} xl={3}><KpiCard label="Yêu cầu online mới" value={newOnlineCount} /></Col>
         <Col sm={6} xl={3}><KpiCard label="Khách mới tháng này" value={customersThisMonth} /></Col>
       </Row>
 
@@ -140,8 +140,8 @@ export default function StaffDashboard() {
                 ))}
               </div>
             )}
-            <Button as={Link} to="/staff/inbox" size="sm" variant="outline-primary" className="mt-2">
-              Mở hộp thư online
+            <Button as={Link} to="/staff/appointments" size="sm" variant="outline-primary" className="mt-2">
+              Mở lịch hẹn
             </Button>
           </section>
 

@@ -6,14 +6,15 @@ import NotificationsPage from '../pages/admin/NotificationsPage.jsx';
 import PricingPage from '../pages/admin/PricingPage.jsx';
 import ReportsPage from '../pages/admin/ReportsPage.jsx';
 import UsersPage from '../pages/admin/UsersPage.jsx';
+import StudioSlotsPage from '../pages/admin/StudioSlotsPage.jsx';
 import LoginPage from '../pages/auth/LoginPage.jsx';
 import PublicLookupPage from '../pages/customer/PublicLookupPage.jsx';
 import OnlineBookingPage from '../pages/customer/OnlineBookingPage.jsx';
+import RemoteUploadPage from '../pages/customer/RemoteUploadPage.jsx';
 import OnlineRequestStatusPage from '../pages/customer/OnlineRequestStatusPage.jsx';
 import AppointmentsPage from '../pages/staff/AppointmentsPage.jsx';
 import CustomerDetailPage from '../pages/staff/CustomerDetailPage.jsx';
 import NewOrderPage from '../pages/staff/NewOrderPage.jsx';
-import OnlineInboxPage from '../pages/staff/OnlineInboxPage.jsx';
 import OrderDetailPage from '../pages/staff/OrderDetailPage.jsx';
 import ReprintRequestsPage from '../pages/staff/ReprintRequestsPage.jsx';
 import StaffDashboard from '../pages/staff/StaffDashboard.jsx';
@@ -27,6 +28,7 @@ export default function AppRoutes() {
       <Route path="/login" element={<LoginPage />} />
       <Route path="/tra-cuu" element={<PublicLookupPage />} />
       <Route path="/dat-lich" element={<OnlineBookingPage />} />
+      <Route path="/gui-anh" element={<RemoteUploadPage />} />
       <Route path="/trang-thai" element={<OnlineRequestStatusPage />} />
 
       <Route element={<ProtectedRoute />}>
@@ -36,7 +38,7 @@ export default function AppRoutes() {
             <Route path="/staff/orders/new" element={<NewOrderPage />} />
             <Route path="/staff/orders/:id" element={<OrderDetailPage />} />
             <Route path="/staff/customers/:id" element={<CustomerDetailPage />} />
-            <Route path="/staff/inbox" element={<OnlineInboxPage />} />
+            <Route path="/staff/inbox" element={<Navigate to="/staff/appointments" replace />} />
             <Route path="/staff/appointments" element={<AppointmentsPage />} />
             <Route path="/staff/reprints" element={<ReprintRequestsPage />} />
           </Route>
@@ -45,6 +47,7 @@ export default function AppRoutes() {
             <Route path="/admin" element={<AdminDashboard />} />
             <Route path="/admin/card-types" element={<CardTypesPage />} />
             <Route path="/admin/pricing" element={<PricingPage />} />
+            <Route path="/admin/khung-gio-chup" element={<StudioSlotsPage />} />
             <Route path="/admin/users" element={<UsersPage />} />
             <Route path="/admin/notifications" element={<NotificationsPage />} />
             <Route path="/admin/reports" element={<ReportsPage />} />

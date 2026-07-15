@@ -10,9 +10,29 @@ export async function submitOnlineRequest({ fields, files }) {
   return apiData('/public/online-requests', { method: 'POST', body: formData });
 }
 
-// Public, no-login. Customer checks their request status by id + phone.
-export async function getOnlineRequestStatus(requestId, phone) {
-  return apiData(`/public/online-requests/${requestId}/status`, { method: 'POST', body: { so_dien_thoai: phone } });
+export async function datLichChup(payload) {
+  return apiData('/public/dat-lich-chup', { method: 'POST', body: payload });
+}
+
+export async function getKhungGioChup(ngay_hen) {
+  return apiData('/public/khung-gio-chup', { query: { ngay_hen } });
+}
+
+export async function guiAnhTuXa({ fields, files }) {
+  const formData = new FormData();
+  Object.entries(fields || {}).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== '') formData.set(key, value);
+  });
+  (files || []).forEach((file) => formData.append('files', file));
+  return apiData('/public/don-gui-anh', { method: 'POST', body: formData });
+}
+
+// Public, no-login. Customer lists all their online requests by phone.
+export async function getOnlineRequestStatus(phone) {
+  return apiData('/public/online-requests/status', {
+    method: 'POST',
+    body: { so_dien_thoai: phone }
+  });
 }
 
 export async function listOnlineRequests(query) {
@@ -37,10 +57,6 @@ export async function convertOnlineRequest(id, payload) {
 
 export async function listAppointments(query) {
   return apiData('/appointments', { query });
-}
-
-export async function createAppointment(payload) {
-  return apiData('/appointments', { method: 'POST', body: payload });
 }
 
 export async function updateAppointmentStatus(id, payload) {

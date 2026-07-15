@@ -1,9 +1,11 @@
 import { useMutation } from '@tanstack/react-query';
-import { Search } from 'lucide-react';
+import { CheckCircle2, Phone, Search } from 'lucide-react';
 import { useState } from 'react';
 import { Alert, Button, Col, Container, Form, Row } from 'react-bootstrap';
 import { getOnlineRequestStatus } from '../../api/intake';
+import EmptyState from '../../components/feedback/EmptyState.jsx';
 import PublicFooter from '../../components/layout/PublicFooter.jsx';
+import PublicTopbar from '../../components/layout/PublicTopbar.jsx';
 import { formatDate, formatDateOnly } from '../../utils/format';
 import { useFormErrors } from '../../hooks/useFormErrors.js';
 
@@ -22,96 +24,108 @@ const APPT_LABEL = {
 };
 
 export default function OnlineRequestStatusPage() {
-  const [form, setForm] = useState({ request_id: '', so_dien_thoai: '' });
+  const [form, setForm] = useState({ so_dien_thoai: '' });
   const { errors, clearError, validate } = useFormErrors();
   const statusMutation = useMutation({
-    mutationFn: () => getOnlineRequestStatus(form.request_id.trim(), form.so_dien_thoai.trim())
+    mutationFn: () => getOnlineRequestStatus(form.so_dien_thoai.trim())
   });
-  const request = statusMutation.data?.request;
+  const requests = statusMutation.data?.requests || [];
 
   function submit(event) {
     event.preventDefault();
-    if (!validate(form, { request_id: 'Vui lòng nhập mã yêu cầu', so_dien_thoai: 'Vui lòng nhập số điện thoại' })) return;
+    if (!validate(form, { so_dien_thoai: 'Vui lòng nhập số điện thoại' })) return;
     statusMutation.mutate();
   }
 
   return (
     <div className="public-page">
       <Container>
-        <div className="public-topbar">
-          <div className="brand-mark">
-            <span className="brand-dot" />
-            <span>Tiệm hình thẻ</span>
-          </div>
-          <div className="d-flex gap-2">
-            <Button as="a" href="/dat-lich" variant="outline-primary" size="sm">Đặt lịch online</Button>
-            <Button as="a" href="/tra-cuu" variant="outline-secondary" size="sm">Tra cứu đơn</Button>
-          </div>
-        </div>
+        <PublicTopbar />
 
-        <Row className="justify-content-center">
-          <Col lg={7}>
+        <Row className="g-4 align-items-stretch">
+          <Col lg={5}>
             <section className="app-panel public-panel">
               <div className="public-heading">
                 <span className="lookup-badge">Tra cứu yêu cầu online</span>
                 <h1>Trạng thái yêu cầu đặt online</h1>
-                <p>Nhập mã yêu cầu (nhận được sau khi gửi) và số điện thoại để xem tình trạng.</p>
+                <p>Chỉ cần nhập số điện thoại để xem tất cả yêu cầu đặt online của bạn.</p>
               </div>
 
               <Form onSubmit={submit}>
-                <Row className="g-3">
-                  <Col md={7}>
-                    <Form.Group>
-                      <Form.Label>Mã yêu cầu *</Form.Label>
-                      <Form.Control
-                        value={form.request_id}
-                        onChange={(e) => { setForm((c) => ({ ...c, request_id: e.target.value })); clearError('request_id'); }}
-                        placeholder="Dán mã yêu cầu"
-                        isInvalid={!!errors.request_id}
-                      />
-                      <Form.Control.Feedback type="invalid">{errors.request_id}</Form.Control.Feedback>
-                    </Form.Group>
-                  </Col>
-                  <Col md={5}>
-                    <Form.Group>
-                      <Form.Label>Số điện thoại *</Form.Label>
-                      <Form.Control
-                        value={form.so_dien_thoai}
-                        onChange={(e) => { setForm((c) => ({ ...c, so_dien_thoai: e.target.value })); clearError('so_dien_thoai'); }}
-                        inputMode="tel"
-                        isInvalid={!!errors.so_dien_thoai}
-                      />
-                      <Form.Control.Feedback type="invalid">{errors.so_dien_thoai}</Form.Control.Feedback>
-                    </Form.Group>
-                  </Col>
-                </Row>
-                {statusMutation.error ? <Alert variant="danger" className="mt-3">{statusMutation.error.message}</Alert> : null}
-                <Button type="submit" className="mt-3" disabled={statusMutation.isPending}>
+                <Form.Group className="mb-3">
+                  <Form.Label>Số điện thoại *</Form.Label>
+                  <Form.Control
+                    value={form.so_dien_thoai}
+                    onChange={(e) => { setForm((c) => ({ ...c, so_dien_thoai: e.target.value })); clearError('so_dien_thoai'); }}
+                    inputMode="tel"
+                    autoComplete="tel"
+                    placeholder="Ví dụ: 0901234567"
+                    isInvalid={!!errors.so_dien_thoai}
+                  />
+                  <Form.Control.Feedback type="invalid">{errors.so_dien_thoai}</Form.Control.Feedback>
+                </Form.Group>
+                {statusMutation.error ? <Alert variant="danger" className="mt-1 mb-3">{statusMutation.error.message}</Alert> : null}
+                <Button type="submit" className="w-100" disabled={statusMutation.isPending}>
                   <Search size={17} aria-hidden="true" />
                   {statusMutation.isPending ? 'Đang tra...' : 'Tra cứu'}
                 </Button>
               </Form>
 
-              {request ? (
-                <div className="mt-4">
-                  <div className="summary-box mb-2"><span>Tình trạng</span><strong>{STATUS_LABEL[request.trang_thai] || request.trang_thai}</strong></div>
-                  <div className="summary-box mb-2"><span>Ngày gửi</span><strong>{formatDate(request.ngay_tao)}</strong></div>
-                  {request.trang_thai_lich_hen ? (
-                    <div className="summary-box mb-2">
-                      <span>Lịch hẹn</span>
-                      <strong>{formatDateOnly(request.ngay_hen)} · {request.khung_gio} · {APPT_LABEL[request.trang_thai_lich_hen] || request.trang_thai_lich_hen}</strong>
-                    </div>
-                  ) : null}
-                  {request.ma_don_da_tao ? (
-                    <Alert variant="success" className="mt-2 mb-0">
-                      Đã tạo đơn <strong>{request.ma_don_da_tao}</strong>. Bạn có thể <a href="/tra-cuu">tra cứu đơn</a> để xem và tải ảnh khi sẵn sàng.
-                    </Alert>
-                  ) : null}
-                  {request.trang_thai === 'rejected' ? (
-                    <Alert variant="warning" className="mt-2 mb-0">Yêu cầu chưa được tiếp nhận. Vui lòng liên hệ tiệm để được hỗ trợ thêm.</Alert>
-                  ) : null}
+              <div className="lookup-tips" aria-label="Cách xem trạng thái">
+                <div className="lookup-tip">
+                  <span className="lookup-tip-icon"><Phone size={16} aria-hidden="true" /></span>
+                  <div>
+                    <strong>Nhập số điện thoại</strong>
+                    <span>Số bạn đã dùng khi gửi yêu cầu đặt online.</span>
+                  </div>
                 </div>
-              ) : null}
+                <div className="lookup-tip">
+                  <span className="lookup-tip-icon"><Search size={16} aria-hidden="true" /></span>
+                  <div>
+                    <strong>Xem tình trạng</strong>
+                    <span>Theo dõi trạng thái tiếp nhận và lịch hẹn (nếu có).</span>
+                  </div>
+                </div>
+                <div className="lookup-tip">
+                  <span className="lookup-tip-icon"><CheckCircle2 size={16} aria-hidden="true" /></span>
+                  <div>
+                    <strong>Khi đơn sẵn sàng</strong>
+                    <span>Đơn tạo xong, sang trang Tra cứu để xem &amp; tải ảnh.</span>
+                  </div>
+                </div>
+              </div>
+            </section>
+          </Col>
+
+          <Col lg={7} className="d-flex flex-column">
+            <section className="app-panel public-panel flex-grow-1">
+              {requests.length > 0 ? (
+                <div className="public-result">
+                  <h2 className="public-form-title">Kết quả tra cứu ({requests.length})</h2>
+                  {requests.map((request) => (
+                    <div className="reprint-box mb-3" key={request.id}>
+                      <div className="summary-box mb-2"><span>Tình trạng</span><strong>{STATUS_LABEL[request.trang_thai] || request.trang_thai}</strong></div>
+                      <div className="summary-box mb-2"><span>Ngày gửi</span><strong>{formatDate(request.ngay_tao)}</strong></div>
+                      {request.trang_thai_lich_hen ? (
+                        <div className="summary-box mb-2">
+                          <span>Lịch hẹn</span>
+                          <strong>{formatDateOnly(request.ngay_hen)} · {request.khung_gio} · {APPT_LABEL[request.trang_thai_lich_hen] || request.trang_thai_lich_hen}</strong>
+                        </div>
+                      ) : null}
+                      {request.ma_don_da_tao ? (
+                        <Alert variant="success" className="mt-2 mb-0">
+                          Đã tạo đơn <strong>{request.ma_don_da_tao}</strong>. Bạn có thể <a href="/tra-cuu">tra cứu đơn</a> để xem và tải ảnh khi sẵn sàng.
+                        </Alert>
+                      ) : null}
+                      {request.trang_thai === 'rejected' ? (
+                        <Alert variant="warning" className="mt-2 mb-0">Yêu cầu chưa được tiếp nhận. Vui lòng liên hệ tiệm để được hỗ trợ thêm.</Alert>
+                      ) : null}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <EmptyState title="Chưa có kết quả" description="Nhập số điện thoại rồi bấm Tra cứu để xem trạng thái các yêu cầu của bạn." />
+              )}
             </section>
           </Col>
         </Row>

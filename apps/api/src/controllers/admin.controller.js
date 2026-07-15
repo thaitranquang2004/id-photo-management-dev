@@ -10,12 +10,6 @@ async function ordersReport(req, res) {
   return sendSuccess(res, await adminService.orderReport(req.validated.query));
 }
 
-async function ordersReportCsv(req, res) {
-  const csv = await adminService.orderReportCsv(req.validated.query);
-  res.type('text/csv');
-  return res.send(csv);
-}
-
 async function listUsers(req, res) {
   const result = await adminService.listUsers(req.validated.query);
   return sendSuccess(res, result.data, result.pagination);
@@ -27,10 +21,6 @@ async function createUser(req, res) {
 
 async function updateUser(req, res) {
   return sendSuccess(res, await adminService.updateUser(req.validated.params.id, req.validated.body, requestContext(req)));
-}
-
-async function resetPassword(req, res) {
-  return sendSuccess(res, await adminService.resetPassword(req.validated.params.id, requestContext(req)));
 }
 
 async function auditLogs(req, res) {
@@ -45,11 +35,9 @@ async function purgeAssets(req, res) {
 module.exports = {
   dashboard,
   ordersReport,
-  ordersReportCsv,
   listUsers,
   createUser,
   updateUser,
-  resetPassword,
   auditLogs,
   purgeAssets
 };

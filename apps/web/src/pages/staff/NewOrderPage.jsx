@@ -2,7 +2,7 @@ import { useMutation, useQuery } from '@tanstack/react-query';
 import { Check, Search, UserPlus } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { Alert, Button, Col, Form, InputGroup, ListGroup, Row, Table } from 'react-bootstrap';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { listCardTypes } from '../../api/admin';
 import { createCustomer, searchCustomersByPhone } from '../../api/customers';
 import { createOrder } from '../../api/orders';
@@ -11,26 +11,33 @@ import ErrorState from '../../components/feedback/ErrorState.jsx';
 import LoadingState from '../../components/feedback/LoadingState.jsx';
 import { formatCurrency } from '../../utils/format';
 import { useFormErrors } from '../../hooks/useFormErrors.js';
+import { useToast } from '../../hooks/useToast.jsx';
+import { TIME_SLOTS } from '../../utils/constants.js';
 
 const steps = ['Khách hàng', 'Thông tin đơn', 'Xác nhận'];
 
 export default function NewOrderPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const lichHenId = searchParams.get('lich_hen_id');
   const [step, setStep] = useState(0);
   const [so_dien_thoai, setPhone] = useState('');
   const [customers, setCustomers] = useState([]);
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [customerForm, setCustomerForm] = useState({ ho_ten: '', so_dien_thoai: '', email: '', ghi_chu: '' });
+  const [dupCandidates, setDupCandidates] = useState(null);
   const [orderForm, setOrderForm] = useState({
     loai_the_id: '',
     so_luong: 4,
     ngay_hen_lay: '',
+    khung_gio_lay: '',
     ghi_chu: '',
-    hinh_thuc_giao: 'pickup'
+    hinh_thuc_giao: 'lay_hinh_ngay'
   });
   const searchErrors = useFormErrors();
   const customerErrors = useFormErrors();
   const [stepError, setStepError] = useState('');
+  const toast = useToast();
 
   const cardTypesQuery = useQuery({
     queryKey: ['card-types'],
@@ -48,15 +55,32 @@ export default function NewOrderPage() {
   const createCustomerMutation = useMutation({
     mutationFn: createCustomer,
     onSuccess: ({ customer }) => {
+      setDupCandidates(null);
       setSelectedCustomer(customer);
       setCustomers([customer]);
       setStep(1);
     }
   });
 
+  // Cảnh báo mềm: trước khi tạo khách, kiểm tra SĐT đã tồn tại chưa.
+  // Có trùng -> hiện danh sách khách sẵn có để chọn; không có -> tạo luôn.
+  const dupCheckMutation = useMutation({
+    mutationFn: searchCustomersByPhone,
+    onSuccess: (existing) => {
+      if (existing.length > 0) {
+        setDupCandidates(existing);
+      } else {
+        createCustomerMutation.mutate(customerForm);
+      }
+    }
+  });
+
   const createOrderMutation = useMutation({
     mutationFn: createOrder,
-    onSuccess: ({ order }) => navigate(`/staff/orders/${order.id}`)
+    onSuccess: ({ order }) => {
+      navigate(`/staff/orders/${order.id}`);
+      toast.success('Đã tạo đơn hàng');
+    }
   });
 
   const cardTypes = cardTypesQuery.data?.card_types || [];
@@ -78,7 +102,19 @@ export default function NewOrderPage() {
   function submitCustomer(event) {
     event.preventDefault();
     if (!customerErrors.validate(customerForm, { ho_ten: 'Vui lòng nhập họ tên', so_dien_thoai: 'Vui lòng nhập số điện thoại' })) return;
+    setDupCandidates(null);
+    dupCheckMutation.mutate(customerForm.so_dien_thoai.trim());
+  }
+
+  function forceCreateCustomer() {
     createCustomerMutation.mutate(customerForm);
+  }
+
+  function pickExistingCustomer(customer) {
+    setDupCandidates(null);
+    setSelectedCustomer(customer);
+    setCustomers([customer]);
+    setStep(1);
   }
 
   function goToConfirm() {
@@ -100,8 +136,10 @@ export default function NewOrderPage() {
       khach_hang_id: selectedCustomer.id,
       loai_the_id: selectedCardType.id,
       so_luong: Number(orderForm.so_luong),
-      ngay_hen_lay: orderForm.ngay_hen_lay || undefined,
+      ngay_hen_lay: orderForm.hinh_thuc_giao === 'hen_lay_hinh' ? orderForm.ngay_hen_lay || undefined : undefined,
+      khung_gio_lay: orderForm.hinh_thuc_giao === 'hen_lay_hinh' ? orderForm.khung_gio_lay || undefined : undefined,
       ghi_chu: orderForm.ghi_chu || undefined,
+      lich_hen_id: lichHenId || undefined,
       hinh_thuc_giao: orderForm.hinh_thuc_giao
     });
   }
@@ -111,7 +149,7 @@ export default function NewOrderPage() {
       <div className="page-header">
         <div>
           <h1>Tạo đơn mới</h1>
-          <p>Wizard 3 bước: tìm khách, chọn loại thẻ, xác nhận giá tạm tính.</p>
+          <p>Tìm khách, chọn loại thẻ, xác nhận giá tạm tính.</p>
         </div>
       </div>
 
@@ -199,7 +237,7 @@ export default function NewOrderPage() {
                       <Form.Label>Số điện thoại</Form.Label>
                       <Form.Control
                         value={customerForm.so_dien_thoai}
-                        onChange={(event) => { setCustomerForm((current) => ({ ...current, so_dien_thoai: event.target.value })); customerErrors.clearError('so_dien_thoai'); }}
+                        onChange={(event) => { setCustomerForm((current) => ({ ...current, so_dien_thoai: event.target.value })); customerErrors.clearError('so_dien_thoai'); setDupCandidates(null); }}
                         isInvalid={!!customerErrors.errors.so_dien_thoai}
                       />
                       <Form.Control.Feedback type="invalid">{customerErrors.errors.so_dien_thoai}</Form.Control.Feedback>
@@ -225,11 +263,27 @@ export default function NewOrderPage() {
                     </Form.Group>
                   </Col>
                 </Row>
+                {dupCandidates && dupCandidates.length > 0 ? (
+                  <Alert variant="warning" className="mt-3 mb-0">
+                    <div className="fw-semibold mb-2">Số điện thoại này đã có {dupCandidates.length} khách. Chọn khách sẵn có để tránh tạo trùng:</div>
+                    <ListGroup className="mb-2">
+                      {dupCandidates.map((customer) => (
+                        <ListGroup.Item key={customer.id} action onClick={() => pickExistingCustomer(customer)}>
+                          <div className="fw-semibold">{customer.ho_ten}</div>
+                          <div className="small">{customer.so_dien_thoai}</div>
+                        </ListGroup.Item>
+                      ))}
+                    </ListGroup>
+                    <Button size="sm" variant="outline-danger" onClick={forceCreateCustomer} disabled={createCustomerMutation.isPending}>
+                      Vẫn tạo khách mới
+                    </Button>
+                  </Alert>
+                ) : null}
                 {createCustomerMutation.error ? <Alert variant="danger" className="mt-3">{createCustomerMutation.error.message}</Alert> : null}
                 <Button
                   type="submit"
                   className="mt-3 button-nowrap"
-                  disabled={createCustomerMutation.isPending}
+                  disabled={createCustomerMutation.isPending || dupCheckMutation.isPending}
                 >
                   <UserPlus size={17} aria-hidden="true" />
                   Thêm khách
@@ -309,8 +363,9 @@ export default function NewOrderPage() {
                       value={orderForm.hinh_thuc_giao}
                       onChange={(event) => setOrderForm((current) => ({ ...current, hinh_thuc_giao: event.target.value }))}
                     >
-                      <option value="pickup">Lấy tại quầy</option>
-                      <option value="online">Khách tải online</option>
+                      <option value="lay_file_truc_tuyen">Chỉ lấy file trực tuyến</option>
+                      <option value="lay_hinh_ngay">Lấy hình ngay</option>
+                      <option value="hen_lay_hinh">Hẹn lấy hình</option>
                     </Form.Select>
                   </Form.Group>
                 </Col>
@@ -322,6 +377,20 @@ export default function NewOrderPage() {
                       value={orderForm.ngay_hen_lay}
                       onChange={(event) => setOrderForm((current) => ({ ...current, ngay_hen_lay: event.target.value }))}
                     />
+                    <Form.Text muted>Bỏ trống = lấy liền.</Form.Text>
+                  </Form.Group>
+                </Col>
+                <Col md={3}>
+                  <Form.Group>
+                    <Form.Label>Khung giờ lấy</Form.Label>
+                    <Form.Select
+                      value={orderForm.khung_gio_lay}
+                      onChange={(event) => setOrderForm((current) => ({ ...current, khung_gio_lay: event.target.value }))}
+                      disabled={!orderForm.ngay_hen_lay}
+                    >
+                      <option value="">Cả ngày</option>
+                      {TIME_SLOTS.map((slot) => <option key={slot} value={slot}>{slot}</option>)}
+                    </Form.Select>
                   </Form.Group>
                 </Col>
                 <Col md={3}>
@@ -358,8 +427,8 @@ export default function NewOrderPage() {
             <Col md={6}>
               <div className="summary-box">
                 <span>Loại thẻ</span>
-                <strong>{selectedCardType?.name}</strong>
-                <small>{selectedCardType?.width_mm} x {selectedCardType?.height_mm} mm</small>
+                <strong>{selectedCardType?.ten}</strong>
+                <small>{selectedCardType?.rong_mm} x {selectedCardType?.cao_mm} mm</small>
               </div>
             </Col>
             <Col md={4}>

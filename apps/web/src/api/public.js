@@ -15,3 +15,11 @@ export async function createPublicReprintRequest(payload) {
 export async function getPublicCardTypes() {
   return apiData('/public/card-types');
 }
+
+// Kiểm tra chất lượng 1 ảnh so với chuẩn của loại thẻ; không lưu trữ, trả feedback tức thời.
+export async function checkPublicPhotoQuality({ file, loai_the_id }) {
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.set('loai_the_id', loai_the_id);
+  return apiData('/public/photos/qc-check', { method: 'POST', body: formData });
+}

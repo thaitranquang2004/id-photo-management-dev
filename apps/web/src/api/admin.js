@@ -40,18 +40,13 @@ export async function updateAdminUser(id, payload) {
   return apiData(`/admin/users/${id}`, { method: 'PATCH', body: payload });
 }
 
-export async function resetUserPassword(id) {
-  return apiData(`/admin/users/${id}/reset-password`, { method: 'POST', body: {} });
-}
-
 export async function getOrdersReport(params = {}) {
   return apiData('/admin/reports/orders', { query: params });
-}
-
-export async function downloadOrdersReportCsv(params = {}) {
-  return apiRequest('/admin/reports/orders.csv', { query: params, raw: true });
 }
 
 export async function purgeOldAssets() {
   return apiData('/admin/maintenance/purge-assets', { method: 'POST', body: {} });
 }
+
+export async function listKhungGioChupAdmin() { return apiData('/admin/khung-gio-chup'); }
+export async function updateKhungGioChup(id, payload) { return apiData(`/admin/khung-gio-chup/${id}`, { method: 'PATCH', body: payload }); }

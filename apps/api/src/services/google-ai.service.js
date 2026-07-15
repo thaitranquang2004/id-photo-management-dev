@@ -1,50 +1,12 @@
 const env = require('../config/env');
 const { errors } = require('../utils/app-error');
 
-const GEMINI_MODELS_ENDPOINT = 'https://generativelanguage.googleapis.com/v1beta/models';
 const GEMINI_GENERATE_ENDPOINT = 'https://generativelanguage.googleapis.com/v1beta/models';
 
 function ensureGoogleAiConfigured() {
   if (!env.GEMINI_API_KEY) {
     throw errors.googleAi('Google AI env chưa được cấu hình');
   }
-}
-
-async function listModels() {
-  ensureGoogleAiConfigured();
-  // Pass the key as a header (not a query param) so it never leaks into request logs,
-  // proxies or browser history — consistent with editImage/assessQuality below.
-  const response = await fetch(GEMINI_MODELS_ENDPOINT, {
-    headers: { 'x-goog-api-key': env.GEMINI_API_KEY }
-  });
-  const text = await response.text();
-  let payload;
-
-  try {
-    payload = JSON.parse(text);
-  } catch {
-    payload = { error: { message: text.slice(0, 200) } };
-  }
-
-  if (!response.ok) {
-    throw errors.googleAi(payload?.error?.message || 'Không thể kết nối Google AI', {
-      status: response.status
-    });
-  }
-
-  return payload.models || [];
-}
-
-async function assertImageModelAvailable(model = env.GEMINI_IMAGE_MODEL) {
-  const models = await listModels();
-  const modelName = `models/${model}`;
-  const found = models.some((item) => item.name === modelName);
-
-  if (!found) {
-    throw errors.googleAi('Không tìm thấy Gemini image model trong tài khoản Google AI', { model });
-  }
-
-  return { model, model_count: models.length };
 }
 
 function firstInlineImage(response) {
@@ -201,8 +163,6 @@ async function assessQuality({ imageBuffer, mimeType, cardType, model = env.GEMI
 
 module.exports = {
   ensureGoogleAiConfigured,
-  listModels,
-  assertImageModelAvailable,
   editImage,
   buildSafeAssistPrompt,
   assessQuality

@@ -56,13 +56,3 @@ test('batch processing rejects Banana.dev provider value', () => {
     nha_cung_cap: 'banana'
   }));
 });
-
-test('layout generation defaults to grid on A4 paper', () => {
-  const body = schemas.layoutGenerateBody.parse({
-    don_hang_id: '20000000-0000-4000-8000-000000000001',
-    danh_sach_anh_id: ['30000000-0000-4000-8000-000000000001']
-  });
-
-  assert.equal(body.kieu_bo_cuc, 'grid');
-  assert.equal(body.kho_giay, 'A4');
-});

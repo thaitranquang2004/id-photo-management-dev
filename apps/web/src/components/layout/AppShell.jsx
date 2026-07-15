@@ -4,7 +4,6 @@ import {
   Bell,
   CalendarClock,
   Camera,
-  Inbox,
   LayoutDashboard,
   LogOut,
   Menu,
@@ -25,19 +24,18 @@ import {
   Container,
   Dropdown,
   Form,
-  InputGroup,
-  Nav,
-  Navbar
+  InputGroup
 } from 'react-bootstrap';
 import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { searchCustomersByPhone } from '../../api/customers';
 import { listOnlineRequests, listAppointments } from '../../api/intake';
 import { useAuth } from '../../hooks/useAuth.jsx';
+import { useToast } from '../../hooks/useToast.jsx';
+import ConfirmDialog from '../feedback/ConfirmDialog.jsx';
 
 const staffNavItems = [
   { to: '/staff', end: true, label: 'Vận hành', icon: LayoutDashboard },
   { to: '/staff/orders/new', label: 'Tạo đơn', icon: UserRoundPlus },
-  { to: '/staff/inbox', label: 'Hộp thư online', icon: Inbox },
   { to: '/staff/appointments', label: 'Lịch hẹn', icon: CalendarClock },
   { to: '/staff/reprints', label: 'Yêu cầu in lại', icon: Printer }
 ];
@@ -46,6 +44,7 @@ const adminNavItems = [
   { to: '/admin', end: true, label: 'Admin', icon: ShieldCheck },
   { to: '/admin/card-types', label: 'Loại thẻ', icon: Settings },
   { to: '/admin/pricing', label: 'Giá', icon: Tags },
+  { to: '/admin/khung-gio-chup', label: 'Khung giờ chụp', icon: CalendarClock },
   { to: '/admin/users', label: 'Nhân viên', icon: UserCog },
   { to: '/admin/notifications', label: 'Thông báo', icon: Bell },
   { to: '/admin/reports', label: 'Báo cáo', icon: BarChart3 }
@@ -56,22 +55,19 @@ export default function AppShell() {
   const [phone, setPhone] = useState('');
   const [searchError, setSearchError] = useState('');
   const [showSidebar, setShowSidebar] = useState(false);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const toast = useToast();
 
-  // Poll for new online requests / appointments to show a red dot on the sidebar.
-  const newInboxQuery = useQuery({
-    queryKey: ['sidebar', 'inbox-new'],
-    queryFn: () => listOnlineRequests({ status: 'new', limit: 1 }),
-    refetchInterval: 30000
-  });
+  // Chỉ lịch chụp chờ xác nhận cần hiển thị nhắc việc.
   const newApptQuery = useQuery({
     queryKey: ['sidebar', 'appt-new'],
-    queryFn: () => listAppointments({ status: 'requested', limit: 1 }),
+    queryFn: () => listAppointments({ trang_thai: 'cho_xac_nhan', loai_lich: 'dat_lich_chup', limit: 1 }),
     refetchInterval: 30000
   });
   const navDots = {
-    '/staff/inbox': (newInboxQuery.data?.total || 0) > 0,
     '/staff/appointments': (newApptQuery.data?.total || 0) > 0
   };
 
@@ -92,9 +88,16 @@ export default function AppShell() {
   });
 
   async function handleLogout() {
-    await logout();
-    queryClient.clear();
-    navigate('/login', { replace: true });
+    setLoggingOut(true);
+    try {
+      await logout();
+      queryClient.clear();
+      navigate('/login', { replace: true });
+      toast.success('Đã đăng xuất');
+    } finally {
+      setLoggingOut(false);
+      setShowLogoutConfirm(false);
+    }
   }
 
   function handleSearch(event) {
@@ -127,7 +130,7 @@ export default function AppShell() {
           <Dropdown.Menu>
             <Dropdown.Header>{profile?.ho_ten || role}</Dropdown.Header>
             <Dropdown.Divider />
-            <Dropdown.Item onClick={handleLogout}>
+            <Dropdown.Item onClick={() => setShowLogoutConfirm(true)}>
               <LogOut size={16} />
               Đăng xuất
             </Dropdown.Item>
@@ -236,7 +239,7 @@ export default function AppShell() {
             variant="outline-danger"
             size="sm"
             className="w-100 logout-btn mt-3"
-            onClick={handleLogout}
+            onClick={() => setShowLogoutConfirm(true)}
           >
             <LogOut size={16} aria-hidden="true" />
             <span>Đăng xuất</span>
@@ -260,6 +263,18 @@ export default function AppShell() {
           </Container>
         </main>
       </div>
+
+      <ConfirmDialog
+        show={showLogoutConfirm}
+        title="Đăng xuất"
+        message="Bạn có chắc muốn đăng xuất khỏi tài khoản?"
+        confirmLabel="Đăng xuất"
+        cancelLabel="Huỷ"
+        variant="danger"
+        loading={loggingOut}
+        onConfirm={handleLogout}
+        onCancel={() => setShowLogoutConfirm(false)}
+      />
     </div>
   );
 }

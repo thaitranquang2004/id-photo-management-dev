@@ -17,4 +17,8 @@ async function cardTypes(req, res) {
   return sendSuccess(res, await publicService.listPublicCardTypes());
 }
 
-module.exports = { customerLookup, photoDownloadUrl, createReprintRequest, cardTypes };
+async function qcCheck(req, res) {
+  return sendSuccess(res, await publicService.checkPhotoQuality(req.file, req.validated.body.loai_the_id));
+}
+
+module.exports = { customerLookup, photoDownloadUrl, createReprintRequest, cardTypes, qcCheck };

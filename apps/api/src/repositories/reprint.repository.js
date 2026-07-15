@@ -18,9 +18,17 @@ async function list(filters, { limit, offset }, client) {
   }
 
   params.push(limit, offset);
+  // ma_don/so_dien_thoai được lưu snapshot trên yeu_cau_in_lai nhưng có thể NULL
+  // (dữ liệu tạo trong giai đoạn đổi tên field). Lấy dự phòng từ đơn gốc qua don_hang_id.
+  // coalesce đặt sau prr.* nên ghi đè cột cùng tên (pg: cột trùng tên -> giá trị sau thắng).
   const rows = await many(
-    `select prr.*, count(*) over()::int as total
+    `select prr.*,
+            coalesce(prr.ma_don, o.ma_don) as ma_don,
+            coalesce(prr.so_dien_thoai, kh.so_dien_thoai) as so_dien_thoai,
+            count(*) over()::int as total
      from public.yeu_cau_in_lai prr
+     left join public.don_hang o on o.id = prr.don_hang_id
+     left join public.khach_hang kh on kh.id = o.khach_hang_id
      where ${where.join(' and ')}
      order by prr.ngay_tao desc
      limit $${params.length - 1} offset $${params.length}`,
@@ -37,7 +45,14 @@ async function findById(id, client) {
 async function details(id, client) {
   const request = await findById(id, client);
   if (!request) return null;
-  const order = await one(`select * from public.don_hang where id = $1`, [request.don_hang_id], client);
+  const order = await one(
+    `select o.*, kh.so_dien_thoai as sdt_khach_hang
+     from public.don_hang o
+     left join public.khach_hang kh on kh.id = o.khach_hang_id
+     where o.id = $1`,
+    [request.don_hang_id],
+    client
+  );
   const photos = request.danh_sach_anh_id?.length
     ? await many(`select * from public.anh where id = any($1::uuid[])`, [request.danh_sach_anh_id], client)
     : [];
@@ -47,15 +62,14 @@ async function details(id, client) {
 async function create(data, client) {
   return one(
     `insert into public.yeu_cau_in_lai (
-       don_hang_id, danh_sach_anh_id, bo_cuc_id, so_luong, so_dien_thoai,
+       don_hang_id, danh_sach_anh_id, so_luong, so_dien_thoai,
        ma_don, ly_do, ghi_chu, ip_hash, user_agent
      )
-     values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+     values ($1, $2, $3, $4, $5, $6, $7, $8, $9)
      returning *`,
     [
       data.don_hang_id,
       data.danh_sach_anh_id || [],
-      data.bo_cuc_id || null,
       data.so_luong,
       data.so_dien_thoai || null,
       data.ma_don || null,

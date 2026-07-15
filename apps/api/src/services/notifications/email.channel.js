@@ -19,14 +19,14 @@ function getTransport() {
 
 // Sends a real email when SMTP is configured; otherwise degrades to a simulated
 // (log-only) success so the flow never breaks without SMTP credentials.
-async function send({ to, subject, body }) {
+async function send({ to, subject, body, html }) {
   const mailer = getTransport();
   if (!mailer) {
     logger.info({ to, subject }, 'Email channel: SMTP not configured, simulated');
     return { simulated: true, info: { reason: 'smtp_not_configured' } };
   }
 
-  const info = await mailer.sendMail({ from: env.MAIL_FROM, to, subject, text: body });
+  const info = await mailer.sendMail({ from: env.MAIL_FROM, to, subject, text: body, html: html || undefined });
   return { simulated: false, info: { message_id: info.messageId } };
 }
 

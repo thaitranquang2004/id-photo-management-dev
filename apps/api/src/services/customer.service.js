@@ -56,23 +56,11 @@ async function customerPhotos(id) {
   return { data: { photos } };
 }
 
-async function customerPrintLayouts(id, query) {
-  const customer = await customersRepository.findById(id);
-  if (!customer) throw errors.notFound('Không tìm thấy khách hàng');
-  const pagination = parsePagination(query);
-  const result = await customersRepository.printLayouts(id, pagination);
-  return {
-    data: { print_layouts: result.rows.map(({ total, ...row }) => row), total: result.total },
-    pagination: buildPagination(pagination.page, pagination.limit, result.total)
-  };
-}
-
 module.exports = {
   listCustomers,
   getCustomer,
   createCustomer,
   updateCustomer,
   archiveCustomer,
-  customerPhotos,
-  customerPrintLayouts
+  customerPhotos
 };

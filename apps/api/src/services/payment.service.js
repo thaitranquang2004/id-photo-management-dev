@@ -4,7 +4,7 @@ const ordersRepository = require('../repositories/orders.repository');
 const { writeAudit } = require('./audit.service');
 const { errors } = require('../utils/app-error');
 
-// Record one payment (deposit/balance/refund) and keep orders.amount_paid in sync
+// Record one payment (deposit/balance/refund) and keep don_hang.da_thanh_toan in sync
 // within the same transaction so the running total never drifts.
 async function recordPayment(orderId, body, context) {
   return withTransaction(async (client) => {

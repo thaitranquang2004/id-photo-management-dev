@@ -15,17 +15,6 @@ async function orderReport(query) {
   return { orders: await adminRepository.orderReport(query) };
 }
 
-function ordersCsv(rows) {
-  const header = ['ma_don', 'trang_thai', 'tong_tien', 'da_thanh_toan', 'so_luong', 'ngay_tao', 'customer_name', 'customer_phone', 'card_type_name', 'staff_name'];
-  const lines = rows.map((row) => header.map((key) => JSON.stringify(row[key] ?? '')).join(','));
-  return [header.join(','), ...lines].join('\n');
-}
-
-async function orderReportCsv(query) {
-  const rows = await adminRepository.orderReport(query);
-  return ordersCsv(rows);
-}
-
 async function listUsers(query) {
   const pagination = parsePagination(query);
   const result = await profilesRepository.list(pagination);
@@ -83,13 +72,6 @@ async function updateUser(id, body, context) {
   });
 }
 
-async function resetPassword(id, context) {
-  const profile = await profilesRepository.findById(id);
-  if (!profile) throw errors.notFound('Không tìm thấy nhân viên');
-  await writeAudit('user.password_reset_requested', 'nguoi_dung', id, context, { new_data: { id } });
-  return { message: 'Reset password cần email flow/Supabase template trong triển khai production' };
-}
-
 async function auditLogs(query) {
   const pagination = parsePagination(query);
   const { many } = require('../db/pool');
@@ -114,11 +96,9 @@ async function purgeOldAssets() {
 module.exports = {
   dashboard,
   orderReport,
-  orderReportCsv,
   listUsers,
   createUser,
   updateUser,
-  resetPassword,
   auditLogs,
   purgeOldAssets
 };

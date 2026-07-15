@@ -2,14 +2,14 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Alert, Button, Col, Form, Image, Modal, Row, Table } from 'react-bootstrap';
 import { Link, useParams } from 'react-router-dom';
-import { getCustomer, getCustomerPhotos, getCustomerPrintLayouts, updateCustomer } from '../../api/customers';
-import { getLayoutDownloadUrl } from '../../api/layouts';
+import { getCustomer, getCustomerPhotos, updateCustomer } from '../../api/customers';
 import EmptyState from '../../components/feedback/EmptyState.jsx';
 import ErrorState from '../../components/feedback/ErrorState.jsx';
 import LoadingState from '../../components/feedback/LoadingState.jsx';
 import OrderStatusBadge from '../../components/status/OrderStatusBadge.jsx';
 import { formatDate } from '../../utils/format';
 import { useFormErrors } from '../../hooks/useFormErrors.js';
+import { useToast } from '../../hooks/useToast.jsx';
 
 // URL hiển thị ảnh: ưu tiên ảnh đã xử lý, fallback ảnh gốc; null nếu đã hết hạn lưu trữ.
 function photoPreviewUrl(photo) {
@@ -23,24 +23,14 @@ export default function CustomerDetailPage() {
   const [showEdit, setShowEdit] = useState(false);
   const [editForm, setEditForm] = useState({ ho_ten: '', so_dien_thoai: '', email: '', ghi_chu: '' });
   const { errors, setErrors, clearError, validate } = useFormErrors();
+  const toast = useToast();
   const customerQuery = useQuery({
     queryKey: ['customers', id],
     queryFn: () => getCustomer(id)
   });
-  const layoutsQuery = useQuery({
-    queryKey: ['customers', id, 'print-layouts'],
-    queryFn: () => getCustomerPrintLayouts(id, { limit: 20 })
-  });
   const photosQuery = useQuery({
     queryKey: ['customers', id, 'photos'],
     queryFn: () => getCustomerPhotos(id)
-  });
-  const downloadMutation = useMutation({
-    mutationFn: getLayoutDownloadUrl,
-    onSuccess: (result) => {
-      const url = result.layout_signed_url || result.signed_url;
-      if (url) window.open(url, '_blank', 'noopener,noreferrer');
-    }
   });
   const editMutation = useMutation({
     mutationFn: () => updateCustomer(id, {
@@ -52,6 +42,7 @@ export default function CustomerDetailPage() {
     onSuccess: () => {
       setShowEdit(false);
       queryClient.invalidateQueries({ queryKey: ['customers', id] });
+      toast.success('Đã lưu thông tin khách hàng');
     }
   });
 
@@ -71,13 +62,11 @@ export default function CustomerDetailPage() {
     editMutation.mutate();
   }
 
-  if (customerQuery.isLoading || layoutsQuery.isLoading) return <LoadingState label="Đang tải lịch sử khách..." />;
+  if (customerQuery.isLoading) return <LoadingState label="Đang tải lịch sử khách..." />;
   if (customerQuery.error) return <ErrorState error={customerQuery.error} onRetry={customerQuery.refetch} />;
-  if (layoutsQuery.error) return <ErrorState error={layoutsQuery.error} onRetry={layoutsQuery.refetch} />;
 
   const customer = customerQuery.data?.customer;
   const recentOrders = customerQuery.data?.recent_orders || [];
-  const printLayouts = layoutsQuery.data?.data?.print_layouts || [];
   const collectionPhotos = photosQuery.data?.photos || [];
 
   return (
@@ -172,49 +161,6 @@ export default function CustomerDetailPage() {
                 </div>
               );
             })}
-          </div>
-        )}
-      </section>
-
-      <section className="app-panel">
-        <h2>Layout cũ</h2>
-        {printLayouts.length === 0 ? (
-          <EmptyState title="Chưa có layout cũ" description="Layout generated của khách sẽ hiển thị tại đây." />
-        ) : (
-          <div className="table-responsive">
-            <Table hover className="align-middle data-table">
-              <thead>
-                <tr>
-                  <th>Order</th>
-                  <th>Loại layout</th>
-                  <th>Khổ giấy</th>
-                  <th>Trạng thái</th>
-                  <th>Ngày tạo</th>
-                  <th className="text-end">Tải lại</th>
-                </tr>
-              </thead>
-              <tbody>
-                {printLayouts.map((layout) => (
-                  <tr key={layout.id}>
-                    <td>{layout.don_hang_id}</td>
-                    <td>{layout.kieu_bo_cuc}</td>
-                    <td>{layout.kho_giay}</td>
-                    <td>{layout.trang_thai}</td>
-                    <td>{formatDate(layout.ngay_tao)}</td>
-                    <td className="text-end">
-                      <Button
-                        size="sm"
-                        variant="outline-primary"
-                        disabled={downloadMutation.isPending || layout.trang_thai !== 'generated'}
-                        onClick={() => downloadMutation.mutate(layout.id)}
-                      >
-                        Tải signed URL
-                      </Button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </Table>
           </div>
         )}
       </section>

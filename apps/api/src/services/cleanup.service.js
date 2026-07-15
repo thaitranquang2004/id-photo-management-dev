@@ -8,7 +8,6 @@ const PURGE_AFTER_DAYS = 180;
 // the rows purged (DB rows kept for history). Best-effort per asset.
 async function purgeOldOrders() {
   let photos = 0;
-  let layouts = 0;
   let requestPhotos = 0;
 
   const oldPhotos = await many(
@@ -24,18 +23,6 @@ async function purgeOldOrders() {
     photos += 1;
   }
 
-  const oldLayouts = await many(
-    `select pl.id, pl.cloudinary_id
-     from public.bo_cuc_in pl
-     join public.don_hang o on o.id = pl.don_hang_id
-     where o.ngay_tao < now() - interval '${PURGE_AFTER_DAYS} days' and pl.ngay_don_dep is null`
-  );
-  for (const l of oldLayouts) {
-    await assetService.destroyAsset(l.cloudinary_id);
-    await query('update public.bo_cuc_in set ngay_don_dep = now() where id = $1', [l.id]);
-    layouts += 1;
-  }
-
   const oldRequestPhotos = await many(
     `select rp.id, rp.cloudinary_anh_goc_id
      from public.anh_yeu_cau_online rp
@@ -48,7 +35,7 @@ async function purgeOldOrders() {
     requestPhotos += 1;
   }
 
-  const summary = { photos, layouts, request_photos: requestPhotos };
+  const summary = { photos, request_photos: requestPhotos };
   logger.info(summary, 'Purged old Cloudinary assets');
   return summary;
 }

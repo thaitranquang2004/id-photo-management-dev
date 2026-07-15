@@ -7,6 +7,7 @@ const {
   REPRINT_STATUSES,
   ONLINE_REQUEST_STATUSES,
   APPOINTMENT_STATUSES,
+  APPOINTMENT_TYPES,
   REQUEST_TYPES,
   NOTIFICATION_CHANNELS,
   INTAKE_SOURCES,
@@ -64,9 +65,15 @@ const orderCreateBody = z.object({
   khach_hang_id: uuid,
   loai_the_id: uuid,
   so_luong: z.coerce.number().int().min(4, 'Mỗi đơn tối thiểu 4 tấm'),
-  ngay_hen_lay: z.coerce.date().optional(),
+  ngay_hen_lay: optionalDate,
+  khung_gio_lay: z.string().trim().optional(),
+  lich_hen_id: optionalUuid,
   ghi_chu: longText.optional(),
-  hinh_thuc_giao: z.enum(DELIVERY_METHODS).default('pickup')
+  hinh_thuc_giao: z.enum(DELIVERY_METHODS).default('lay_hinh_ngay')
+}).superRefine((value, ctx) => {
+  if (value.hinh_thuc_giao === 'hen_lay_hinh' && (!value.ngay_hen_lay || !value.khung_gio_lay)) {
+    ctx.addIssue({ code: 'custom', path: ['ngay_hen_lay'], message: 'Hẹn lấy hình cần ngày và khung giờ lấy' });
+  }
 });
 
 const orderListQuery = paginationQuery.extend({
@@ -86,7 +93,7 @@ const reportOrdersQuery = paginationQuery.extend({
 });
 
 const cancelOrderBody = z.object({ ly_do: longText.min(1) });
-const completeOrderBody = z.object({ skip_layout_reason: z.string().trim().min(1).optional() }).default({});
+const completeOrderBody = z.object({}).default({});
 const deliverOrderBody = z.object({ allow_unpaid_reason: z.string().trim().min(1).optional() }).default({});
 
 const paymentCreateBody = z.object({
@@ -116,25 +123,6 @@ const batchProcessBody = z.object({
 
 const rejectPhotoBody = z.object({ ly_do: longText.min(1) });
 const notesBody = z.object({ ghi_chu: longText.optional() }).default({});
-const layoutConfigBody = z.object({
-  don_hang_id: uuid,
-  danh_sach_anh_id: z.array(uuid).min(1),
-  kieu_bo_cuc: z.string().trim().min(1).default('grid'),
-  kho_giay: z.string().trim().min(1).default('A4'),
-  them_chu: z.boolean().default(false),
-  cau_hinh_bo_cuc: z.record(z.string(), z.any()).default({})
-});
-
-const layoutGenerateBody = layoutConfigBody.extend({
-  cloudinary_id: z.string().trim().min(1).optional(),
-  metadata_file: z.record(z.string(), z.any()).default({}),
-  dung_luong_bytes: z.coerce.number().int().positive().optional()
-});
-
-const layoutIssueBody = z.object({
-  loai_loi: z.string().trim().min(1),
-  ghi_chu: longText.optional()
-});
 
 const reprintStatusBody = z.object({
   trang_thai: z.enum(REPRINT_STATUSES),
@@ -148,25 +136,26 @@ const reprintConvertBody = z.object({
 }).default({});
 
 const publicLookupQuery = z.object({
-  so_dien_thoai: phone.optional(),
-  ma_don: z.string().trim().optional(),
-  token: z.string().trim().optional()
-}).refine((value) => value.token || (value.so_dien_thoai && value.ma_don), {
-  message: 'Cần token hoặc so_dien_thoai + ma_don'
+  so_dien_thoai: phone,
+  ma_don: z.string().trim().min(1, 'Vui lòng nhập mã đơn')
 });
 
 const publicDownloadBody = publicLookupQuery;
 const publicReprintBody = z.object({
-  so_dien_thoai: phone.optional(),
-  ma_don: z.string().trim().optional(),
-  token: z.string().trim().optional(),
+  so_dien_thoai: phone,
+  ma_don: z.string().trim().min(1, 'Vui lòng nhập mã đơn'),
   danh_sach_anh_id: z.array(uuid).default([]),
-  bo_cuc_id: uuid.optional(),
   so_luong: z.coerce.number().int().positive().default(1),
   ly_do: longText.optional(),
   ghi_chu: longText.optional()
-}).refine((value) => value.token || (value.so_dien_thoai && value.ma_don), {
-  message: 'Cần token hoặc so_dien_thoai + ma_don'
+});
+
+const publicQcBody = z.object({
+  loai_the_id: uuid
+});
+
+const publicOnlineStatusBody = z.object({
+  so_dien_thoai: phone
 });
 
 const onlineRequestBody = z.object({
@@ -180,6 +169,31 @@ const onlineRequestBody = z.object({
   khung_gio: z.string().trim().optional()
 });
 
+const studioBookingBody = z.object({
+  ten_khach: z.string().trim().min(1),
+  so_dien_thoai: phone,
+  email: z.email(),
+  ngay_hen: z.coerce.date(),
+  khung_gio: z.string().trim().min(1),
+  ghi_chu: longText.optional()
+});
+
+const remoteOrderBody = z.object({
+  ho_ten: z.string().trim().min(1),
+  so_dien_thoai: phone,
+  email: z.email(),
+  loai_the_id: uuid,
+  so_luong: z.coerce.number().int().min(4, 'Mỗi đơn tối thiểu 4 tấm'),
+  hinh_thuc_giao: z.enum(['lay_file_truc_tuyen', 'hen_lay_hinh']),
+  ngay_hen_lay: optionalDate,
+  khung_gio_lay: z.string().trim().optional(),
+  ghi_chu: longText.optional()
+}).superRefine((value, ctx) => {
+  if (value.hinh_thuc_giao === 'hen_lay_hinh' && (!value.ngay_hen_lay || !value.khung_gio_lay)) {
+    ctx.addIssue({ code: 'custom', path: ['ngay_hen_lay'], message: 'Hẹn lấy hình cần ngày và khung giờ lấy' });
+  }
+});
+
 const onlineRequestListQuery = paginationQuery.extend({
   trang_thai: z.enum(ONLINE_REQUEST_STATUSES).optional()
 });
@@ -190,19 +204,23 @@ const convertRequestBody = z.object({
   loai_the_id: optionalUuid,
   so_luong: z.coerce.number().int().min(4, 'Mỗi đơn tối thiểu 4 tấm'),
   ngay_hen_lay: z.coerce.date().optional(),
+  khung_gio_lay: z.string().trim().optional(),
   ghi_chu: longText.optional()
 });
 
 const appointmentCreateBody = z.object({
   ten_khach: z.string().trim().optional(),
-  so_dien_thoai: phone.optional(),
+  so_dien_thoai: phone,
+  email: z.email().optional(),
   ngay_hen: z.coerce.date(),
   khung_gio: z.string().trim().min(1),
-  ghi_chu: longText.optional()
+  ghi_chu: longText.optional(),
+  loai_lich: z.enum(APPOINTMENT_TYPES).default('hen_lay_hinh')
 });
 
 const appointmentListQuery = paginationQuery.extend({
   trang_thai: z.enum(APPOINTMENT_STATUSES).optional(),
+  loai_lich: z.enum(APPOINTMENT_TYPES).optional(),
   date_from: z.coerce.date().optional(),
   date_to: z.coerce.date().optional()
 });
@@ -211,6 +229,12 @@ const appointmentStatusBody = z.object({
   trang_thai: z.enum(APPOINTMENT_STATUSES),
   ghi_chu: longText.optional()
 });
+
+const khungGioChupPatchBody = z.object({
+  suc_chua_toi_da: z.coerce.number().int().positive().optional(),
+  dang_hoat_dong: z.boolean().optional(),
+  thu_tu: z.coerce.number().int().optional()
+}).refine((value) => Object.keys(value).length > 0, { message: 'Cần có dữ liệu cập nhật' });
 
 const notificationListQuery = paginationQuery.extend({
   kenh: z.enum(NOTIFICATION_CHANNELS).optional(),
@@ -257,14 +281,15 @@ module.exports = {
   batchProcessBody,
   rejectPhotoBody,
   notesBody,
-  layoutConfigBody,
-  layoutGenerateBody,
-  layoutIssueBody,
   reprintStatusBody,
   reprintConvertBody,
   publicLookupQuery,
   publicDownloadBody,
   publicReprintBody,
+  publicQcBody,
+  publicOnlineStatusBody,
+  studioBookingBody,
+  remoteOrderBody,
   onlineRequestBody,
   onlineRequestListQuery,
   rejectRequestBody,
@@ -272,6 +297,7 @@ module.exports = {
   appointmentCreateBody,
   appointmentListQuery,
   appointmentStatusBody,
+  khungGioChupPatchBody,
   notificationListQuery,
   adminUserCreateBody,
   adminUserUpdateBody

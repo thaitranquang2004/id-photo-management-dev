@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Check, FileImage, RefreshCw, Send, ShieldCheck, Upload, WandSparkles, X } from 'lucide-react';
+import { Check, Crop, FileImage, RefreshCw, Send, ShieldCheck, Upload, WandSparkles, X } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import {
   Alert,
@@ -36,14 +36,17 @@ import PhotoStatusBadge from '../../components/status/PhotoStatusBadge.jsx';
 import QcStatusBadge from '../../components/status/QcStatusBadge.jsx';
 import PaymentStatusBadge from '../../components/status/PaymentStatusBadge.jsx';
 import LayoutComposer from '../../components/layout/LayoutComposer.jsx';
+import PhotoCropModal from '../../components/common/PhotoCropModal.jsx';
 import { formatCurrency, formatDate } from '../../utils/format';
+import { cardCropRatio } from '../../utils/cardSize.js';
+import { useToast } from '../../hooks/useToast.jsx';
 
 const PAYMENT_KIND_LABEL = { deposit: 'Đặt cọc', balance: 'Thanh toán', refund: 'Hoàn tiền' };
 
 const terminalJobStatuses = new Set(['completed', 'failed', 'cancelled']);
 
 function orderData(queryData) {
-  return queryData || { order: null, pricing_snapshot: null, photos: [], print_layouts: [], appointment: null };
+  return queryData || { order: null, pricing_snapshot: null, photos: [], appointment: null };
 }
 
 function photoPreviewUrl(photo) {
@@ -56,8 +59,11 @@ function photoPreviewUrl(photo) {
 export default function OrderDetailPage() {
   const { id } = useParams();
   const queryClient = useQueryClient();
+  const toast = useToast();
   const [selectedFiles, setSelectedFiles] = useState([]);
   const [selectedPreviews, setSelectedPreviews] = useState([]);
+  const [croppedFlags, setCroppedFlags] = useState([]);
+  const [cropIndex, setCropIndex] = useState(null);
   const [activeJobId, setActiveJobId] = useState(null);
   const [rejectTarget, setRejectTarget] = useState(null);
   const [rejectReason, setRejectReason] = useState('');
@@ -77,6 +83,29 @@ export default function OrderDetailPage() {
   });
 
   const { order, pricing_snapshot: pricingSnapshot, photos, appointment } = orderData(orderQuery.data);
+  const { aspect: cropAspect, label: cropRatioLabel } = cardCropRatio(pricingSnapshot);
+  // Ép cắt khổ trước khi upload để đảm bảo chất lượng (chỉ khi đơn có tỷ lệ khổ thẻ).
+  const requireCrop = Boolean(cropAspect);
+  const croppedCount = croppedFlags.filter(Boolean).length;
+  const allCropped = selectedFiles.length > 0 && croppedCount === selectedFiles.length;
+
+  // Chọn ảnh xong tự mở modal cắt cho ảnh đầu tiên (nếu đơn có khổ thẻ).
+  function handleSelectFiles(event) {
+    const files = Array.from(event.target.files || []);
+    setSelectedFiles(files);
+    setCroppedFlags(new Array(files.length).fill(false));
+    setCropIndex(files.length > 0 && requireCrop ? 0 : null);
+  }
+
+  // Sau khi cắt 1 ảnh: đánh dấu đã cắt rồi tự nhảy sang ảnh chưa cắt kế tiếp.
+  function applyCroppedFile(index, croppedFile) {
+    setSelectedFiles((prev) => prev.map((file, i) => (i === index ? croppedFile : file)));
+    const nextFlags = croppedFlags.slice();
+    nextFlags[index] = true;
+    setCroppedFlags(nextFlags);
+    const nextIndex = nextFlags.findIndex((done) => !done);
+    setCropIndex(nextIndex === -1 ? null : nextIndex);
+  }
 
   const notificationsQuery = useQuery({
     queryKey: ['notifications', 'order', id],
@@ -126,6 +155,7 @@ export default function OrderDetailPage() {
     onSuccess: (result) => {
       const uploadedPhotos = result.photos || [];
       setSelectedFiles([]);
+      setCroppedFlags([]);
       queryClient.invalidateQueries({ queryKey: ['orders', id] });
       if (uploadedPhotos.length > 0) {
         autoProcessMutation.mutate(uploadedPhotos.map((photo) => photo.id));
@@ -152,7 +182,10 @@ export default function OrderDetailPage() {
 
   const approveMutation = useMutation({
     mutationFn: (photoId) => approvePhoto(photoId),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['orders', id] })
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['orders', id] });
+      toast.success('Đã duyệt ảnh');
+    }
   });
 
   const rejectMutation = useMutation({
@@ -161,6 +194,7 @@ export default function OrderDetailPage() {
       setRejectTarget(null);
       setRejectReason('');
       queryClient.invalidateQueries({ queryKey: ['orders', id] });
+      toast.success('Đã từ chối ảnh');
     }
   });
 
@@ -172,12 +206,18 @@ export default function OrderDetailPage() {
 
   const startMutation = useMutation({
     mutationFn: () => startOrderProcessing(id),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['orders', id] })
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['orders', id] });
+      toast.success('Đã bắt đầu xử lý đơn');
+    }
   });
 
   const completeMutation = useMutation({
-    mutationFn: () => completeOrder(id, { skip_layout_reason: 'In/tải layout A4 trực tiếp từ trình duyệt' }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['orders', id] })
+    mutationFn: () => completeOrder(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['orders', id] });
+      toast.success('Đã hoàn tất đơn');
+    }
   });
 
   const deliverMutation = useMutation({
@@ -187,6 +227,7 @@ export default function OrderDetailPage() {
       setDeliverReason('');
       queryClient.invalidateQueries({ queryKey: ['orders', id] });
       queryClient.invalidateQueries({ queryKey: ['notifications', 'order', id] });
+      toast.success('Đã giao đơn');
     }
   });
 
@@ -196,6 +237,7 @@ export default function OrderDetailPage() {
       if (result?.lookup_url) setLookupUrl(result.lookup_url);
       queryClient.invalidateQueries({ queryKey: ['orders', id] });
       queryClient.invalidateQueries({ queryKey: ['notifications', 'order', id] });
+      toast.success('Đã báo khách đơn sẵn sàng');
     }
   });
 
@@ -205,6 +247,7 @@ export default function OrderDetailPage() {
       setShowCancel(false);
       setCancelReason('');
       queryClient.invalidateQueries({ queryKey: ['orders', id] });
+      toast.success('Đã huỷ đơn');
     }
   });
 
@@ -226,6 +269,7 @@ export default function OrderDetailPage() {
       setRefundConfirmed(false);
       queryClient.invalidateQueries({ queryKey: ['orders', id] });
       queryClient.invalidateQueries({ queryKey: ['payments', id] });
+      toast.success('Đã ghi nhận thanh toán');
     }
   });
 
@@ -262,11 +306,11 @@ export default function OrderDetailPage() {
           <h1>Đơn {order.ma_don}</h1>
           <p>{order.ten_khach_hang} · {order.sdt_khach_hang} · {order.ten_loai_the}</p>
           <div className="d-flex gap-2 mt-1">
-            <Badge bg={order.nguon_don === 'online' ? 'info' : 'secondary'} text={order.nguon_don === 'online' ? 'dark' : undefined}>
-              {order.nguon_don === 'online' ? 'Đơn online' : 'Tại quầy'}
+            <Badge bg={order.nguon_don === 'gui_anh_tu_xa' ? 'info' : 'secondary'} text={order.nguon_don === 'gui_anh_tu_xa' ? 'dark' : undefined}>
+              {order.nguon_don === 'gui_anh_tu_xa' ? 'Khách gửi ảnh' : order.nguon_don === 'in_lai' ? 'In lại' : 'Tại tiệm'}
             </Badge>
             <Badge bg="light" text="dark">
-              {order.hinh_thuc_giao === 'online' ? 'Giao online' : 'Lấy tại quầy'}
+              {order.hinh_thuc_giao === 'lay_file_truc_tuyen' ? 'Lấy file trực tuyến' : order.hinh_thuc_giao === 'hen_lay_hinh' ? 'Hẹn lấy hình' : 'Lấy hình ngay'}
             </Badge>
           </div>
         </div>
@@ -378,7 +422,7 @@ export default function OrderDetailPage() {
                     type="file"
                     accept="image/*"
                     multiple
-                    onChange={(event) => setSelectedFiles(Array.from(event.target.files || []))}
+                    onChange={handleSelectFiles}
                     disabled={isPhotoPipelineActive}
                   />
                 </Form.Group>
@@ -386,7 +430,7 @@ export default function OrderDetailPage() {
               <Col lg={5} className="d-flex gap-2 flex-wrap">
                 <Button
                   onClick={() => uploadMutation.mutate()}
-                  disabled={isPhotoPipelineActive || selectedFiles.length === 0}
+                  disabled={isPhotoPipelineActive || selectedFiles.length === 0 || (requireCrop && !allCropped)}
                 >
                   <Upload size={17} aria-hidden="true" />
                   Upload & xử lý AI
@@ -406,13 +450,37 @@ export default function OrderDetailPage() {
 
             {selectedPreviews.length > 0 ? (
               <div className="selected-preview-grid">
-                {selectedPreviews.map((preview) => (
+                {selectedPreviews.map((preview, index) => (
                   <div className="selected-preview" key={`${preview.name}-${preview.size}`}>
                     <img src={preview.url} alt={`Preview ${preview.name}`} />
-                    <span>{preview.name}</span>
+                    {requireCrop ? (
+                      <Badge bg={croppedFlags[index] ? 'success' : 'warning'} text={croppedFlags[index] ? undefined : 'dark'} className="selected-preview-badge">
+                        {croppedFlags[index] ? 'Đã cắt' : 'Chưa cắt'}
+                      </Badge>
+                    ) : null}
+                    <div className="selected-preview-foot">
+                      <span className="selected-preview-name" title={preview.name}>{preview.name}</span>
+                      <Button
+                        size="sm"
+                        variant={requireCrop && !croppedFlags[index] ? 'warning' : 'outline-secondary'}
+                        className="selected-preview-crop"
+                        onClick={() => setCropIndex(index)}
+                        disabled={isPhotoPipelineActive}
+                      >
+                        <Crop size={14} aria-hidden="true" />
+                        {croppedFlags[index] ? 'Cắt lại' : `Cắt khổ ${cropRatioLabel || 'ảnh'}`}
+                      </Button>
+                    </div>
                   </div>
                 ))}
               </div>
+            ) : null}
+
+            {requireCrop && selectedFiles.length > 0 && !allCropped ? (
+              <Alert variant="warning" className="mt-2 mb-0 d-flex gap-2 align-items-start">
+                <Crop size={16} aria-hidden="true" className="mt-1 flex-shrink-0" />
+                <span>Cần cắt khổ {cropRatioLabel} cho tất cả ảnh trước khi upload ({croppedCount}/{selectedFiles.length} đã cắt).</span>
+              </Alert>
             ) : null}
 
             {isPhotoPipelineActive ? (
@@ -561,8 +629,8 @@ export default function OrderDetailPage() {
               <Col md={6}>
                 <Table className="detail-table">
                   <tbody>
-                    <tr><th>Nguồn đơn</th><td>{order.nguon_don === 'online' ? 'Online' : 'Tại quầy'}</td></tr>
-                    <tr><th>Hình thức giao</th><td>{order.hinh_thuc_giao === 'online' ? 'Khách tải online' : 'Lấy tại quầy'}</td></tr>
+                    <tr><th>Nguồn đơn</th><td>{order.nguon_don === 'gui_anh_tu_xa' ? 'Khách gửi ảnh' : order.nguon_don === 'in_lai' ? 'In lại' : 'Tại tiệm'}</td></tr>
+                    <tr><th>Hình thức giao</th><td>{order.hinh_thuc_giao === 'lay_file_truc_tuyen' ? 'Khách tải file trực tuyến' : order.hinh_thuc_giao === 'hen_lay_hinh' ? 'Hẹn lấy hình' : 'Lấy hình ngay'}</td></tr>
                     {appointment ? (
                       <tr><th>Lịch hẹn</th><td>{formatDate(appointment.ngay_hen)} · {appointment.khung_gio} · {appointment.trang_thai}</td></tr>
                     ) : null}
@@ -579,7 +647,7 @@ export default function OrderDetailPage() {
                   <Send size={16} aria-hidden="true" />
                   Gửi link cho khách
                 </Button>
-                <p className="text-muted small mt-2">Tạo link tra cứu kèm token và gửi email/Zalo (mô phỏng) cho khách.</p>
+                <p className="text-muted small mt-2">Tạo link tra cứu (SĐT + mã đơn) và gửi email/Zalo (mô phỏng) cho khách.</p>
                 {lookupUrl ? (
                   <Alert variant="success" className="mt-2">
                     Link tra cứu: <a href={lookupUrl} target="_blank" rel="noopener noreferrer">{lookupUrl}</a>
@@ -833,6 +901,16 @@ export default function OrderDetailPage() {
           ) : null}
         </Modal.Body>
       </Modal>
+
+      {cropIndex !== null && selectedFiles[cropIndex] ? (
+        <PhotoCropModal
+          file={selectedFiles[cropIndex]}
+          aspect={cropAspect}
+          ratioLabel={cropRatioLabel}
+          onConfirm={(croppedFile) => applyCroppedFile(cropIndex, croppedFile)}
+          onClose={() => setCropIndex(null)}
+        />
+      ) : null}
     </div>
   );
 }

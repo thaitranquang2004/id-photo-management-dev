@@ -5,7 +5,7 @@ async function list({ so_dien_thoai, limit, offset }, client) {
   const where = ['dang_hoat_dong = true'];
 
   if (so_dien_thoai) {
-    params.push(`%%`);
+    params.push(`%${so_dien_thoai}%`);
     where.push(`so_dien_thoai ilike $${params.length}`);
   }
 
@@ -112,20 +112,6 @@ async function approvedPhotos(customerId, client) {
   );
 }
 
-async function printLayouts(customerId, { limit, offset }, client) {
-  const rows = await many(
-    `select pl.*, count(*) over()::int as total
-     from public.bo_cuc_in pl
-     join public.don_hang o on o.id = pl.don_hang_id
-     where o.khach_hang_id = $1
-     order by pl.ngay_tao desc
-     limit $2 offset $3`,
-    [customerId, limit, offset],
-    client
-  );
-  return { rows, total: rows[0]?.total || 0 };
-}
-
 module.exports = {
   list,
   findById,
@@ -135,6 +121,5 @@ module.exports = {
   archive,
   countOrders,
   recentOrders,
-  approvedPhotos,
-  printLayouts
+  approvedPhotos
 };

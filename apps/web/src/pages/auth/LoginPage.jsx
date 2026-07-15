@@ -5,6 +5,7 @@ import { Camera, Mail, Lock, Eye, EyeOff, ArrowRight } from 'lucide-react';
 import LoadingState from '../../components/feedback/LoadingState.jsx';
 import { hasSupabaseConfig } from '../../api/auth';
 import { useAuth } from '../../hooks/useAuth.jsx';
+import { useToast } from '../../hooks/useToast.jsx';
 import { useFormErrors } from '../../hooks/useFormErrors.js';
 
 function postLoginPath(role, from) {
@@ -23,6 +24,7 @@ export default function LoginPage() {
   const [error, setError] = useState('');
   const { errors, clearError, validate } = useFormErrors();
   const [showPassword, setShowPassword] = useState(false);
+  const toast = useToast();
   const navigate = useNavigate();
   const location = useLocation();
   const from = location.state?.from?.pathname;
@@ -48,6 +50,7 @@ export default function LoginPage() {
     try {
       const backendUser = await login(form);
       navigate(postLoginPath(backendUser.role, from), { replace: true });
+      toast.success('Đăng nhập thành công');
     } catch (loginError) {
       setError(loginError.message || 'Không đăng nhập được. Kiểm tra email/password và profile nội bộ.');
     }

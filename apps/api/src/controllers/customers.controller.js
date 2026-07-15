@@ -28,9 +28,4 @@ async function photos(req, res) {
   return sendSuccess(res, result.data);
 }
 
-async function printLayouts(req, res) {
-  const result = await customerService.customerPrintLayouts(req.validated.params.id, req.validated.query);
-  return sendSuccess(res, result.data, result.pagination);
-}
-
-module.exports = { list, get, create, update, archive, photos, printLayouts };
+module.exports = { list, get, create, update, archive, photos };

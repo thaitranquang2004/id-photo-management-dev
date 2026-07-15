@@ -4,6 +4,7 @@ const { createApp } = require('./app');
 const { logger } = require('./logger');
 const { closePool } = require('./db/pool');
 const { purgeOldOrders } = require('./services/cleanup.service');
+const { nhacLichLayHinh } = require('./services/booking.service');
 
 const app = createApp();
 
@@ -18,6 +19,11 @@ if (env.ASSET_PURGE_ENABLED) {
   });
   logger.info('Asset purge cron scheduled (daily 03:00)');
 }
+
+// Nhắc các lịch lấy hình vào ngày hôm sau; cột ngay_nhac_lay_hinh chặn gửi lặp.
+cron.schedule('0 9 * * *', () => {
+  nhacLichLayHinh().catch((err) => logger.error({ err }, 'Pickup appointment reminder failed'));
+}, { timezone: 'Asia/Ho_Chi_Minh' });
 
 async function shutdown(signal) {
   logger.info({ signal }, 'Shutting down API server');

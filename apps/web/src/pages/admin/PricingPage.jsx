@@ -75,29 +75,26 @@ export default function PricingPage() {
           <h1>Bảng giá</h1>
           <p>Giá mới áp dụng từ ngày hiệu lực; đơn cũ vẫn giữ snapshot giá cũ.</p>
         </div>
-        <Button onClick={openModal} className="button-nowrap" disabled={cardTypes.length === 0}>
-          <Plus size={17} aria-hidden="true" />
-          Thêm giá
-        </Button>
+        <div className="header-actions">
+          <div className="d-flex align-items-center gap-2">
+            <Form.Select
+              value={cardTypeId}
+              onChange={(event) => setCardTypeId(event.target.value)}
+              style={{ width: 220, flexShrink: 0 }}
+              aria-label="Lọc theo loại thẻ"
+            >
+              <option value="">Tất cả loại thẻ</option>
+              {cardTypes.map((cardType) => <option key={cardType.id} value={cardType.id}>{cardType.ten}</option>)}
+            </Form.Select>
+            <Button onClick={openModal} className="button-nowrap" disabled={cardTypes.length === 0}>
+              <Plus size={17} aria-hidden="true" />
+              Thêm giá
+            </Button>
+          </div>
+        </div>
       </div>
 
-      <Alert variant="info" className="app-panel">
-        Khi tạo giá mới, backend sẽ đóng giá hiện hành trước đó nếu ngày hiệu lực hợp lệ. Đơn đã tạo không bị đổi giá.
-      </Alert>
-
       <section className="app-panel">
-        <Row className="g-3 align-items-end mb-3">
-          <Col md={5}>
-            <Form.Group>
-              <Form.Label>Lọc theo loại thẻ</Form.Label>
-              <Form.Select value={cardTypeId} onChange={(event) => setCardTypeId(event.target.value)}>
-                <option value="">Tất cả</option>
-                {cardTypes.map((cardType) => <option key={cardType.id} value={cardType.id}>{cardType.ten}</option>)}
-              </Form.Select>
-            </Form.Group>
-          </Col>
-        </Row>
-
         {pricing.length === 0 ? (
           <EmptyState title="Chưa có lịch sử giá" />
         ) : (

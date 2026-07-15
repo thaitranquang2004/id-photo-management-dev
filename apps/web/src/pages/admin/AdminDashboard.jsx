@@ -51,9 +51,6 @@ export default function AdminDashboard() {
           >
             {purgeMutation.isPending ? 'Đang dọn...' : 'Dọn ảnh cũ'}
           </Button>
-          <Button as={Link} to="/admin/reports" variant="outline-primary">Báo cáo</Button>
-          <Button as={Link} to="/admin/users" variant="outline-primary">Nhân viên</Button>
-          <Button as={Link} to="/admin/card-types" variant="primary">Cấu hình loại thẻ</Button>
         </div>
       </div>
 
@@ -65,7 +62,7 @@ export default function AdminDashboard() {
       {purgeMutation.error ? <Alert variant="danger" dismissible onClose={() => purgeMutation.reset()}>{purgeMutation.error.message}</Alert> : null}
 
       <Row className="g-3">
-        <Col sm={6} xl={3}><KpiCard label="Tổng đơn" value={dashboard.orders_total ?? 0} hint="Backend dashboard hiện trả tổng số" /></Col>
+        <Col sm={6} xl={3}><KpiCard label="Tổng đơn" value={dashboard.orders_total ?? 0} /></Col>
         <Col sm={6} xl={3}><KpiCard label="Doanh thu hoàn thành" value={formatCurrency(dashboard.revenue_total || 0)} /></Col>
         <Col sm={6} xl={3}><KpiCard label="Khách mới 30 ngày" value={dashboard.new_customers_30d ?? 0} /></Col>
         <Col sm={6} xl={3}><KpiCard label="Ảnh đã xử lý" value={dashboard.processed_photos_total ?? 0} /></Col>

@@ -1,17 +1,14 @@
-const crypto = require('node:crypto');
 const { withTransaction } = require('../db/pool');
 const env = require('../config/env');
 const catalogRepository = require('../repositories/catalog.repository');
 const ordersRepository = require('../repositories/orders.repository');
 const customersRepository = require('../repositories/customers.repository');
-const publicRepository = require('../repositories/public.repository');
+const onlineRepository = require('../repositories/online.repository');
+const lichHenRepository = require('../repositories/lich-hen.repository');
 const notificationService = require('./notification.service');
 const { parsePagination, buildPagination } = require('../utils/pagination');
-const { sha256 } = require('../utils/hash');
 const { errors } = require('../utils/app-error');
 const { writeAudit } = require('./audit.service');
-
-const ACCESS_TOKEN_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 
 function totalFromPricing(pricing, quantity) {
   return Number(pricing.gia_moi_ban) * quantity + Number(pricing.phi_xu_ly);
@@ -53,7 +50,7 @@ async function createOrderCore(body, context, client) {
   if (!pricing) throw errors.validation('Loại thẻ chưa có giá hiện hành', { loai_the_id: body.loai_the_id });
 
   const totalAmount = totalFromPricing(pricing, body.so_luong);
-  const order = await ordersRepository.createOrder(body, context.user.id, totalAmount, client);
+  const order = await ordersRepository.createOrder(body, context?.user?.id || null, totalAmount, client);
 
   const pricingSnapshot = await ordersRepository.createPricingSnapshot(order, pricing, totalAmount, client);
   await writeAudit('order.created', 'don_hang', order.id, context, { new_data: { order, pricing_snapshot: pricingSnapshot } }, client);
@@ -61,19 +58,40 @@ async function createOrderCore(body, context, client) {
 }
 
 async function createOrder(body, context) {
-  return withTransaction((client) => createOrderCore(body, context, client));
+  return withTransaction(async (client) => {
+    const result = await createOrderCore(body, context, client);
+    if (body.lich_hen_id) {
+      const lichHen = await lichHenRepository.findById(body.lich_hen_id, client, true);
+      if (!lichHen || lichHen.loai_lich !== 'dat_lich_chup' || lichHen.trang_thai !== 'da_xac_nhan') {
+        throw errors.invalidState('Chỉ có thể tạo đơn từ lịch chụp đã xác nhận');
+      }
+      await lichHenRepository.ganDonVaHoanTat(lichHen.id, result.order.id, context.user.id, client);
+    } else if (body.hinh_thuc_giao === 'hen_lay_hinh') {
+      const customer = await customersRepository.findById(body.khach_hang_id, client);
+      await lichHenRepository.create({
+        don_hang_id: result.order.id,
+        ten_khach: customer?.ho_ten,
+        so_dien_thoai: customer?.so_dien_thoai,
+        email: customer?.email,
+        ngay_hen: body.ngay_hen_lay,
+        khung_gio: body.khung_gio_lay,
+        loai_lich: 'hen_lay_hinh',
+        trang_thai: 'da_xac_nhan',
+        nguoi_xac_nhan: context.user.id
+      }, client);
+    }
+    return result;
+  });
 }
 
-// Mint a customer access token (store only the sha256 hash), flag ready_notified_at,
-// and build the photos_ready notification payload with a tokened lookup URL. This
-// closes the loop on the previously-unused ma_truy_cap_khach table.
+// Flag ready_notified_at và dựng payload thông báo photos_ready với link tra cứu
+// tự điền SĐT + mã đơn (khách bấm là tra được ngay, không cần token).
 async function prepareReadyNotification(order, client) {
   const customer = await customersRepository.findById(order.khach_hang_id, client);
-  const token = crypto.randomBytes(24).toString('hex');
-  const expiresAt = new Date(Date.now() + ACCESS_TOKEN_TTL_MS);
-  await publicRepository.createAccessToken(order.id, sha256(token), expiresAt, client);
   await ordersRepository.markReadyNotified(order.id, client);
-  const lookupUrl = `${env.WEB_BASE_URL.replace(/\/$/, '')}/tra-cuu?token=${token}`;
+  const lookupUrl = `${env.WEB_BASE_URL.replace(/\/$/, '')}/tra-cuu`
+    + `?sdt=${encodeURIComponent(customer?.so_dien_thoai || '')}`
+    + `&ma_don=${encodeURIComponent(order.ma_don)}`;
   return {
     event_type: 'photos_ready',
     lookup_url: lookupUrl,
@@ -126,19 +144,15 @@ async function changeStatus(id, nextStatus, context, options = {}) {
 
     if (nextStatus === 'completed') {
       const approvedCount = await ordersRepository.countApprovedPhotos(id, client);
-      const layoutCount = await ordersRepository.countGeneratedLayouts(id, client);
       if (approvedCount < 1) {
         throw errors.invalidState('Cần ít nhất một ảnh approved để hoàn tất đơn', { approved_photos: approvedCount });
-      }
-      if (layoutCount < 1 && !options.skip_layout_reason) {
-        throw errors.invalidState('Cần layout generated hoặc skip_layout_reason để hoàn tất đơn', { generated_layouts: layoutCount });
       }
     }
 
     if (nextStatus === 'delivered') {
       const total = Number(order.tong_tien || 0);
       const paid = Number(order.da_thanh_toan || 0);
-      if (paid < total && !options.allow_unpaid_reason) {
+      if (paid < total && (order.hinh_thuc_giao === 'lay_file_truc_tuyen' || !options.allow_unpaid_reason)) {
         throw errors.invalidState('Đơn chưa thanh toán đủ. Hãy thu đủ tiền hoặc nhập lý do giao nợ.', {
           total_amount: total, amount_paid: paid, balance: total - paid
         });
@@ -151,7 +165,7 @@ async function changeStatus(id, nextStatus, context, options = {}) {
 
     await writeAudit('order.status_changed', 'don_hang', id, context, {
       old_data: order,
-      new_data: { order: updated, reason: options.reason, skip_layout_reason: options.skip_layout_reason }
+      new_data: { order: updated, reason: options.reason }
     }, client);
 
     let notify = null;

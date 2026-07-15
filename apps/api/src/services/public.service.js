@@ -2,31 +2,31 @@ const { withTransaction } = require('../db/pool');
 const publicRepository = require('../repositories/public.repository');
 const ordersRepository = require('../repositories/orders.repository');
 const reprintRepository = require('../repositories/reprint.repository');
-const layoutsRepository = require('../repositories/layouts.repository');
 const catalogRepository = require('../repositories/catalog.repository');
 const customersRepository = require('../repositories/customers.repository');
 const { errors } = require('../utils/app-error');
-const { sha256 } = require('../utils/hash');
+const { ipHash } = require('../utils/hash');
 const assetService = require('./asset.service');
-
-function ipHash(req) {
-  return sha256(req.ip || 'unknown');
-}
+const sharp = require('sharp');
+const googleAiService = require('./google-ai.service');
+const { computeQc } = require('./photo-qc');
 
 async function resolvePublicOrder(input, client) {
-  if (input.token) {
-    return publicRepository.findOrderByTokenHash(sha256(input.token), client);
-  }
   return ordersRepository.findByCodeAndPhone(input.ma_don, input.so_dien_thoai, client);
 }
 
 function publicOrderInfo(order) {
+  const co_the_tai_file = order.hinh_thuc_giao === 'lay_file_truc_tuyen'
+    && order.trang_thai === 'delivered'
+    && Number(order.da_thanh_toan || 0) >= Number(order.tong_tien || 0);
   return {
     id: order.id,
     ma_don: order.ma_don,
     ten_loai_the: order.ten_loai_the,
     trang_thai: order.trang_thai,
-    ngay_tao: order.ngay_tao
+    ngay_tao: order.ngay_tao,
+    hinh_thuc_giao: order.hinh_thuc_giao,
+    co_the_tai_file
   };
 }
 
@@ -42,33 +42,14 @@ async function customerLookup(query, req) {
   return withTransaction(async (client) => {
     const order = await resolvePublicOrder(query, client);
     if (!order) {
-      await publicRepository.logLookupEvent({
-        action: 'lookup',
-        result: 'not_found',
-        phone: query.so_dien_thoai,
-        order_code: query.ma_don,
-        success: false,
-        ip_hash: ipHash(req),
-        user_agent: req.get('user-agent')
-      }, client);
       throw errors.notFound('Không tìm thấy đơn hàng');
     }
 
+    const canDownload = order.hinh_thuc_giao === 'lay_file_truc_tuyen'
+      && order.trang_thai === 'delivered' && Number(order.da_thanh_toan || 0) >= Number(order.tong_tien || 0);
     const photos = await publicRepository.approvedPhotos(order.id, client);
-    const layouts = await publicRepository.generatedLayouts(order.id, client);
     // Bộ sưu tập: toàn bộ ảnh đã duyệt của khách qua mọi đơn (không chỉ đơn đang tra).
     const collectionPhotos = await customersRepository.approvedPhotos(order.khach_hang_id, client);
-
-    await publicRepository.logLookupEvent({
-      order_id: order.id,
-      action: 'lookup',
-      result: 'success',
-      phone: query.so_dien_thoai,
-      order_code: query.ma_don,
-      success: true,
-      ip_hash: ipHash(req),
-      user_agent: req.get('user-agent')
-    }, client);
 
     return {
       order_info: publicOrderInfo(order),
@@ -78,20 +59,9 @@ async function customerLookup(query, req) {
           id: photo.id,
           trang_thai: photo.trang_thai,
           da_don_dep: Boolean(photo.ngay_don_dep),
-          signed_url: photo.ngay_don_dep ? null : signedOrNull(publicId, { format: 'jpg' }).signed_url
+          signed_url: canDownload && !photo.ngay_don_dep ? signedOrNull(publicId, { format: 'jpg' }).signed_url : null
         };
       }),
-      print_layouts: layouts.map((layout) => ({
-        id: layout.id,
-        kieu_bo_cuc: layout.kieu_bo_cuc,
-        kho_giay: layout.kho_giay,
-        trang_thai: layout.trang_thai,
-        da_don_dep: Boolean(layout.ngay_don_dep),
-        signed_url: layout.ngay_don_dep ? null : signedOrNull(layout.cloudinary_id, {
-          format: layout.metadata_file?.format || 'png',
-          attachment: true
-        }).signed_url
-      })),
       collection: collectionPhotos.map((photo) => {
         const publicId = photo.cloudinary_anh_xu_ly_id || photo.cloudinary_anh_goc_id;
         return {
@@ -99,7 +69,7 @@ async function customerLookup(query, req) {
           ma_don: photo.ma_don,
           ngay_tao: photo.ngay_tao,
           da_don_dep: Boolean(photo.ngay_don_dep),
-          signed_url: photo.ngay_don_dep ? null : signedOrNull(publicId, { format: 'jpg' }).signed_url
+          signed_url: canDownload && !photo.ngay_don_dep ? signedOrNull(publicId, { format: 'jpg' }).signed_url : null
         };
       })
     };
@@ -110,20 +80,13 @@ async function photoDownloadUrl(photoId, body, req) {
   return withTransaction(async (client) => {
     const order = await resolvePublicOrder(body, client);
     if (!order) throw errors.notFound('Không tìm thấy đơn hàng');
+    if (order.hinh_thuc_giao !== 'lay_file_truc_tuyen' || order.trang_thai !== 'delivered'
+      || Number(order.da_thanh_toan || 0) < Number(order.tong_tien || 0)) {
+      throw errors.invalidState('Đơn chưa đủ điều kiện tải file trực tuyến');
+    }
 
     const photo = await publicRepository.approvedPhotoForPublic(photoId, order.id, client);
     if (!photo) {
-      await publicRepository.logLookupEvent({
-        order_id: order.id,
-        photo_id: photoId,
-        action: 'download',
-        result: 'not_found',
-        phone: body.so_dien_thoai,
-        order_code: body.ma_don,
-        success: false,
-        ip_hash: ipHash(req),
-        user_agent: req.get('user-agent')
-      }, client);
       throw errors.notFound('Không tìm thấy ảnh approved');
     }
     if (photo.ngay_don_dep) {
@@ -131,19 +94,7 @@ async function photoDownloadUrl(photoId, body, req) {
     }
 
     const publicId = photo.cloudinary_anh_xu_ly_id || photo.cloudinary_anh_goc_id;
-    const signed = assetService.signedDownloadUrl(publicId, { format: 'jpg', attachment: true });
-    await publicRepository.logLookupEvent({
-      order_id: order.id,
-      photo_id: photo.id,
-      action: 'download',
-      result: 'success',
-      phone: body.so_dien_thoai,
-      order_code: body.ma_don,
-      success: true,
-      ip_hash: ipHash(req),
-      user_agent: req.get('user-agent')
-    }, client);
-    return signed;
+    return assetService.signedDownloadUrl(publicId, { format: 'jpg', attachment: true });
   });
 }
 
@@ -161,30 +112,11 @@ async function createReprintRequest(body, req) {
       }
     }
 
-    if (body.bo_cuc_id) {
-      const layout = await layoutsRepository.findById(body.bo_cuc_id, client);
-      if (!layout || layout.don_hang_id !== order.id || layout.trang_thai !== 'generated') {
-        throw errors.validation('bo_cuc_id không hợp lệ cho đơn này', { bo_cuc_id: body.bo_cuc_id });
-      }
-    }
-
     const request = await reprintRepository.create({
       ...body,
       don_hang_id: order.id,
       ip_hash: ipHash(req),
       user_agent: req.get('user-agent')
-    }, client);
-
-    await publicRepository.logLookupEvent({
-      order_id: order.id,
-      action: 'reprint_requested',
-      result: 'success',
-      phone: body.so_dien_thoai,
-      order_code: body.ma_don,
-      success: true,
-      ip_hash: ipHash(req),
-      user_agent: req.get('user-agent'),
-      metadata: { request_id: request.id }
     }, client);
 
     return { ma_yeu_cau: request.id, trang_thai: request.trang_thai };
@@ -208,4 +140,36 @@ async function listPublicCardTypes() {
   };
 }
 
-module.exports = { customerLookup, photoDownloadUrl, createReprintRequest, listPublicCardTypes };
+// Kiểm tra chất lượng ảnh khách gửi (trang đặt lịch) MÀ KHÔNG lưu trữ:
+// phân tích ngay trên buffer trong RAM, trả về feedback đủ/chưa đủ chuẩn ảnh thẻ.
+// Không upload Cloudinary, không ghi DB. AI (Gemini) là tuỳ chọn — thiếu key thì
+// vẫn trả kết quả kiểm tra tất định (độ phân giải/tỉ lệ).
+async function checkPhotoQuality(file, loaiTheId) {
+  if (!file) throw errors.validation('Thiếu ảnh cần kiểm tra', { field: 'file' });
+
+  const cardType = await catalogRepository.findCardType(loaiTheId);
+  if (!cardType || cardType.dang_hoat_dong === false) {
+    throw errors.notFound('Loại ảnh không tồn tại hoặc đã ngừng áp dụng', { field: 'loai_the_id' });
+  }
+
+  let sourceWidthPx = null;
+  let sourceHeightPx = null;
+  try {
+    const meta = await sharp(file.buffer).rotate().metadata();
+    sourceWidthPx = meta.width || null;
+    sourceHeightPx = meta.height || null;
+  } catch (error) {
+    throw errors.validation('Không đọc được ảnh. Vui lòng thử ảnh JPEG/PNG khác.', { field: 'file' });
+  }
+
+  const aiFindings = await googleAiService.assessQuality({
+    imageBuffer: file.buffer,
+    mimeType: file.mimetype,
+    cardType
+  });
+
+  const qc = computeQc({ sourceWidthPx, sourceHeightPx, cardType, aiFindings });
+  return { ...qc, ai_available: Boolean(aiFindings) };
+}
+
+module.exports = { customerLookup, photoDownloadUrl, createReprintRequest, listPublicCardTypes, checkPhotoQuality };

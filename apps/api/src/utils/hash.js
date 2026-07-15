@@ -4,4 +4,8 @@ function sha256(value) {
   return crypto.createHash('sha256').update(value).digest('hex');
 }
 
-module.exports = { sha256 };
+function ipHash(req) {
+  return sha256(req.ip || 'unknown');
+}
+
+module.exports = { sha256, ipHash };

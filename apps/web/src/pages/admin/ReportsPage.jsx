@@ -1,9 +1,7 @@
-import { useMutation, useQuery } from '@tanstack/react-query';
-import { Download } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
-import { Alert, Button, Col, Form, Row, Table } from 'react-bootstrap';
+import { Col, Form, Row, Table } from 'react-bootstrap';
 import {
-  downloadOrdersReportCsv,
   getOrdersReport,
   listCardTypes
 } from '../../api/admin';
@@ -38,7 +36,7 @@ export default function ReportsPage() {
     date_to: filters.date_to || undefined,
     loai_the_id: filters.loai_the_id || undefined,
     nguoi_tao: filters.nguoi_tao || undefined,
-    trang_thai: filters.status || undefined
+    trang_thai: filters.trang_thai || undefined
   };
 
   const reportQuery = useQuery({
@@ -46,19 +44,6 @@ export default function ReportsPage() {
     queryFn: () => getOrdersReport(reportParams)
   });
   const cardTypesQuery = useQuery({ queryKey: ['card-types'], queryFn: listCardTypes });
-
-  const csvMutation = useMutation({
-    mutationFn: () => downloadOrdersReportCsv(reportParams),
-    onSuccess: async (response) => {
-      const blob = await response.blob();
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = 'orders-report.csv';
-      link.click();
-      URL.revokeObjectURL(url);
-    }
-  });
 
   if (reportQuery.isLoading || cardTypesQuery.isLoading) return <LoadingState label="Đang tải báo cáo..." />;
   if (reportQuery.error) return <ErrorState error={reportQuery.error} onRetry={reportQuery.refetch} />;
@@ -72,13 +57,7 @@ export default function ReportsPage() {
       <div className="page-header">
         <div>
           <h1>Báo cáo đơn hàng</h1>
-          <p>Lọc theo thời gian, loại thẻ, nhân viên, trạng thái và xuất CSV phục vụ nghiệm thu/vận hành.</p>
-        </div>
-        <div className="header-actions">
-          <Button variant="outline-primary" onClick={() => csvMutation.mutate()} disabled={csvMutation.isPending}>
-            <Download size={17} aria-hidden="true" />
-            Export CSV
-          </Button>
+          <p>Lọc theo thời gian, loại thẻ, nhân viên, trạng thái phục vụ nghiệm thu/vận hành.</p>
         </div>
       </div>
 
@@ -114,7 +93,7 @@ export default function ReportsPage() {
           <Col md={2}>
             <Form.Group>
               <Form.Label>Trạng thái</Form.Label>
-              <Form.Select value={filters.status} onChange={(event) => setFilters((current) => ({ ...current, trang_thai: event.target.value }))}>
+              <Form.Select value={filters.trang_thai} onChange={(event) => setFilters((current) => ({ ...current, trang_thai: event.target.value }))}>
                 <option value="">Tất cả</option>
                 <option value="pending">pending</option>
                 <option value="processing">processing</option>
@@ -126,10 +105,6 @@ export default function ReportsPage() {
           </Col>
         </Row>
       </section>
-
-      {csvMutation.error ? (
-        <Alert variant="danger">{csvMutation.error.message}</Alert>
-      ) : null}
 
       <Row className="g-3">
         <Col sm={6} xl={3}><div className="summary-box"><span>Tổng đơn</span><strong>{totals.orders}</strong></div></Col>

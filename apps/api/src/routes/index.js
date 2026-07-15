@@ -10,7 +10,6 @@ const customers = require('../controllers/customers.controller');
 const catalog = require('../controllers/catalog.controller');
 const orders = require('../controllers/orders.controller');
 const photos = require('../controllers/photos.controller');
-const layouts = require('../controllers/layouts.controller');
 const reprints = require('../controllers/reprint.controller');
 const admin = require('../controllers/admin.controller');
 const publicController = require('../controllers/public.controller');
@@ -77,17 +76,37 @@ router.get(
 );
 
 router.post(
-  '/public/online-requests',
+  '/public/photos/qc-check',
   publicApiLimiter,
-  upload.array('files'),
-  validate(z.object({ body: schemas.onlineRequestBody })),
-  asyncHandler(intake.submit)
+  upload.single('file'),
+  validate(z.object({ body: schemas.publicQcBody })),
+  asyncHandler(publicController.qcCheck)
 );
 
 router.post(
-  '/public/online-requests/:id/status',
+  '/public/dat-lich-chup',
   publicApiLimiter,
-  validate(z.object({ params: schemas.idParam, body: z.object({ so_dien_thoai: schemas.phone }) })),
+  validate(z.object({ body: schemas.studioBookingBody })),
+  asyncHandler(intake.datLichChup)
+);
+router.get(
+  '/public/khung-gio-chup',
+  publicApiLimiter,
+  validate(z.object({ query: z.object({ ngay_hen: z.coerce.date() }) })),
+  asyncHandler(intake.khungGioChup)
+);
+router.post(
+  '/public/don-gui-anh',
+  publicApiLimiter,
+  upload.array('files'),
+  validate(z.object({ body: schemas.remoteOrderBody })),
+  asyncHandler(intake.guiAnh)
+);
+
+router.post(
+  '/public/online-requests/status',
+  publicApiLimiter,
+  validate(z.object({ body: schemas.publicOnlineStatusBody })),
   asyncHandler(intake.publicStatus)
 );
 
@@ -111,7 +130,6 @@ router.post('/customers', validate(z.object({ body: schemas.customerCreateBody }
 router.patch('/customers/:id', validate(z.object({ params: schemas.idParam, body: schemas.customerUpdateBody })), asyncHandler(customers.update));
 router.patch('/customers/:id/archive', validate(z.object({ params: schemas.idParam, body: z.object({ ly_do: z.string().optional() }).default({}) })), asyncHandler(customers.archive));
 router.get('/customers/:id/photos', validate(paramsId), asyncHandler(customers.photos));
-router.get('/customers/:id/print-layouts', validate(z.object({ params: schemas.idParam, query: schemas.paginationQuery })), asyncHandler(customers.printLayouts));
 
 router.get('/card-types', asyncHandler(catalog.listCardTypes));
 router.post('/card-types', requireRole('admin'), validate(z.object({ body: schemas.cardTypeBody })), asyncHandler(catalog.createCardType));
@@ -139,14 +157,6 @@ router.post('/photos/:id/approve', validate(z.object({ params: schemas.idParam, 
 router.post('/photos/:id/reject', validate(z.object({ params: schemas.idParam, body: schemas.rejectPhotoBody })), asyncHandler(photos.reject));
 router.post('/photos/:id/requalify', validate(z.object({ params: schemas.idParam, body: emptyBody })), asyncHandler(photos.requalify));
 
-router.post('/layouts/validate-config', validate(z.object({ body: schemas.layoutConfigBody })), asyncHandler(layouts.validateConfig));
-router.post('/layouts/preview', validate(z.object({ body: schemas.layoutConfigBody })), asyncHandler(layouts.preview));
-router.post('/layouts/generate', validate(z.object({ body: schemas.layoutGenerateBody })), asyncHandler(layouts.generate));
-router.get('/layouts/:id', validate(paramsId), asyncHandler(layouts.get));
-router.post('/layouts/:id/download-url', validate(z.object({ params: schemas.idParam, body: emptyBody })), asyncHandler(layouts.downloadUrl));
-router.post('/layouts/:id/reprint', validate(z.object({ params: schemas.idParam, body: z.object({ ly_do: z.string().optional() }).default({}) })), asyncHandler(layouts.reprint));
-router.post('/layouts/:id/issues', validate(z.object({ params: schemas.idParam, body: schemas.layoutIssueBody })), asyncHandler(layouts.issue));
-
 router.get('/reprint-requests', validate(listQuery), asyncHandler(reprints.list));
 router.get('/reprint-requests/:id', validate(paramsId), asyncHandler(reprints.get));
 router.patch('/reprint-requests/:id/status', validate(z.object({ params: schemas.idParam, body: schemas.reprintStatusBody })), asyncHandler(reprints.updateStatus));
@@ -159,18 +169,17 @@ router.post('/online-requests/:id/reject', validate(z.object({ params: schemas.i
 router.post('/online-requests/:id/convert', validate(z.object({ params: schemas.idParam, body: schemas.convertRequestBody })), asyncHandler(intake.convert));
 
 router.get('/appointments', validate(z.object({ query: schemas.appointmentListQuery })), asyncHandler(intake.listAppointments));
-router.post('/appointments', validate(z.object({ body: schemas.appointmentCreateBody })), asyncHandler(intake.createAppointment));
 router.patch('/appointments/:id/status', validate(z.object({ params: schemas.idParam, body: schemas.appointmentStatusBody })), asyncHandler(intake.updateAppointmentStatus));
+router.get('/admin/khung-gio-chup', requireRole('admin'), asyncHandler(intake.listCauHinhKhungGio));
+router.patch('/admin/khung-gio-chup/:id', requireRole('admin'), validate(z.object({ params: schemas.idParam, body: schemas.khungGioChupPatchBody })), asyncHandler(intake.capNhatCauHinhKhungGio));
 
 router.get('/notifications', validate(z.object({ query: schemas.notificationListQuery })), asyncHandler(notifications.list));
 
 router.get('/admin/dashboard', requireRole('admin'), asyncHandler(admin.dashboard));
 router.get('/admin/reports/orders', requireRole('admin'), validate(reportQuery), asyncHandler(admin.ordersReport));
-router.get('/admin/reports/orders.csv', requireRole('admin'), validate(reportQuery), asyncHandler(admin.ordersReportCsv));
 router.get('/admin/users', requireRole('admin'), validate(listQuery), asyncHandler(admin.listUsers));
 router.post('/admin/users', requireRole('admin'), validate(z.object({ body: schemas.adminUserCreateBody })), asyncHandler(admin.createUser));
 router.patch('/admin/users/:id', requireRole('admin'), validate(z.object({ params: schemas.idParam, body: schemas.adminUserUpdateBody })), asyncHandler(admin.updateUser));
-router.post('/admin/users/:id/reset-password', requireRole('admin'), validate(z.object({ params: schemas.idParam, body: emptyBody })), asyncHandler(admin.resetPassword));
 router.get('/audit-logs', requireRole('admin'), validate(listQuery), asyncHandler(admin.auditLogs));
 router.post('/admin/maintenance/purge-assets', requireRole('admin'), validate(z.object({ body: emptyBody })), asyncHandler(admin.purgeAssets));
 

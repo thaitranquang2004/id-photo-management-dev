@@ -75,8 +75,8 @@ async function convertToOrder(id, body, context) {
       so_luong: body.so_luong || request.so_luong,
       ngay_hen_lay: body.ngay_hen_lay,
       ghi_chu: body.ghi_chu || `In lại từ đơn ${origOrder.ma_don}`,
-      nguon_don: 'reprint',
-      hinh_thuc_giao: 'pickup'
+      nguon_don: 'in_lai',
+      hinh_thuc_giao: 'lay_hinh_ngay'
     }, context, client);
 
     // Fall back to all approved photos of the original order when the customer
