@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Check, Crop, FileImage, RefreshCw, Send, ShieldCheck, Upload, WandSparkles, X } from 'lucide-react';
+import { Check, Download, FileImage, RefreshCw, Send, ShieldCheck, WandSparkles, X } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import {
   Alert,
@@ -17,12 +17,13 @@ import {
   Tab
 } from 'react-bootstrap';
 import { Link, useParams } from 'react-router-dom';
-import { getOrder, completeOrder, deliverOrder, startOrderProcessing, notifyOrderReady, cancelOrder } from '../../api/orders';
+import { getOrder, completeOrder, deliverOrder, notifyOrderReady, cancelOrder } from '../../api/orders';
 import { listNotifications } from '../../api/notifications';
 import {
   approvePhoto,
   batchProcessPhotos,
   getProcessingJob,
+  getPhotoDownloadUrl,
   rejectPhoto,
   uploadPhotos,
   requalifyPhoto
@@ -43,7 +44,8 @@ import { useToast } from '../../hooks/useToast.jsx';
 
 const PAYMENT_KIND_LABEL = { deposit: 'Đặt cọc', balance: 'Thanh toán', refund: 'Hoàn tiền' };
 
-const terminalJobStatuses = new Set(['completed', 'failed', 'cancelled']);
+const terminalJobStatuses = new Set(['hoan_tat', 'that_bai', 'da_huy']);
+const RAW_PHOTO_APPROVAL_QC_SCORE = 80;
 
 function orderData(queryData) {
   return queryData || { order: null, pricing_snapshot: null, photos: [], appointment: null };
@@ -56,14 +58,19 @@ function photoPreviewUrl(photo) {
     || null;
 }
 
+function canApprovePhoto(photo) {
+  return ['da_xu_ly', 'da_duyet'].includes(photo.trang_thai)
+    || (photo.trang_thai === 'anh_goc' && Number(photo.diem_chat_luong) > RAW_PHOTO_APPROVAL_QC_SCORE);
+}
+
 export default function OrderDetailPage() {
   const { id } = useParams();
   const queryClient = useQueryClient();
   const toast = useToast();
   const [selectedFiles, setSelectedFiles] = useState([]);
-  const [selectedPreviews, setSelectedPreviews] = useState([]);
   const [croppedFlags, setCroppedFlags] = useState([]);
   const [cropIndex, setCropIndex] = useState(null);
+  const [fileInputKey, setFileInputKey] = useState(0);
   const [activeJobId, setActiveJobId] = useState(null);
   const [rejectTarget, setRejectTarget] = useState(null);
   const [rejectReason, setRejectReason] = useState('');
@@ -74,8 +81,6 @@ export default function OrderDetailPage() {
   const [showPayment, setShowPayment] = useState(false);
   const [paymentForm, setPaymentForm] = useState({ loai: 'balance', so_tien: '', hinh_thuc: 'cash', ghi_chu: '' });
   const [refundConfirmed, setRefundConfirmed] = useState(false);
-  const [showDeliver, setShowDeliver] = useState(false);
-  const [deliverReason, setDeliverReason] = useState('');
 
   const orderQuery = useQuery({
     queryKey: ['orders', id],
@@ -86,61 +91,54 @@ export default function OrderDetailPage() {
   const { aspect: cropAspect, label: cropRatioLabel } = cardCropRatio(pricingSnapshot);
   // Ép cắt khổ trước khi upload để đảm bảo chất lượng (chỉ khi đơn có tỷ lệ khổ thẻ).
   const requireCrop = Boolean(cropAspect);
-  const croppedCount = croppedFlags.filter(Boolean).length;
-  const allCropped = selectedFiles.length > 0 && croppedCount === selectedFiles.length;
+
+  function clearSelectedFiles() {
+    setSelectedFiles([]);
+    setCroppedFlags([]);
+    setFileInputKey((key) => key + 1);
+  }
 
   // Chọn ảnh xong tự mở modal cắt cho ảnh đầu tiên (nếu đơn có khổ thẻ).
   function handleSelectFiles(event) {
     const files = Array.from(event.target.files || []);
     setSelectedFiles(files);
     setCroppedFlags(new Array(files.length).fill(false));
-    setCropIndex(files.length > 0 && requireCrop ? 0 : null);
+    if (!files.length) return;
+
+    if (requireCrop) {
+      setCropIndex(0);
+      return;
+    }
+
+    uploadMutation.mutate(files);
   }
 
   // Sau khi cắt 1 ảnh: đánh dấu đã cắt rồi tự nhảy sang ảnh chưa cắt kế tiếp.
   function applyCroppedFile(index, croppedFile) {
-    setSelectedFiles((prev) => prev.map((file, i) => (i === index ? croppedFile : file)));
+    const nextFiles = selectedFiles.map((file, i) => (i === index ? croppedFile : file));
     const nextFlags = croppedFlags.slice();
     nextFlags[index] = true;
+    setSelectedFiles(nextFiles);
     setCroppedFlags(nextFlags);
     const nextIndex = nextFlags.findIndex((done) => !done);
-    setCropIndex(nextIndex === -1 ? null : nextIndex);
+    if (nextIndex === -1) {
+      setCropIndex(null);
+      uploadMutation.mutate(nextFiles);
+      return;
+    }
+    setCropIndex(nextIndex);
   }
 
   const notificationsQuery = useQuery({
     queryKey: ['notifications', 'order', id],
     queryFn: () => listNotifications({ don_hang_id: id, limit: 20 })
   });
-  const approvedPhotos = useMemo(() => photos.filter((photo) => photo.trang_thai === 'approved'), [photos]);
-  const pendingAiPhotos = useMemo(() => photos.filter((photo) => photo.trang_thai === 'raw'), [photos]);
+  const approvedPhotos = useMemo(() => photos.filter((photo) => photo.trang_thai === 'da_duyet'), [photos]);
 
-  useEffect(() => {
-    const previews = selectedFiles.map((file) => ({
-      name: file.name,
-      size: file.size,
-      url: URL.createObjectURL(file)
-    }));
-    setSelectedPreviews(previews);
-    return () => previews.forEach((preview) => URL.revokeObjectURL(preview.url));
-  }, [selectedFiles]);
-
-  const processMutation = useMutation({
-    mutationFn: () => batchProcessPhotos({
+  const processPhotoMutation = useMutation({
+    mutationFn: (photoId) => batchProcessPhotos({
       don_hang_id: id,
-      danh_sach_anh_id: pendingAiPhotos.map((photo) => photo.id),
-      nha_cung_cap: 'google_ai',
-      kiem_tra_nghiem_ngat: false
-    }),
-    onSuccess: (result) => {
-      if (result.job?.id) setActiveJobId(result.job.id);
-      queryClient.invalidateQueries({ queryKey: ['orders', id] });
-    }
-  });
-
-  const autoProcessMutation = useMutation({
-    mutationFn: (photoIds) => batchProcessPhotos({
-      don_hang_id: id,
-      danh_sach_anh_id: photoIds,
+      danh_sach_anh_id: [photoId],
       nha_cung_cap: 'google_ai',
       kiem_tra_nghiem_ngat: false
     }),
@@ -151,15 +149,11 @@ export default function OrderDetailPage() {
   });
 
   const uploadMutation = useMutation({
-    mutationFn: () => uploadPhotos(id, selectedFiles),
-    onSuccess: (result) => {
-      const uploadedPhotos = result.photos || [];
-      setSelectedFiles([]);
-      setCroppedFlags([]);
+    mutationFn: (files) => uploadPhotos(id, files),
+    onSuccess: () => {
+      clearSelectedFiles();
       queryClient.invalidateQueries({ queryKey: ['orders', id] });
-      if (uploadedPhotos.length > 0) {
-        autoProcessMutation.mutate(uploadedPhotos.map((photo) => photo.id));
-      }
+      toast.success('Đã upload ảnh. Chọn từng ảnh để xử lý AI khi sẵn sàng.');
     }
   });
 
@@ -188,6 +182,13 @@ export default function OrderDetailPage() {
     }
   });
 
+  const downloadPhotoMutation = useMutation({
+    mutationFn: (photoId) => getPhotoDownloadUrl(photoId),
+    onSuccess: (result) => {
+      if (result.signed_url) window.open(result.signed_url, '_blank', 'noopener,noreferrer');
+    }
+  });
+
   const rejectMutation = useMutation({
     mutationFn: ({ photoId, ly_do }) => rejectPhoto(photoId, ly_do),
     onSuccess: () => {
@@ -204,14 +205,6 @@ export default function OrderDetailPage() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['orders', id] })
   });
 
-  const startMutation = useMutation({
-    mutationFn: () => startOrderProcessing(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['orders', id] });
-      toast.success('Đã bắt đầu xử lý đơn');
-    }
-  });
-
   const completeMutation = useMutation({
     mutationFn: () => completeOrder(id),
     onSuccess: () => {
@@ -221,10 +214,8 @@ export default function OrderDetailPage() {
   });
 
   const deliverMutation = useMutation({
-    mutationFn: () => deliverOrder(id, balance > 0 ? { allow_unpaid_reason: deliverReason } : {}),
+    mutationFn: () => deliverOrder(id),
     onSuccess: () => {
-      setShowDeliver(false);
-      setDeliverReason('');
       queryClient.invalidateQueries({ queryKey: ['orders', id] });
       queryClient.invalidateQueries({ queryKey: ['notifications', 'order', id] });
       toast.success('Đã giao đơn');
@@ -237,7 +228,7 @@ export default function OrderDetailPage() {
       if (result?.lookup_url) setLookupUrl(result.lookup_url);
       queryClient.invalidateQueries({ queryKey: ['orders', id] });
       queryClient.invalidateQueries({ queryKey: ['notifications', 'order', id] });
-      toast.success('Đã báo khách đơn sẵn sàng');
+      toast.success(result?.order?.trang_thai === 'hoan_tat' ? 'Đã gửi link và hoàn tất đơn' : 'Đã gửi link cho khách');
     }
   });
 
@@ -282,7 +273,7 @@ export default function OrderDetailPage() {
   const totalAmount = Number(order.tong_tien || 0);
   const amountPaid = Number(order.da_thanh_toan || 0);
   const balance = totalAmount - amountPaid;
-  const isAiProcessing = autoProcessMutation.isPending || processMutation.isPending;
+  const isAiProcessing = processPhotoMutation.isPending;
   const isPhotoPipelineActive = uploadMutation.isPending || isAiProcessing;
   const progressValue = uploadMutation.isPending ? 35 : isAiProcessing ? 82 : 100;
   const progressLabel = uploadMutation.isPending ? 'Đang upload ảnh...' : isAiProcessing ? 'AI đang xử lý ảnh...' : 'Hoàn tất';
@@ -296,6 +287,9 @@ export default function OrderDetailPage() {
 
   return (
     <div className="page-stack">
+      <Row className="g-4 order-detail-layout">
+        <Col xxl={4}>
+          <aside className="order-detail-sidebar">
       <div className="page-header">
         <div>
           <div className="breadcrumb-line">
@@ -305,42 +299,35 @@ export default function OrderDetailPage() {
           </div>
           <h1>Đơn {order.ma_don}</h1>
           <p>{order.ten_khach_hang} · {order.sdt_khach_hang} · {order.ten_loai_the}</p>
-          <div className="d-flex gap-2 mt-1">
+          <div className="order-detail-meta mt-1">
             <Badge bg={order.nguon_don === 'gui_anh_tu_xa' ? 'info' : 'secondary'} text={order.nguon_don === 'gui_anh_tu_xa' ? 'dark' : undefined}>
               {order.nguon_don === 'gui_anh_tu_xa' ? 'Khách gửi ảnh' : order.nguon_don === 'in_lai' ? 'In lại' : 'Tại tiệm'}
             </Badge>
             <Badge bg="light" text="dark">
               {order.hinh_thuc_giao === 'lay_file_truc_tuyen' ? 'Lấy file trực tuyến' : order.hinh_thuc_giao === 'hen_lay_hinh' ? 'Hẹn lấy hình' : 'Lấy hình ngay'}
             </Badge>
+            <OrderStatusBadge status={order.trang_thai} />
           </div>
         </div>
-        <div className="header-actions">
-          <OrderStatusBadge status={order.trang_thai} />
-          <Button
-            variant="outline-primary"
-            onClick={() => startMutation.mutate()}
-            disabled={startMutation.isPending || order.trang_thai !== 'pending'}
-          >
-            Bắt đầu xử lý
-          </Button>
+        <div className="header-actions order-detail-status-actions">
           <Button
             variant="outline-success"
             onClick={() => completeMutation.mutate()}
-            disabled={completeMutation.isPending || order.trang_thai === 'completed' || !canComplete}
+            disabled={completeMutation.isPending || order.trang_thai === 'hoan_tat' || !canComplete}
           >
             Hoàn tất
           </Button>
           <Button
             variant="outline-secondary"
-            onClick={() => { if (balance > 0) setShowDeliver(true); else deliverMutation.mutate(); }}
-            disabled={deliverMutation.isPending || order.trang_thai !== 'completed'}
+            onClick={() => deliverMutation.mutate()}
+            disabled={deliverMutation.isPending || order.trang_thai !== 'hoan_tat' || balance > 0}
           >
             Đã giao
           </Button>
           <Button
             variant="outline-danger"
             onClick={() => setShowCancel(true)}
-            disabled={order.trang_thai === 'delivered' || order.trang_thai === 'cancelled'}
+            disabled={order.trang_thai === 'da_giao' || order.trang_thai === 'da_huy'}
           >
             Huỷ đơn
           </Button>
@@ -348,10 +335,10 @@ export default function OrderDetailPage() {
       </div>
 
       <Row className="g-3">
-        <Col md={3}><div className="summary-box"><span>Tổng tiền</span><strong>{formatCurrency(order.tong_tien)}</strong></div></Col>
-        <Col md={3}><div className="summary-box"><span>Số lượng</span><strong>{order.so_luong}</strong></div></Col>
-        <Col md={3}><div className="summary-box"><span>Ngày hẹn</span><strong>{order.ngay_hen_lay ? formatDate(order.ngay_hen_lay) : '-'}</strong></div></Col>
-        <Col md={3}><div className="summary-box"><span>Ngày tạo</span><strong>{formatDate(order.ngay_tao)}</strong></div></Col>
+        <Col sm={6}><div className="summary-box"><span>Tổng tiền</span><strong>{formatCurrency(order.tong_tien)}</strong></div></Col>
+        <Col sm={6}><div className="summary-box"><span>Số lượng</span><strong>{order.hinh_thuc_giao === 'lay_file_truc_tuyen' ? 'Không áp dụng' : order.so_luong}</strong></div></Col>
+        <Col sm={6}><div className="summary-box"><span>Ngày hẹn</span><strong>{order.ngay_hen_lay ? formatDate(order.ngay_hen_lay) : '-'}</strong></div></Col>
+        <Col sm={6}><div className="summary-box"><span>Ngày tạo</span><strong>{formatDate(order.ngay_tao)}</strong></div></Col>
       </Row>
 
       <section className="app-panel">
@@ -360,13 +347,18 @@ export default function OrderDetailPage() {
           <PaymentStatusBadge total={totalAmount} paid={amountPaid} />
         </div>
         <Row className="g-3">
-          <Col sm={4}><div className="summary-box"><span>Tổng tiền</span><strong>{formatCurrency(totalAmount)}</strong></div></Col>
-          <Col sm={4}><div className="summary-box"><span>Đã thu</span><strong>{formatCurrency(amountPaid)}</strong></div></Col>
-          <Col sm={4}><div className="summary-box"><span>Còn lại</span><strong>{formatCurrency(balance)}</strong></div></Col>
+          <Col xs={12}><div className="summary-box"><span>Tổng tiền</span><strong>{formatCurrency(totalAmount)}</strong></div></Col>
+          <Col xs={12}><div className="summary-box"><span>Đã thu</span><strong>{formatCurrency(amountPaid)}</strong></div></Col>
+          <Col xs={12}><div className="summary-box"><span>Còn lại</span><strong>{formatCurrency(balance)}</strong></div></Col>
         </Row>
         <div className="mt-3">
           <Button variant="outline-primary" onClick={openPayment}>Ghi nhận thanh toán</Button>
         </div>
+        {order.trang_thai === 'hoan_tat' && balance > 0 ? (
+          <Alert variant="warning" className="mt-3 mb-0">
+            Cần thu đủ {formatCurrency(balance)} còn lại trước khi giao đơn.
+          </Alert>
+        ) : null}
         {payments.length > 0 ? (
           <div className="table-responsive mt-3">
             <Table hover className="align-middle data-table">
@@ -392,12 +384,17 @@ export default function OrderDetailPage() {
         ) : null}
       </section>
 
-      {(startMutation.error || completeMutation.error || deliverMutation.error) ? (
+      {(completeMutation.error || deliverMutation.error) ? (
         <Alert variant="danger">
-          {(startMutation.error || completeMutation.error || deliverMutation.error).message}
+          {(completeMutation.error || deliverMutation.error).message}
         </Alert>
       ) : null}
 
+          </aside>
+        </Col>
+
+        <Col xxl={8}>
+          <main className="order-detail-workspace">
       <Tabs defaultActiveKey="photos" className="work-tabs">
         <Tab eventKey="photos" title="Ảnh & AI">
           <section className="app-panel">
@@ -410,15 +407,16 @@ export default function OrderDetailPage() {
               <ShieldCheck size={18} aria-hidden="true" className="mt-1 flex-shrink-0" />
               <span>
                 <strong>AI chỉ hỗ trợ an toàn:</strong> tách/đổi nền, căn chỉnh khung và chuẩn sáng.
-                Khuôn mặt và nhận dạng được giữ nguyên (yêu cầu pháp lý với ảnh thẻ). Nhân viên luôn duyệt lại trước khi dùng.
+                Khuôn mặt và nhận dạng được giữ nguyên.
               </span>
             </Alert>
 
-            <Row className="g-3 align-items-end">
-              <Col lg={7}>
+            <Row className="g-3 align-items-end mb-3">
+              <Col lg={12}>
                 <Form.Group controlId="photo-upload">
                   <Form.Label>Chọn nhiều ảnh</Form.Label>
                   <Form.Control
+                    key={fileInputKey}
                     type="file"
                     accept="image/*"
                     multiple
@@ -427,85 +425,40 @@ export default function OrderDetailPage() {
                   />
                 </Form.Group>
               </Col>
-              <Col lg={5} className="d-flex gap-2 flex-wrap">
-                <Button
-                  onClick={() => uploadMutation.mutate()}
-                  disabled={isPhotoPipelineActive || selectedFiles.length === 0 || (requireCrop && !allCropped)}
-                >
-                  <Upload size={17} aria-hidden="true" />
-                  Upload & xử lý AI
-                </Button>
-                {pendingAiPhotos.length > 0 ? (
-                  <Button
-                    variant="outline-primary"
-                    onClick={() => processMutation.mutate()}
-                    disabled={isPhotoPipelineActive || pendingAiPhotos.length === 0}
-                  >
-                    <WandSparkles size={17} aria-hidden="true" />
-                    Xử lý ảnh còn lại
-                  </Button>
-                ) : null}
-              </Col>
             </Row>
-
-            {selectedPreviews.length > 0 ? (
-              <div className="selected-preview-grid">
-                {selectedPreviews.map((preview, index) => (
-                  <div className="selected-preview" key={`${preview.name}-${preview.size}`}>
-                    <img src={preview.url} alt={`Preview ${preview.name}`} />
-                    {requireCrop ? (
-                      <Badge bg={croppedFlags[index] ? 'success' : 'warning'} text={croppedFlags[index] ? undefined : 'dark'} className="selected-preview-badge">
-                        {croppedFlags[index] ? 'Đã cắt' : 'Chưa cắt'}
-                      </Badge>
-                    ) : null}
-                    <div className="selected-preview-foot">
-                      <span className="selected-preview-name" title={preview.name}>{preview.name}</span>
-                      <Button
-                        size="sm"
-                        variant={requireCrop && !croppedFlags[index] ? 'warning' : 'outline-secondary'}
-                        className="selected-preview-crop"
-                        onClick={() => setCropIndex(index)}
-                        disabled={isPhotoPipelineActive}
-                      >
-                        <Crop size={14} aria-hidden="true" />
-                        {croppedFlags[index] ? 'Cắt lại' : `Cắt khổ ${cropRatioLabel || 'ảnh'}`}
-                      </Button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : null}
-
-            {requireCrop && selectedFiles.length > 0 && !allCropped ? (
-              <Alert variant="warning" className="mt-2 mb-0 d-flex gap-2 align-items-start">
-                <Crop size={16} aria-hidden="true" className="mt-1 flex-shrink-0" />
-                <span>Cần cắt khổ {cropRatioLabel} cho tất cả ảnh trước khi upload ({croppedCount}/{selectedFiles.length} đã cắt).</span>
-              </Alert>
-            ) : null}
 
             {isPhotoPipelineActive ? (
               <div className="pipeline-progress">
                 <div>
                   <strong>{progressLabel}</strong>
-                  <span>Không cần bấm xử lý AI sau khi upload. Hệ thống sẽ refetch đơn khi xong.</span>
+                  <span>Hệ thống sẽ cập nhật ảnh sau khi hoàn tất thao tác.</span>
                 </div>
                 <ProgressBar animated now={progressValue} label={`${progressValue}%`} />
               </div>
             ) : null}
-            {uploadMutation.error ? <Alert variant="danger" className="mt-3">{uploadMutation.error.message}</Alert> : null}
-            {(autoProcessMutation.error || processMutation.error) ? (
+            {uploadMutation.error ? (
+              <Alert variant="danger" className="mt-3 d-flex justify-content-between align-items-center gap-3">
+                <span>{uploadMutation.error.message}</span>
+                {selectedFiles.length > 0 ? (
+                  <Button size="sm" variant="outline-danger" onClick={() => uploadMutation.mutate(selectedFiles)}>
+                    Thử lại upload
+                  </Button>
+                ) : null}
+              </Alert>
+            ) : null}
+            {processPhotoMutation.error ? (
               <Alert variant="danger" className="mt-3">
-                {(autoProcessMutation.error || processMutation.error).message}
+                {processPhotoMutation.error.message}
               </Alert>
             ) : null}
             {jobQuery.data?.job ? (
-              <Alert variant={jobQuery.data.job.trang_thai === 'failed' ? 'danger' : 'info'} className="mt-3">
+              <Alert variant={jobQuery.data.job.trang_thai === 'that_bai' ? 'danger' : 'info'} className="mt-3">
                 Job xử lý ảnh: <strong>{jobQuery.data.job.trang_thai}</strong>
               </Alert>
             ) : null}
 
             {photos.length === 0 ? (
-              <EmptyState title="Chưa có ảnh" description="Upload ảnh gốc để bắt đầu xử lý AI." />
+              <EmptyState title="Chưa có ảnh" description="Upload ảnh gốc đã cắt để đưa vào danh sách chờ xử lý." />
             ) : (
               <div className="photo-card-grid mt-3">
                 {photos.map((photo) => (
@@ -548,8 +501,16 @@ export default function OrderDetailPage() {
                     <div className="photo-card-actions">
                       <Button
                         size="sm"
+                        variant="outline-primary"
+                        disabled={processPhotoMutation.isPending || photo.trang_thai !== 'anh_goc'}
+                        onClick={() => processPhotoMutation.mutate(photo.id)}
+                      >
+                        <WandSparkles size={15} aria-hidden="true" /> Xử lý AI
+                      </Button>
+                      <Button
+                        size="sm"
                         variant="outline-success"
-                        disabled={approveMutation.isPending || !['processed', 'approved'].includes(photo.trang_thai)}
+                        disabled={approveMutation.isPending || !canApprovePhoto(photo)}
                         onClick={() => approveMutation.mutate(photo.id)}
                       >
                         <Check size={15} aria-hidden="true" /> Duyệt
@@ -557,7 +518,7 @@ export default function OrderDetailPage() {
                       <Button
                         size="sm"
                         variant="outline-danger"
-                        disabled={rejectMutation.isPending || photo.trang_thai === 'rejected'}
+                        disabled={rejectMutation.isPending || photo.trang_thai === 'tu_choi'}
                         onClick={() => setRejectTarget(photo)}
                       >
                         <X size={15} aria-hidden="true" /> Từ chối
@@ -565,10 +526,20 @@ export default function OrderDetailPage() {
                       <Button
                         size="sm"
                         variant="outline-info"
-                        disabled={requalifyMutation.isPending || photo.trang_thai === 'processing' || isPhotoPipelineActive}
+                        disabled={requalifyMutation.isPending || photo.trang_thai === 'dang_xu_ly' || isPhotoPipelineActive}
                         onClick={() => requalifyMutation.mutate(photo.id)}
                       >
                         <RefreshCw size={15} aria-hidden="true" /> QC
+                      </Button>
+                      <Button
+                        size="sm"
+                        className="photo-card-download"
+                        variant="outline-secondary"
+                        disabled={!photoPreviewUrl(photo) || (downloadPhotoMutation.isPending && downloadPhotoMutation.variables === photo.id)}
+                        onClick={() => downloadPhotoMutation.mutate(photo.id)}
+                      >
+                        <Download size={15} aria-hidden="true" />
+                        {downloadPhotoMutation.isPending && downloadPhotoMutation.variables === photo.id ? 'Đang tạo file...' : 'Tải ảnh'}
                       </Button>
                     </div>
                   </div>
@@ -582,11 +553,11 @@ export default function OrderDetailPage() {
           <section className="app-panel">
             <div className="section-title">
               <h2>Sắp xếp &amp; In layout (A4)</h2>
-              <Badge bg="success">{approvedPhotos.length} ảnh approved</Badge>
+              <Badge bg="success">{approvedPhotos.length} ảnh đã duyệt</Badge>
             </div>
 
             {approvedPhotos.length === 0 ? (
-              <EmptyState title="Chưa có ảnh approved" description="Chỉ ảnh đã duyệt mới được dàn lên layout." />
+              <EmptyState title="Chưa có ảnh đã duyệt" description="Chỉ ảnh đã duyệt mới được dàn lên layout." />
             ) : (
               <LayoutComposer
                 photos={approvedPhotos.map((p) => ({ id: p.id, url: photoPreviewUrl(p) }))}
@@ -616,8 +587,14 @@ export default function OrderDetailPage() {
                   <tbody>
                     <tr><th>Loại thẻ</th><td>{pricingSnapshot?.ten_loai_the || order.ten_loai_the}</td></tr>
                     <tr><th>Kích thước</th><td>{pricingSnapshot ? `${pricingSnapshot.rong_mm} x ${pricingSnapshot.cao_mm} mm` : '-'}</td></tr>
-                    <tr><th>Giá mỗi bản</th><td>{formatCurrency(pricingSnapshot?.gia_moi_ban)}</td></tr>
-                    <tr><th>Phí xử lý</th><td>{formatCurrency(pricingSnapshot?.phi_xu_ly)}</td></tr>
+                    {pricingSnapshot?.gia_file_truc_tuyen !== null && pricingSnapshot?.gia_file_truc_tuyen !== undefined ? (
+                      <tr><th>Giá file trực tuyến</th><td>{formatCurrency(pricingSnapshot.gia_file_truc_tuyen)} / đơn</td></tr>
+                    ) : (
+                      <>
+                        <tr><th>Giá mỗi bản</th><td>{formatCurrency(pricingSnapshot?.gia_moi_ban)}</td></tr>
+                        <tr><th>Phí xử lý</th><td>{formatCurrency(pricingSnapshot?.phi_xu_ly)}</td></tr>
+                      </>
+                    )}
                   </tbody>
                 </Table>
               </Col>
@@ -641,13 +618,17 @@ export default function OrderDetailPage() {
               <Col md={6}>
                 <Button
                   variant="outline-primary"
-                  disabled={notifyReadyMutation.isPending}
+                  disabled={notifyReadyMutation.isPending || approvedPhotos.length === 0 || order.trang_thai === 'da_huy'}
                   onClick={() => notifyReadyMutation.mutate()}
                 >
                   <Send size={16} aria-hidden="true" />
                   Gửi link cho khách
                 </Button>
-                <p className="text-muted small mt-2">Tạo link tra cứu (SĐT + mã đơn) và gửi email/Zalo (mô phỏng) cho khách.</p>
+                <p className="text-muted small mt-2">
+                  {approvedPhotos.length === 0
+                    ? 'Cần duyệt ít nhất một ảnh trước khi gửi link.'
+                    : 'Gửi link tra cứu (SĐT + mã đơn) qua email/Zalo (mô phỏng) và chuyển đơn sang Hoàn tất.'}
+                </p>
                 {lookupUrl ? (
                   <Alert variant="success" className="mt-2">
                     Link tra cứu: <a href={lookupUrl} target="_blank" rel="noopener noreferrer">{lookupUrl}</a>
@@ -681,6 +662,9 @@ export default function OrderDetailPage() {
           </section>
         </Tab>
       </Tabs>
+          </main>
+        </Col>
+      </Row>
 
       <Modal show={Boolean(rejectTarget)} onHide={() => setRejectTarget(null)} centered>
         <Modal.Header closeButton>
@@ -742,39 +726,6 @@ export default function OrderDetailPage() {
             onClick={() => cancelMutation.mutate()}
           >
             Xác nhận huỷ
-          </Button>
-        </Modal.Footer>
-      </Modal>
-
-      <Modal show={showDeliver} onHide={() => setShowDeliver(false)} centered>
-        <Modal.Header closeButton>
-          <Modal.Title>Giao đơn khi chưa thu đủ</Modal.Title>
-        </Modal.Header>
-        <Modal.Body>
-          <Alert variant="warning">
-            Đơn còn nợ <strong>{formatCurrency(balance)}</strong> (đã thu {formatCurrency(amountPaid)}/{formatCurrency(totalAmount)}).
-            Nhập lý do giao nợ để tiếp tục, hoặc đóng lại để thu thêm tiền trước.
-          </Alert>
-          <Form.Group>
-            <Form.Label>Lý do giao nợ</Form.Label>
-            <Form.Control
-              as="textarea"
-              rows={2}
-              value={deliverReason}
-              onChange={(event) => setDeliverReason(event.target.value)}
-              autoFocus
-            />
-          </Form.Group>
-          {deliverMutation.error ? <Alert variant="danger" className="mt-3">{deliverMutation.error.message}</Alert> : null}
-        </Modal.Body>
-        <Modal.Footer>
-          <Button variant="outline-secondary" onClick={() => setShowDeliver(false)}>Đóng</Button>
-          <Button
-            variant="secondary"
-            disabled={!deliverReason.trim() || deliverMutation.isPending}
-            onClick={() => deliverMutation.mutate()}
-          >
-            Xác nhận giao nợ
           </Button>
         </Modal.Footer>
       </Modal>
@@ -908,7 +859,10 @@ export default function OrderDetailPage() {
           aspect={cropAspect}
           ratioLabel={cropRatioLabel}
           onConfirm={(croppedFile) => applyCroppedFile(cropIndex, croppedFile)}
-          onClose={() => setCropIndex(null)}
+          onClose={() => {
+            setCropIndex(null);
+            clearSelectedFiles();
+          }}
         />
       ) : null}
     </div>

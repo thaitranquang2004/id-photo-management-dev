@@ -104,7 +104,7 @@ async function approvedPhotos(customerId, client) {
             o.ma_don
      from public.anh p
      join public.don_hang o on o.id = p.don_hang_id
-     where o.khach_hang_id = $1 and p.trang_thai = 'approved'
+     where o.khach_hang_id = $1 and p.trang_thai = 'da_duyet'
      order by p.ngay_tao desc
      limit 100`,
     [customerId],

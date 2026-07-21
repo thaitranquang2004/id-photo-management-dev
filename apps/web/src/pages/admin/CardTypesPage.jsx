@@ -11,6 +11,7 @@ import {
 import EmptyState from '../../components/feedback/EmptyState.jsx';
 import ErrorState from '../../components/feedback/ErrorState.jsx';
 import LoadingState from '../../components/feedback/LoadingState.jsx';
+import ConfirmDialog from '../../components/feedback/ConfirmDialog.jsx';
 import { formatCurrency } from '../../utils/format';
 import { useFormErrors } from '../../hooks/useFormErrors.js';
 
@@ -55,6 +56,7 @@ export default function CardTypesPage() {
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(emptyForm);
   const [formError, setFormError] = useState('');
+  const [archiveTarget, setArchiveTarget] = useState(null);
   const { errors, setErrors, clearError, validate } = useFormErrors();
   const query = useQuery({
     queryKey: ['card-types'],
@@ -74,7 +76,11 @@ export default function CardTypesPage() {
 
   const archiveMutation = useMutation({
     mutationFn: archiveCardType,
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['card-types'] })
+    onSuccess: () => {
+      setArchiveTarget(null);
+      queryClient.invalidateQueries({ queryKey: ['card-types'] });
+      queryClient.invalidateQueries({ queryKey: ['pricing'] });
+    }
   });
 
   function openModal(cardType = null) {
@@ -160,7 +166,7 @@ export default function CardTypesPage() {
                           size="sm"
                           variant="outline-danger"
                           disabled={archiveMutation.isPending}
-                          onClick={() => archiveMutation.mutate(cardType.id)}
+                          onClick={() => setArchiveTarget(cardType)}
                         >
                           <Archive size={15} aria-hidden="true" />
                           Archive
@@ -174,6 +180,17 @@ export default function CardTypesPage() {
           </div>
         )}
       </section>
+
+      <ConfirmDialog
+        show={Boolean(archiveTarget)}
+        title="Archive loại thẻ?"
+        message={archiveTarget ? `Bạn có chắc muốn archive “${archiveTarget.ten}”? Loại thẻ sẽ không còn dùng để tạo đơn mới. Các mức giá hiện hành sẽ được dừng hiệu lực từ hôm nay, nhưng lịch sử giá và tên loại thẻ vẫn được giữ lại.` : ''}
+        confirmLabel="Archive loại thẻ"
+        variant="danger"
+        loading={archiveMutation.isPending}
+        onConfirm={() => archiveTarget && archiveMutation.mutate(archiveTarget.id)}
+        onCancel={() => { if (!archiveMutation.isPending) setArchiveTarget(null); }}
+      />
 
       <Modal show={showModal} onHide={() => { setShowModal(false); setEditing(null); setForm(emptyForm); }} size="lg" centered>
         <Modal.Header closeButton>

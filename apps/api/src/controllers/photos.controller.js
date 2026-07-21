@@ -18,6 +18,10 @@ async function get(req, res) {
   return sendSuccess(res, await photoService.getPhoto(req.validated.params.id));
 }
 
+async function downloadUrl(req, res) {
+  return sendSuccess(res, await photoService.getPhotoDownloadUrl(req.validated.params.id));
+}
+
 async function approve(req, res) {
   return sendSuccess(res, await photoService.approvePhoto(req.validated.params.id, requestContext(req)));
 }
@@ -30,4 +34,4 @@ async function requalify(req, res) {
   return sendSuccess(res, await photoService.requalifyPhoto(req.validated.params.id, requestContext(req)));
 }
 
-module.exports = { create, batchProcess, getJob, get, approve, reject, requalify };
+module.exports = { create, batchProcess, getJob, get, downloadUrl, approve, reject, requalify };

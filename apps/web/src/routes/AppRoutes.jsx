@@ -16,6 +16,8 @@ import AppointmentsPage from '../pages/staff/AppointmentsPage.jsx';
 import CustomerDetailPage from '../pages/staff/CustomerDetailPage.jsx';
 import NewOrderPage from '../pages/staff/NewOrderPage.jsx';
 import OrderDetailPage from '../pages/staff/OrderDetailPage.jsx';
+import OrdersPage from '../pages/staff/OrdersPage.jsx';
+import OnlineRequestsPage from '../pages/staff/OnlineRequestsPage.jsx';
 import ReprintRequestsPage from '../pages/staff/ReprintRequestsPage.jsx';
 import StaffDashboard from '../pages/staff/StaffDashboard.jsx';
 import ProtectedRoute from './ProtectedRoute.jsx';
@@ -35,10 +37,12 @@ export default function AppRoutes() {
         <Route element={<AppShell />}>
           <Route element={<RoleRoute allowedRoles={['staff', 'admin']} />}>
             <Route path="/staff" element={<StaffDashboard />} />
+            <Route path="/staff/orders" element={<OrdersPage />} />
+            <Route path="/staff/online-requests" element={<OnlineRequestsPage />} />
             <Route path="/staff/orders/new" element={<NewOrderPage />} />
             <Route path="/staff/orders/:id" element={<OrderDetailPage />} />
             <Route path="/staff/customers/:id" element={<CustomerDetailPage />} />
-            <Route path="/staff/inbox" element={<Navigate to="/staff/appointments" replace />} />
+            <Route path="/staff/inbox" element={<Navigate to="/staff/online-requests" replace />} />
             <Route path="/staff/appointments" element={<AppointmentsPage />} />
             <Route path="/staff/reprints" element={<ReprintRequestsPage />} />
           </Route>

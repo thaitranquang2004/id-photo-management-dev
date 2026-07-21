@@ -43,19 +43,6 @@ const templates = {
       outro: 'Bạn vui lòng liên hệ tiệm để được hỗ trợ thêm. Cảm ơn bạn!'
     }),
 
-  appointment_confirmed: (p) =>
-    build({
-      subject: 'Lịch hẹn của bạn đã được xác nhận',
-      title: 'Lịch hẹn đã được xác nhận',
-      greeting: `Chào ${p.customer_name || 'bạn'},`,
-      intro: ['Tiệm đã xác nhận lịch hẹn của bạn với thông tin sau:'],
-      meta: [
-        ...(p.preferred_date ? [{ label: 'Ngày hẹn', value: p.preferred_date }] : []),
-        ...(p.time_slot ? [{ label: 'Khung giờ', value: p.time_slot }] : [])
-      ],
-      outro: 'Vui lòng đến đúng giờ. Cảm ơn bạn!'
-    }),
-
   photos_ready: (p) =>
     build({
       subject: `Ảnh thẻ đơn ${p.order_code || ''} đã sẵn sàng`,

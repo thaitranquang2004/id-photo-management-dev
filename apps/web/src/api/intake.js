@@ -18,15 +18,6 @@ export async function getKhungGioChup(ngay_hen) {
   return apiData('/public/khung-gio-chup', { query: { ngay_hen } });
 }
 
-export async function guiAnhTuXa({ fields, files }) {
-  const formData = new FormData();
-  Object.entries(fields || {}).forEach(([key, value]) => {
-    if (value !== undefined && value !== null && value !== '') formData.set(key, value);
-  });
-  (files || []).forEach((file) => formData.append('files', file));
-  return apiData('/public/don-gui-anh', { method: 'POST', body: formData });
-}
-
 // Public, no-login. Customer lists all their online requests by phone.
 export async function getOnlineRequestStatus(phone) {
   return apiData('/public/online-requests/status', {

@@ -26,11 +26,21 @@ async function createPricing(req, res) {
   return sendSuccess(res, await catalogService.createPricing(req.validated.body, requestContext(req)), null, 201);
 }
 
+async function listOnlineFilePricing(req, res) {
+  return sendSuccess(res, await catalogService.listOnlineFilePricing());
+}
+
+async function createOnlineFilePricing(req, res) {
+  return sendSuccess(res, await catalogService.createOnlineFilePricing(req.validated.body, requestContext(req)), null, 201);
+}
+
 module.exports = {
   listCardTypes,
   createCardType,
   updateCardType,
   archiveCardType,
   listPricing,
-  createPricing
+  createPricing,
+  listOnlineFilePricing,
+  createOnlineFilePricing
 };

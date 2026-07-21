@@ -1,11 +1,11 @@
 import { Badge } from 'react-bootstrap';
 
 const STATUS_MAP = {
-  pending: { label: 'Chờ xử lý', bg: 'warning', text: 'dark' },
-  processing: { label: 'Đang xử lý', bg: 'primary' },
-  completed: { label: 'Hoàn thành', bg: 'success' },
-  delivered: { label: 'Đã giao', bg: 'secondary' },
-  cancelled: { label: 'Đã hủy', bg: 'danger' }
+  cho_xu_ly: { label: 'Chờ xử lý', bg: 'warning', text: 'dark' },
+  dang_xu_ly: { label: 'Đang xử lý', bg: 'primary' },
+  hoan_tat: { label: 'Hoàn thành', bg: 'success' },
+  da_giao: { label: 'Đã giao', bg: 'secondary' },
+  da_huy: { label: 'Đã hủy', bg: 'danger' }
 };
 
 export default function OrderStatusBadge({ status }) {

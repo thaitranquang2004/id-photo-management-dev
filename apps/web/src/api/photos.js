@@ -15,6 +15,10 @@ export async function getProcessingJob(id) {
   return apiData(`/processing-jobs/${id}`);
 }
 
+export async function getPhotoDownloadUrl(id) {
+  return apiData(`/photos/${id}/download-url`, { method: 'POST', body: {} });
+}
+
 export async function approvePhoto(id, notes = '') {
   return apiData(`/photos/${id}/approve`, { method: 'POST', body: { ghi_chu: notes } });
 }

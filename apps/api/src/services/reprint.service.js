@@ -11,11 +11,11 @@ const { errors } = require('../utils/app-error');
 const { writeAudit } = require('./audit.service');
 
 const allowedTransitions = {
-  new: ['reviewed', 'accepted', 'rejected'],
-  reviewed: ['accepted', 'rejected'],
-  accepted: ['completed'],
-  rejected: [],
-  completed: []
+  moi: ['da_xem', 'da_tao_don', 'tu_choi'],
+  da_xem: ['da_tao_don', 'tu_choi'],
+  da_tao_don: ['hoan_tat'],
+  tu_choi: [],
+  hoan_tat: []
 };
 
 async function listRequests(query) {
@@ -62,7 +62,7 @@ async function convertToOrder(id, body, context) {
     if (request.don_in_lai_id) {
       throw errors.invalidState('Yêu cầu in lại đã được tạo đơn', { don_in_lai_id: request.don_in_lai_id });
     }
-    if (!['new', 'reviewed', 'accepted'].includes(request.trang_thai)) {
+    if (!['moi', 'da_xem', 'da_tao_don'].includes(request.trang_thai)) {
       throw errors.invalidState(`Không thể tạo đơn từ yêu cầu ở trạng thái ${request.trang_thai}`, { status: request.trang_thai });
     }
 
@@ -103,7 +103,7 @@ async function convertToOrder(id, body, context) {
         cao_px: src.cao_px,
         dung_luong_bytes: src.dung_luong_bytes
       }, client);
-      await photosRepository.updateStatus(photo.id, 'approved', {}, client);
+      await photosRepository.updateStatus(photo.id, 'da_duyet', {}, client);
     }
 
     const updatedRequest = await reprintRepository.linkOrder(id, order.id, context.user.id, client);
@@ -113,18 +113,18 @@ async function convertToOrder(id, body, context) {
     }, client);
 
     const customer = await customersRepository.findById(origOrder.khach_hang_id, client);
-    return { request: updatedRequest, order, pricing_snapshot: pricingSnapshot, customer };
+    const notifications = await notificationService.enqueueEvent('reprint_approved', {
+      customer_name: customer?.ho_ten,
+      email: customer?.email,
+      phone: customer?.so_dien_thoai,
+      order_id: order.id,
+      order_code: order.ma_don,
+      quantity: order.so_luong
+    }, client);
+    return { request: updatedRequest, order, pricing_snapshot: pricingSnapshot, notifications };
   });
 
-  // After commit so a mail/Zalo issue never rolls back the conversion.
-  await notificationService.notifyEvent('reprint_approved', {
-    customer_name: outcome.customer?.ho_ten,
-    email: outcome.customer?.email,
-    phone: outcome.customer?.so_dien_thoai,
-    order_id: outcome.order.id,
-    order_code: outcome.order.ma_don,
-    quantity: outcome.order.so_luong
-  });
+  await notificationService.dispatchRows(outcome.notifications);
 
   return { request: outcome.request, order: outcome.order, pricing_snapshot: outcome.pricing_snapshot };
 }

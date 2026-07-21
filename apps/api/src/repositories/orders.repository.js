@@ -24,6 +24,11 @@ async function list(filters, { limit, offset }, client) {
     params.push(filters.date_to);
     where.push(`o.ngay_tao <= $${params.length}`);
   }
+  if (filters.chua_thanh_toan) {
+    // Đơn đã hủy không còn là khoản cần staff theo dõi thu tiền.
+    where.push(`coalesce(o.da_thanh_toan, 0) < coalesce(o.tong_tien, 0)`);
+    where.push(`o.trang_thai <> 'da_huy'`);
+  }
 
   params.push(limit, offset);
 
@@ -105,7 +110,7 @@ async function createOrder(data, actorId, totalAmount, client) {
              from public.don_hang o
              where o.ma_don like (select prefix from px) || '%'),
             0) + 1)::text, 3, '0'),
-       $2, $3, $4, 'pending', $5, $6, $7, $8, $9, $10
+       $2, $3, $4, 'cho_xu_ly', $5, $6, $7, $8, $9, $10
      returning *`,
     [
       data.id || null,
@@ -139,26 +144,31 @@ async function setAmountPaid(id, amountPaid, client) {
   );
 }
 
-async function createPricingSnapshot(order, pricing, totalAmount, client) {
+async function createPricingSnapshot(order, pricing, totalAmount, client, options = {}) {
+  const cardType = options.cardType || pricing;
+  const onlineFilePricing = options.onlineFilePricing || null;
   return one(
     `insert into public.ban_luu_gia (
        don_hang_id, bang_gia_id, loai_the_id, ten_loai_the, rong_mm, cao_mm,
-       mau_nen, gia_moi_ban, phi_xu_ly, so_luong, tong_tien
+       mau_nen, gia_moi_ban, phi_xu_ly, so_luong, tong_tien,
+       bang_gia_file_truc_tuyen_id, gia_file_truc_tuyen
      )
-     values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+     values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
      returning *`,
     [
       order.id,
-      pricing.id,
-      pricing.loai_the_id,
-      pricing.ten_loai_the,
-      pricing.rong_mm,
-      pricing.cao_mm,
-      pricing.mau_nen,
-      pricing.gia_moi_ban,
-      pricing.phi_xu_ly,
+      pricing?.id || null,
+      cardType.loai_the_id || cardType.id,
+      cardType.ten_loai_the || cardType.ten,
+      cardType.rong_mm,
+      cardType.cao_mm,
+      cardType.mau_nen,
+      pricing?.gia_moi_ban ?? null,
+      pricing?.phi_xu_ly ?? null,
       order.so_luong,
-      totalAmount
+      totalAmount,
+      onlineFilePricing?.id || null,
+      onlineFilePricing?.gia_tron_goi ?? null
     ],
     client
   );
@@ -169,8 +179,8 @@ async function updateStatus(id, status, patch, client) {
     `update public.don_hang
      set trang_thai = $2,
          ly_do_huy = coalesce($3, ly_do_huy),
-         ngay_hoan_tat = case when $2 = 'completed' then now() else ngay_hoan_tat end,
-         ngay_giao = case when $2 = 'delivered' then now() else ngay_giao end,
+         ngay_hoan_tat = case when $2 = 'hoan_tat' then now() else ngay_hoan_tat end,
+         ngay_giao = case when $2 = 'da_giao' then now() else ngay_giao end,
          ngay_cap_nhat = now()
      where id = $1
      returning *`,
@@ -183,7 +193,7 @@ async function countApprovedPhotos(orderId, client) {
   const row = await one(
     `select count(*)::int as count
      from public.anh
-     where don_hang_id = $1 and trang_thai = 'approved'`,
+     where don_hang_id = $1 and trang_thai = 'da_duyet'`,
     [orderId],
     client
   );

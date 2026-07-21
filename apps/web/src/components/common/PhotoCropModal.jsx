@@ -97,7 +97,7 @@ export default function PhotoCropModal({ file, aspect, ratioLabel, onConfirm, on
       <Modal.Footer>
         <Button variant="outline-secondary" onClick={onClose} disabled={busy}>Hủy</Button>
         <Button variant="primary" onClick={handleConfirm} disabled={busy || !completedCrop?.width}>
-          {busy ? <Spinner size="sm" animation="border" /> : 'Cắt & dùng ảnh'}
+          {busy ? <Spinner size="sm" animation="border" /> : 'Cắt & upload'}
         </Button>
       </Modal.Footer>
     </Modal>

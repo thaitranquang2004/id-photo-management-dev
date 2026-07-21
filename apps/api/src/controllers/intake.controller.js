@@ -1,6 +1,5 @@
 const intakeService = require('../services/intake.service');
 const bookingService = require('../services/booking.service');
-const remoteOrderService = require('../services/remote-order.service');
 const { requestContext } = require('./context');
 const { sendSuccess } = require('../utils/responses');
 
@@ -15,7 +14,6 @@ async function publicStatus(req, res) {
 
 async function datLichChup(req, res) { return sendSuccess(res, await bookingService.datLichChup(req.validated.body, requestContext(req)), null, 201); }
 async function khungGioChup(req, res) { return sendSuccess(res, await bookingService.listKhungGioChup(req.validated.query.ngay_hen)); }
-async function guiAnh(req, res) { return sendSuccess(res, await remoteOrderService.submit(req.validated.body, req.files, req), null, 201); }
 async function listCauHinhKhungGio(req, res) { return sendSuccess(res, await bookingService.listCauHinh()); }
 async function capNhatCauHinhKhungGio(req, res) { return sendSuccess(res, await bookingService.capNhatCauHinh(req.validated.params.id, req.validated.body)); }
 
@@ -54,7 +52,6 @@ module.exports = {
   publicStatus,
   datLichChup,
   khungGioChup,
-  guiAnh,
   listCauHinhKhungGio,
   capNhatCauHinhKhungGio,
   list,

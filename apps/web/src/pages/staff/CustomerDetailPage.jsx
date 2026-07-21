@@ -10,6 +10,7 @@ import OrderStatusBadge from '../../components/status/OrderStatusBadge.jsx';
 import { formatDate } from '../../utils/format';
 import { useFormErrors } from '../../hooks/useFormErrors.js';
 import { useToast } from '../../hooks/useToast.jsx';
+import { optionalEmailRule, vietnamesePhoneRule } from '../../utils/validation.js';
 
 // URL hiển thị ảnh: ưu tiên ảnh đã xử lý, fallback ảnh gốc; null nếu đã hết hạn lưu trữ.
 function photoPreviewUrl(photo) {
@@ -58,7 +59,11 @@ export default function CustomerDetailPage() {
   }
 
   function handleSaveCustomer() {
-    if (!validate(editForm, { ho_ten: 'Vui lòng nhập họ tên', so_dien_thoai: 'Vui lòng nhập số điện thoại' })) return;
+    if (!validate(editForm, {
+      ho_ten: 'Vui lòng nhập họ tên',
+      so_dien_thoai: vietnamesePhoneRule,
+      email: optionalEmailRule
+    })) return;
     editMutation.mutate();
   }
 
@@ -191,7 +196,8 @@ export default function CustomerDetailPage() {
           </Form.Group>
           <Form.Group className="mb-3">
             <Form.Label>Email</Form.Label>
-            <Form.Control type="email" value={editForm.email} onChange={(e) => setEditForm((c) => ({ ...c, email: e.target.value }))} />
+            <Form.Control type="email" value={editForm.email} onChange={(e) => { setEditForm((c) => ({ ...c, email: e.target.value })); clearError('email'); }} isInvalid={!!errors.email} />
+            <Form.Control.Feedback type="invalid">{errors.email}</Form.Control.Feedback>
           </Form.Group>
           <Form.Group>
             <Form.Label>Ghi chú</Form.Label>

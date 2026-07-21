@@ -3,9 +3,9 @@ const { one, many } = require('../db/pool');
 async function dashboard(client) {
   const [orders, revenue, customers, photos] = await Promise.all([
     one('select count(*)::int as total from public.don_hang', [], client),
-    one("select coalesce(sum(tong_tien), 0)::numeric as total from public.don_hang where trang_thai in ('completed', 'delivered')", [], client),
+    one("select coalesce(sum(tong_tien), 0)::numeric as total from public.don_hang where trang_thai in ('hoan_tat', 'da_giao')", [], client),
     one("select count(*)::int as total from public.khach_hang where ngay_tao >= now() - interval '30 days'", [], client),
-    one("select count(*)::int as total from public.anh where trang_thai in ('processed', 'approved')", [], client)
+    one("select count(*)::int as total from public.anh where trang_thai in ('da_xu_ly', 'da_duyet')", [], client)
   ]);
 
   return {
@@ -42,7 +42,7 @@ async function orderReport(filters, client) {
 
   return many(
     `select o.ma_don, o.trang_thai, o.tong_tien,
-            o.da_thanh_toan, o.so_luong, o.ngay_tao,
+            o.da_thanh_toan, o.so_luong, o.hinh_thuc_giao, o.ngay_tao,
             c.ho_ten as ten_khach_hang, c.so_dien_thoai as sdt_khach_hang,
             ct.ten as ten_loai_the,
             p.ho_ten as ten_nhan_vien

@@ -4,7 +4,7 @@ async function approvedPhotoForPublic(photoId, orderId, client) {
   return one(
     `select *
      from public.anh
-     where id = $1 and don_hang_id = $2 and trang_thai = 'approved'`,
+     where id = $1 and don_hang_id = $2 and trang_thai = 'da_duyet'`,
     [photoId, orderId],
     client
   );
@@ -14,7 +14,7 @@ async function approvedPhotos(orderId, client) {
   return many(
     `select *
      from public.anh
-     where don_hang_id = $1 and trang_thai = 'approved'
+     where don_hang_id = $1 and trang_thai = 'da_duyet'
      order by ngay_tao desc`,
     [orderId],
     client

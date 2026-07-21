@@ -3,7 +3,7 @@ import {
   BarChart3,
   Bell,
   CalendarClock,
-  Camera,
+  ClipboardList,
   LayoutDashboard,
   LogOut,
   Menu,
@@ -36,6 +36,8 @@ import ConfirmDialog from '../feedback/ConfirmDialog.jsx';
 const staffNavItems = [
   { to: '/staff', end: true, label: 'Vận hành', icon: LayoutDashboard },
   { to: '/staff/orders/new', label: 'Tạo đơn', icon: UserRoundPlus },
+  { to: '/staff/orders', end: true, label: 'Đơn hàng', icon: ClipboardList },
+  { to: '/staff/online-requests', label: 'Yêu cầu online', icon: ClipboardList },
   { to: '/staff/appointments', label: 'Lịch hẹn', icon: CalendarClock },
   { to: '/staff/reprints', label: 'Yêu cầu in lại', icon: Printer }
 ];
@@ -61,14 +63,20 @@ export default function AppShell() {
   const queryClient = useQueryClient();
   const toast = useToast();
 
-  // Chỉ lịch chụp chờ xác nhận cần hiển thị nhắc việc.
+  // Chỉ lịch chụp và yêu cầu ảnh mới cần hiển thị nhắc việc.
   const newApptQuery = useQuery({
     queryKey: ['sidebar', 'appt-new'],
     queryFn: () => listAppointments({ trang_thai: 'cho_xac_nhan', loai_lich: 'dat_lich_chup', limit: 1 }),
     refetchInterval: 30000
   });
+  const newOnlineRequestsQuery = useQuery({
+    queryKey: ['sidebar', 'online-requests-new'],
+    queryFn: () => listOnlineRequests({ trang_thai: 'moi', limit: 1 }),
+    refetchInterval: 30000
+  });
   const navDots = {
-    '/staff/appointments': (newApptQuery.data?.total || 0) > 0
+    '/staff/appointments': (newApptQuery.data?.total || 0) > 0,
+    '/staff/online-requests': (newOnlineRequestsQuery.data?.total || 0) > 0
   };
 
   const searchMutation = useMutation({
@@ -147,8 +155,8 @@ export default function AppShell() {
       <aside className={`app-sidebar ${showSidebar ? 'show' : ''}`}>
         <div className="sidebar-header">
           <Link to={role === 'admin' ? '/admin' : '/staff'} className="brand-mark" onClick={() => setShowSidebar(false)}>
-            <Camera size={22} className="text-primary" />
-            <span>Tiệm hình thẻ</span>
+            <img className="sidebar-brand-logo" src="/favicon.svg" alt="Logo Tiệm hình thẻ" />
+            <span>Tiệm hình thẻ 42A</span>
           </Link>
           <Button
             variant="link"

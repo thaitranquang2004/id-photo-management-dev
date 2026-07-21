@@ -8,8 +8,11 @@ import {
 import EmptyState from '../../components/feedback/EmptyState.jsx';
 import ErrorState from '../../components/feedback/ErrorState.jsx';
 import LoadingState from '../../components/feedback/LoadingState.jsx';
+import PaginationBar from '../../components/common/Pagination.jsx';
 import OrderStatusBadge from '../../components/status/OrderStatusBadge.jsx';
 import { formatCurrency, formatDate } from '../../utils/format';
+
+const REPORT_PAGE_SIZE = 7;
 
 function reportTotals(rows) {
   const revenue = rows.reduce((sum, row) => sum + Number(row.tong_tien || 0), 0);
@@ -30,6 +33,12 @@ export default function ReportsPage() {
     nguoi_tao: '',
     trang_thai: ''
   });
+  const [page, setPage] = useState(1);
+
+  function updateFilter(field, value) {
+    setFilters((current) => ({ ...current, [field]: value }));
+    setPage(1);
+  }
 
   const reportParams = {
     date_from: filters.date_from || undefined,
@@ -51,6 +60,12 @@ export default function ReportsPage() {
   const orders = reportQuery.data?.orders || [];
   const totals = reportTotals(orders);
   const cardTypes = cardTypesQuery.data?.card_types || [];
+  const totalPages = Math.ceil(orders.length / REPORT_PAGE_SIZE);
+  const currentPage = Math.min(page, Math.max(totalPages, 1));
+  const pagedOrders = orders.slice(
+    (currentPage - 1) * REPORT_PAGE_SIZE,
+    currentPage * REPORT_PAGE_SIZE
+  );
 
   return (
     <div className="page-stack">
@@ -66,19 +81,19 @@ export default function ReportsPage() {
           <Col md={3}>
             <Form.Group>
               <Form.Label>Từ ngày</Form.Label>
-              <Form.Control type="date" value={filters.date_from} onChange={(event) => setFilters((current) => ({ ...current, date_from: event.target.value }))} />
+              <Form.Control type="date" value={filters.date_from} onChange={(event) => updateFilter('date_from', event.target.value)} />
             </Form.Group>
           </Col>
           <Col md={3}>
             <Form.Group>
               <Form.Label>Đến ngày</Form.Label>
-              <Form.Control type="date" value={filters.date_to} onChange={(event) => setFilters((current) => ({ ...current, date_to: event.target.value }))} />
+              <Form.Control type="date" value={filters.date_to} onChange={(event) => updateFilter('date_to', event.target.value)} />
             </Form.Group>
           </Col>
           <Col md={2}>
             <Form.Group>
               <Form.Label>Loại thẻ</Form.Label>
-              <Form.Select value={filters.loai_the_id} onChange={(event) => setFilters((current) => ({ ...current, loai_the_id: event.target.value }))}>
+              <Form.Select value={filters.loai_the_id} onChange={(event) => updateFilter('loai_the_id', event.target.value)}>
                 <option value="">Tất cả</option>
                 {cardTypes.map((cardType) => <option key={cardType.id} value={cardType.id}>{cardType.ten}</option>)}
               </Form.Select>
@@ -87,19 +102,19 @@ export default function ReportsPage() {
           <Col md={2}>
             <Form.Group>
               <Form.Label>Nhân viên</Form.Label>
-              <Form.Control value={filters.nguoi_tao} onChange={(event) => setFilters((current) => ({ ...current, nguoi_tao: event.target.value }))} placeholder="User ID" />
+              <Form.Control value={filters.nguoi_tao} onChange={(event) => updateFilter('nguoi_tao', event.target.value)} placeholder="User ID" />
             </Form.Group>
           </Col>
           <Col md={2}>
             <Form.Group>
               <Form.Label>Trạng thái</Form.Label>
-              <Form.Select value={filters.trang_thai} onChange={(event) => setFilters((current) => ({ ...current, trang_thai: event.target.value }))}>
+              <Form.Select value={filters.trang_thai} onChange={(event) => updateFilter('trang_thai', event.target.value)}>
                 <option value="">Tất cả</option>
-                <option value="pending">pending</option>
-                <option value="processing">processing</option>
-                <option value="completed">completed</option>
-                <option value="delivered">delivered</option>
-                <option value="cancelled">cancelled</option>
+                <option value="cho_xu_ly">Chờ xử lý</option>
+                <option value="dang_xu_ly">Đang xử lý</option>
+                <option value="hoan_tat">Hoàn thành</option>
+                <option value="da_giao">Đã giao</option>
+                <option value="da_huy">Đã hủy</option>
               </Form.Select>
             </Form.Group>
           </Col>
@@ -117,8 +132,9 @@ export default function ReportsPage() {
         {orders.length === 0 ? (
           <EmptyState title="Không có dữ liệu báo cáo" />
         ) : (
-          <div className="table-responsive">
-            <Table hover className="align-middle data-table">
+          <>
+            <div className="table-responsive">
+              <Table hover className="align-middle data-table">
               <thead>
                 <tr>
                   <th>Mã đơn</th>
@@ -133,7 +149,7 @@ export default function ReportsPage() {
                 </tr>
               </thead>
               <tbody>
-                {orders.map((order) => (
+                {pagedOrders.map((order) => (
                   <tr key={`${order.ma_don}-${order.ngay_tao}`}>
                     <td className="fw-semibold">{order.ma_don}</td>
                     <td>
@@ -143,15 +159,17 @@ export default function ReportsPage() {
                     <td>{order.ten_loai_the}</td>
                     <td>{order.ten_nhan_vien || '—'}</td>
                     <td><OrderStatusBadge status={order.trang_thai} /></td>
-                    <td>{order.so_luong}</td>
+                    <td>{order.hinh_thuc_giao === 'lay_file_truc_tuyen' ? 'Không áp dụng' : order.so_luong}</td>
                     <td>{formatCurrency(order.tong_tien)}</td>
                     <td>{formatCurrency(order.da_thanh_toan)}</td>
                     <td>{formatDate(order.ngay_tao)}</td>
                   </tr>
                 ))}
               </tbody>
-            </Table>
-          </div>
+              </Table>
+            </div>
+            <PaginationBar page={currentPage} totalPages={totalPages} onChange={setPage} />
+          </>
         )}
       </section>
     </div>

@@ -1,11 +1,11 @@
 import { Badge } from 'react-bootstrap';
 
 const STATUS_MAP = {
-  raw: { label: 'Ảnh gốc', bg: 'secondary' },
-  processing: { label: 'Đang xử lý', bg: 'primary' },
-  processed: { label: 'Đã xử lý', bg: 'info', text: 'dark' },
-  approved: { label: 'Đã duyệt', bg: 'success' },
-  rejected: { label: 'Từ chối', bg: 'danger' }
+  anh_goc: { label: 'Chờ xử lý AI', bg: 'secondary' },
+  dang_xu_ly: { label: 'Đang xử lý', bg: 'primary' },
+  da_xu_ly: { label: 'Đã xử lý', bg: 'info', text: 'dark' },
+  da_duyet: { label: 'Đã duyệt', bg: 'success' },
+  tu_choi: { label: 'Từ chối', bg: 'danger' }
 };
 
 export default function PhotoStatusBadge({ status }) {

@@ -5,6 +5,7 @@ const { logger } = require('./logger');
 const { closePool } = require('./db/pool');
 const { purgeOldOrders } = require('./services/cleanup.service');
 const { nhacLichLayHinh } = require('./services/booking.service');
+const { dispatchQueued } = require('./services/notification.service');
 
 const app = createApp();
 
@@ -23,6 +24,12 @@ if (env.ASSET_PURGE_ENABLED) {
 // Nhắc các lịch lấy hình vào ngày hôm sau; cột ngay_nhac_lay_hinh chặn gửi lặp.
 cron.schedule('0 9 * * *', () => {
   nhacLichLayHinh().catch((err) => logger.error({ err }, 'Pickup appointment reminder failed'));
+}, { timezone: 'Asia/Ho_Chi_Minh' });
+
+// Retry notification outbox rows so email/Zalo outages do not permanently drop
+// customer-facing messages.
+cron.schedule('*/2 * * * *', () => {
+  dispatchQueued().catch((err) => logger.error({ err }, 'Notification retry failed'));
 }, { timezone: 'Asia/Ho_Chi_Minh' });
 
 async function shutdown(signal) {

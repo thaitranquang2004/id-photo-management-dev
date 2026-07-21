@@ -16,9 +16,7 @@ async function resolvePublicOrder(input, client) {
 }
 
 function publicOrderInfo(order) {
-  const co_the_tai_file = order.hinh_thuc_giao === 'lay_file_truc_tuyen'
-    && order.trang_thai === 'delivered'
-    && Number(order.da_thanh_toan || 0) >= Number(order.tong_tien || 0);
+  const co_the_tai_file = canDownloadPublicFile(order);
   return {
     id: order.id,
     ma_don: order.ma_don,
@@ -28,6 +26,12 @@ function publicOrderInfo(order) {
     hinh_thuc_giao: order.hinh_thuc_giao,
     co_the_tai_file
   };
+}
+
+// Khách nhận file sau khi đơn hoàn tất và thanh toán đủ, bất kể hình thức giao.
+function canDownloadPublicFile(order) {
+  return ['hoan_tat', 'da_giao'].includes(order.trang_thai)
+    && Number(order.da_thanh_toan || 0) >= Number(order.tong_tien || 0);
 }
 
 function signedOrNull(publicId, options) {
@@ -45,8 +49,6 @@ async function customerLookup(query, req) {
       throw errors.notFound('Không tìm thấy đơn hàng');
     }
 
-    const canDownload = order.hinh_thuc_giao === 'lay_file_truc_tuyen'
-      && order.trang_thai === 'delivered' && Number(order.da_thanh_toan || 0) >= Number(order.tong_tien || 0);
     const photos = await publicRepository.approvedPhotos(order.id, client);
     // Bộ sưu tập: toàn bộ ảnh đã duyệt của khách qua mọi đơn (không chỉ đơn đang tra).
     const collectionPhotos = await customersRepository.approvedPhotos(order.khach_hang_id, client);
@@ -59,7 +61,7 @@ async function customerLookup(query, req) {
           id: photo.id,
           trang_thai: photo.trang_thai,
           da_don_dep: Boolean(photo.ngay_don_dep),
-          signed_url: canDownload && !photo.ngay_don_dep ? signedOrNull(publicId, { format: 'jpg' }).signed_url : null
+          signed_url: !photo.ngay_don_dep ? signedOrNull(publicId, { format: 'jpg' }).signed_url : null
         };
       }),
       collection: collectionPhotos.map((photo) => {
@@ -69,7 +71,7 @@ async function customerLookup(query, req) {
           ma_don: photo.ma_don,
           ngay_tao: photo.ngay_tao,
           da_don_dep: Boolean(photo.ngay_don_dep),
-          signed_url: canDownload && !photo.ngay_don_dep ? signedOrNull(publicId, { format: 'jpg' }).signed_url : null
+          signed_url: !photo.ngay_don_dep ? signedOrNull(publicId, { format: 'jpg' }).signed_url : null
         };
       })
     };
@@ -80,14 +82,13 @@ async function photoDownloadUrl(photoId, body, req) {
   return withTransaction(async (client) => {
     const order = await resolvePublicOrder(body, client);
     if (!order) throw errors.notFound('Không tìm thấy đơn hàng');
-    if (order.hinh_thuc_giao !== 'lay_file_truc_tuyen' || order.trang_thai !== 'delivered'
-      || Number(order.da_thanh_toan || 0) < Number(order.tong_tien || 0)) {
-      throw errors.invalidState('Đơn chưa đủ điều kiện tải file trực tuyến');
+    if (!canDownloadPublicFile(order)) {
+      throw errors.invalidState('Đơn cần hoàn tất và thanh toán đủ để tải file');
     }
 
     const photo = await publicRepository.approvedPhotoForPublic(photoId, order.id, client);
     if (!photo) {
-      throw errors.notFound('Không tìm thấy ảnh approved');
+      throw errors.notFound('Không tìm thấy ảnh đã duyệt');
     }
     if (photo.ngay_don_dep) {
       throw errors.invalidState('Ảnh đã hết hạn lưu trữ (quá 6 tháng), không thể tải.');
@@ -125,7 +126,10 @@ async function createReprintRequest(body, req) {
 
 // Trimmed, login-free catalog for the public booking page.
 async function listPublicCardTypes() {
-  const cardTypes = await catalogRepository.listCardTypes();
+  const [cardTypes, onlineFilePricing] = await Promise.all([
+    catalogRepository.listCardTypes(),
+    catalogRepository.getCurrentOnlineFilePricingOrNull(new Date())
+  ]);
   return {
     card_types: cardTypes.map((cardType) => ({
       id: cardType.id,
@@ -136,7 +140,9 @@ async function listPublicCardTypes() {
       mau_nen: cardType.mau_nen,
       yeu_cau: cardType.yeu_cau,
       gia_moi_ban_hien_hanh: cardType.gia_moi_ban_hien_hanh ?? null
-    }))
+    })),
+    gia_file_truc_tuyen_hien_hanh: onlineFilePricing?.gia_tron_goi ?? null,
+    bang_gia_file_truc_tuyen_hien_hanh_id: onlineFilePricing?.id ?? null
   };
 }
 
@@ -144,13 +150,8 @@ async function listPublicCardTypes() {
 // phân tích ngay trên buffer trong RAM, trả về feedback đủ/chưa đủ chuẩn ảnh thẻ.
 // Không upload Cloudinary, không ghi DB. AI (Gemini) là tuỳ chọn — thiếu key thì
 // vẫn trả kết quả kiểm tra tất định (độ phân giải/tỉ lệ).
-async function checkPhotoQuality(file, loaiTheId) {
+async function checkPhotoQualityForCardType(file, cardType) {
   if (!file) throw errors.validation('Thiếu ảnh cần kiểm tra', { field: 'file' });
-
-  const cardType = await catalogRepository.findCardType(loaiTheId);
-  if (!cardType || cardType.dang_hoat_dong === false) {
-    throw errors.notFound('Loại ảnh không tồn tại hoặc đã ngừng áp dụng', { field: 'loai_the_id' });
-  }
 
   let sourceWidthPx = null;
   let sourceHeightPx = null;
@@ -172,4 +173,12 @@ async function checkPhotoQuality(file, loaiTheId) {
   return { ...qc, ai_available: Boolean(aiFindings) };
 }
 
-module.exports = { customerLookup, photoDownloadUrl, createReprintRequest, listPublicCardTypes, checkPhotoQuality };
+async function checkPhotoQuality(file, loaiTheId) {
+  const cardType = await catalogRepository.findCardType(loaiTheId);
+  if (!cardType || cardType.dang_hoat_dong === false) {
+    throw errors.notFound('Loại ảnh không tồn tại hoặc đã ngừng áp dụng', { field: 'loai_the_id' });
+  }
+  return checkPhotoQualityForCardType(file, cardType);
+}
+
+module.exports = { customerLookup, photoDownloadUrl, createReprintRequest, listPublicCardTypes, checkPhotoQuality, checkPhotoQualityForCardType, canDownloadPublicFile };

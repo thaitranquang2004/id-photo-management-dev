@@ -71,7 +71,6 @@ router.post(
 
 router.get(
   '/public/card-types',
-  publicApiLimiter,
   asyncHandler(publicController.cardTypes)
 );
 
@@ -91,7 +90,6 @@ router.post(
 );
 router.get(
   '/public/khung-gio-chup',
-  publicApiLimiter,
   validate(z.object({ query: z.object({ ngay_hen: z.coerce.date() }) })),
   asyncHandler(intake.khungGioChup)
 );
@@ -99,8 +97,15 @@ router.post(
   '/public/don-gui-anh',
   publicApiLimiter,
   upload.array('files'),
-  validate(z.object({ body: schemas.remoteOrderBody })),
-  asyncHandler(intake.guiAnh)
+  validate(z.object({ body: schemas.remoteOnlineRequestBody })),
+  asyncHandler(intake.submit)
+);
+router.post(
+  '/public/online-requests',
+  publicApiLimiter,
+  upload.array('files'),
+  validate(z.object({ body: schemas.remoteOnlineRequestBody })),
+  asyncHandler(intake.submit)
 );
 
 router.post(
@@ -137,6 +142,8 @@ router.patch('/card-types/:id', requireRole('admin'), validate(z.object({ params
 router.patch('/card-types/:id/archive', requireRole('admin'), validate(z.object({ params: schemas.idParam, body: emptyBody })), asyncHandler(catalog.archiveCardType));
 router.get('/pricing', requireRole('admin'), validate(z.object({ query: z.object({ loai_the_id: schemas.uuid.optional() }) })), asyncHandler(catalog.listPricing));
 router.post('/pricing', requireRole('admin'), validate(z.object({ body: schemas.pricingCreateBody })), asyncHandler(catalog.createPricing));
+router.get('/pricing/online-file', requireRole('admin'), asyncHandler(catalog.listOnlineFilePricing));
+router.post('/pricing/online-file', requireRole('admin'), validate(z.object({ body: schemas.onlineFilePricingCreateBody })), asyncHandler(catalog.createOnlineFilePricing));
 
 router.get('/orders', validate(z.object({ query: schemas.orderListQuery })), asyncHandler(orders.list));
 router.get('/orders/:id', validate(paramsId), asyncHandler(orders.get));
@@ -153,6 +160,7 @@ router.post('/photos', upload.array('files'), validate(z.object({ body: schemas.
 router.post('/photos/batch-process', validate(z.object({ body: schemas.batchProcessBody })), asyncHandler(photos.batchProcess));
 router.get('/processing-jobs/:id', validate(paramsId), asyncHandler(photos.getJob));
 router.get('/photos/:id', validate(paramsId), asyncHandler(photos.get));
+router.post('/photos/:id/download-url', validate(z.object({ params: schemas.idParam, body: emptyBody })), asyncHandler(photos.downloadUrl));
 router.post('/photos/:id/approve', validate(z.object({ params: schemas.idParam, body: schemas.notesBody })), asyncHandler(photos.approve));
 router.post('/photos/:id/reject', validate(z.object({ params: schemas.idParam, body: schemas.rejectPhotoBody })), asyncHandler(photos.reject));
 router.post('/photos/:id/requalify', validate(z.object({ params: schemas.idParam, body: emptyBody })), asyncHandler(photos.requalify));

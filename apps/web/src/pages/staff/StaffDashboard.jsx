@@ -1,10 +1,11 @@
 import { useQuery } from '@tanstack/react-query';
-import { ClipboardList, Inbox, Plus } from 'lucide-react';
-import { Button, Col, Row, Table } from 'react-bootstrap';
+import { useMemo } from 'react';
+import { CalendarDays, ClipboardList, Plus } from 'lucide-react';
+import { Badge, Button, Col, Row, Table } from 'react-bootstrap';
 import { Link } from 'react-router-dom';
 import { listCustomers } from '../../api/customers';
 import { listOrders } from '../../api/orders';
-import { listOnlineRequests } from '../../api/intake';
+import { listAppointments } from '../../api/intake';
 import { listReprintRequests } from '../../api/reprints';
 import EmptyState from '../../components/feedback/EmptyState.jsx';
 import ErrorState from '../../components/feedback/ErrorState.jsx';
@@ -18,15 +19,42 @@ function ordersFrom(result) {
   return result?.data?.orders || [];
 }
 
+const APPOINTMENT_STATUS = {
+  cho_xac_nhan: ['Chờ xác nhận', 'warning'],
+  da_xac_nhan: ['Đã xác nhận', 'info'],
+  da_xong: ['Đã xong', 'success'],
+  tu_choi: ['Từ chối', 'danger'],
+  da_huy: ['Đã huỷ', 'secondary']
+};
+
+function localDateValue(date = new Date()) {
+  const timezoneOffsetMs = date.getTimezoneOffset() * 60 * 1000;
+  return new Date(date.getTime() - timezoneOffsetMs).toISOString().slice(0, 10);
+}
+
 export default function StaffDashboard() {
-  const today = todayRange();
+  const today = useMemo(() => todayRange(), []);
+  const appointmentDate = useMemo(() => localDateValue(), []);
   const pendingOrders = useQuery({
     queryKey: ['staff', 'orders', 'pending-today', today.date_from, today.date_to],
-    queryFn: () => listOrders({ trang_thai: 'pending', date_from: today.date_from, date_to: today.date_to, limit: 20 })
+    queryFn: () => listOrders({ trang_thai: 'cho_xu_ly', date_from: today.date_from, date_to: today.date_to, limit: 20 })
+  });
+  const processingOrders = useQuery({
+    queryKey: ['staff', 'orders', 'processing-today', today.date_from, today.date_to],
+    queryFn: () => listOrders({ trang_thai: 'dang_xu_ly', date_from: today.date_from, date_to: today.date_to, limit: 20 })
   });
   const completedOrders = useQuery({
     queryKey: ['staff', 'orders', 'completed-today', today.date_from, today.date_to],
-    queryFn: () => listOrders({ trang_thai: 'completed', date_from: today.date_from, date_to: today.date_to, limit: 1 })
+    queryFn: () => listOrders({ trang_thai: 'hoan_tat', date_from: today.date_from, date_to: today.date_to, limit: 1 })
+  });
+  const unpaidOrders = useQuery({
+    queryKey: ['staff', 'orders', 'unpaid-today', today.date_from, today.date_to],
+    queryFn: () => listOrders({
+      chua_thanh_toan: true,
+      date_from: today.date_from,
+      date_to: today.date_to,
+      limit: 20
+    })
   });
   const monthlyCustomers = useQuery({
     queryKey: ['staff', 'customers', 'month'],
@@ -36,23 +64,32 @@ export default function StaffDashboard() {
     queryKey: ['staff', 'reprints', 'new'],
     queryFn: () => listReprintRequests({ limit: 5 })
   });
-  const onlineRequests = useQuery({
-    queryKey: ['staff', 'online-requests', 'new'],
-    queryFn: () => listOnlineRequests({ trang_thai: 'new', limit: 5 })
+  const todayAppointments = useQuery({
+    queryKey: ['staff', 'appointments', 'today', appointmentDate],
+    // Không truyền thời điểm UTC cho cột DATE: dùng đúng ngày theo múi giờ của nhân viên,
+    // và không lọc loai_lich để nhận cả Đặt lịch chụp lẫn Hẹn lấy hình.
+    queryFn: () => listAppointments({ date_from: appointmentDate, date_to: appointmentDate, limit: 50 })
   });
 
-  const loading = pendingOrders.isLoading || completedOrders.isLoading || monthlyCustomers.isLoading || reprintRequests.isLoading || onlineRequests.isLoading;
-  const error = pendingOrders.error || completedOrders.error || monthlyCustomers.error || reprintRequests.error || onlineRequests.error;
+  const loading = pendingOrders.isLoading || processingOrders.isLoading || completedOrders.isLoading || unpaidOrders.isLoading || monthlyCustomers.isLoading || reprintRequests.isLoading || todayAppointments.isLoading;
+  const error = pendingOrders.error || processingOrders.error || completedOrders.error || unpaidOrders.error || monthlyCustomers.error || reprintRequests.error || todayAppointments.error;
   const pending = ordersFrom(pendingOrders.data);
+  const processing = ordersFrom(processingOrders.data);
+  const unpaid = ordersFrom(unpaidOrders.data);
+  const activeOrders = Array.from(new Map([...processing, ...pending, ...unpaid].map((order) => [order.id, order])).values())
+    .sort((first, second) => new Date(second.ngay_tao) - new Date(first.ngay_tao));
+  const activeOrdersTotal = (processingOrders.data?.pagination?.total ?? processing.length)
+    + (pendingOrders.data?.pagination?.total ?? pending.length);
   const completedTotal = completedOrders.data?.pagination?.total ?? ordersFrom(completedOrders.data).length;
   const customersThisMonth = (monthlyCustomers.data?.data?.customers || [])
     .filter((customer) => new Date(customer.ngay_tao) >= thisMonthStart()).length;
   const reprints = reprintRequests.data?.requests || [];
-  const newOnlineRequests = onlineRequests.data?.online_requests || [];
-  const newOnlineCount = onlineRequests.data?.total ?? newOnlineRequests.length;
+  const appointments = todayAppointments.data?.data?.appointments || [];
+  const appointmentsTodayTotal = todayAppointments.data?.data?.total ?? appointments.length;
+  const hasActiveOrders = activeOrders.length > 0;
 
   if (loading) return <LoadingState label="Đang tải dashboard staff..." />;
-  if (error) return <ErrorState error={error} onRetry={() => { pendingOrders.refetch(); completedOrders.refetch(); monthlyCustomers.refetch(); reprintRequests.refetch(); onlineRequests.refetch(); }} />;
+  if (error) return <ErrorState error={error} onRetry={() => { pendingOrders.refetch(); processingOrders.refetch(); completedOrders.refetch(); unpaidOrders.refetch(); monthlyCustomers.refetch(); reprintRequests.refetch(); todayAppointments.refetch(); }} />;
 
   return (
     <div className="page-stack">
@@ -68,21 +105,21 @@ export default function StaffDashboard() {
       </div>
 
       <Row className="g-3">
-        <Col sm={6} xl={3}><KpiCard label="Đơn chờ hôm nay" value={pendingOrders.data?.pagination?.total ?? pending.length} /></Col>
+        <Col sm={6} xl={3}><KpiCard label="Đơn cần xử lý hôm nay" value={activeOrdersTotal} /></Col>
         <Col sm={6} xl={3}><KpiCard label="Đơn hoàn thành hôm nay" value={completedTotal} /></Col>
-        <Col sm={6} xl={3}><KpiCard label="Yêu cầu online mới" value={newOnlineCount} /></Col>
+        <Col sm={6} xl={3}><KpiCard label="Lịch hẹn hôm nay" value={appointmentsTodayTotal} /></Col>
         <Col sm={6} xl={3}><KpiCard label="Khách mới tháng này" value={customersThisMonth} /></Col>
       </Row>
 
-      <Row className="g-3">
-        <Col xl={8}>
-          <section className="app-panel">
+      <Row className={`g-3 ${hasActiveOrders ? 'align-items-start' : 'align-items-stretch'}`}>
+        <Col xl={8} className={hasActiveOrders ? undefined : 'd-flex'}>
+          <section className={`app-panel${hasActiveOrders ? '' : ' flex-grow-1'}`}>
             <div className="section-title">
-              <h2>Đơn chờ xử lý hôm nay</h2>
+              <h2>Đơn chờ, đang xử lý &amp; chưa thanh toán hôm nay</h2>
               <ClipboardList size={20} aria-hidden="true" />
             </div>
-            {pending.length === 0 ? (
-              <EmptyState title="Không có đơn chờ" description="Các đơn pending trong ngày sẽ hiển thị tại đây." />
+            {activeOrders.length === 0 ? (
+              <EmptyState title="Không có đơn cần theo dõi hôm nay" description="Đơn chờ, đang xử lý và chưa thanh toán được tạo trong ngày sẽ hiển thị tại đây." />
             ) : (
               <div className="table-responsive">
                 <Table hover className="align-middle data-table">
@@ -98,7 +135,7 @@ export default function StaffDashboard() {
                     </tr>
                   </thead>
                   <tbody>
-                    {pending.map((order) => (
+                    {activeOrders.map((order) => (
                       <tr key={order.id}>
                         <td className="fw-semibold">{order.ma_don}</td>
                         <td>
@@ -122,22 +159,26 @@ export default function StaffDashboard() {
             )}
           </section>
         </Col>
-        <Col xl={4}>
+        <Col xl={4} className="d-grid gap-3 align-content-start">
           <section className="app-panel">
             <div className="section-title">
-              <h2>Yêu cầu online mới</h2>
-              <Inbox size={20} aria-hidden="true" />
+              <h2>Lịch hẹn hôm nay</h2>
+              <CalendarDays size={20} aria-hidden="true" />
             </div>
-            {newOnlineRequests.length === 0 ? (
-              <EmptyState title="Chưa có yêu cầu online" description="Yêu cầu từ trang Đặt online sẽ xuất hiện ở đây." />
+            {appointments.length === 0 ? (
+              <EmptyState title="Chưa có lịch hẹn hôm nay" description="Lịch chụp và lịch lấy hình trong ngày sẽ hiển thị tại đây." />
             ) : (
               <div className="stack-list">
-                {newOnlineRequests.map((item) => (
+                {appointments.map((item) => {
+                  const [statusLabel, statusVariant] = APPOINTMENT_STATUS[item.trang_thai] || [item.trang_thai, 'secondary'];
+                  return (
                   <div className="stack-list-item" key={item.id}>
                     <div className="fw-semibold">{item.ho_ten} · {item.so_dien_thoai}</div>
-                    <div className="text-muted small">{item.ten_loai_the || 'Chưa chọn loại'} · {item.so_anh || 0} ảnh</div>
+                    <div className="text-muted small">{item.loai_lich === 'dat_lich_chup' ? 'Đặt lịch chụp' : 'Hẹn lấy hình'} · {item.khung_gio || 'Cả ngày'}</div>
+                    <Badge bg={statusVariant} text={statusVariant === 'warning' ? 'dark' : undefined} className="mt-1">{statusLabel}</Badge>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             )}
             <Button as={Link} to="/staff/appointments" size="sm" variant="outline-primary" className="mt-2">

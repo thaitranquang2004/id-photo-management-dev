@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react';
 import { Alert, Button, Form, InputGroup } from 'react-bootstrap';
 import { Navigate, useLocation, useNavigate, Link } from 'react-router-dom';
-import { Camera, Mail, Lock, Eye, EyeOff, ArrowRight } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff, ArrowRight } from 'lucide-react';
 import LoadingState from '../../components/feedback/LoadingState.jsx';
 import { hasSupabaseConfig } from '../../api/auth';
 import { useAuth } from '../../hooks/useAuth.jsx';
 import { useToast } from '../../hooks/useToast.jsx';
 import { useFormErrors } from '../../hooks/useFormErrors.js';
+import { emailRule } from '../../utils/validation.js';
 
 function postLoginPath(role, from) {
   if (role === 'admin') {
@@ -46,7 +47,7 @@ export default function LoginPage() {
   async function handleSubmit(event) {
     event.preventDefault();
     setError('');
-    if (!validate(form, { email: 'Vui lòng nhập email', password: 'Vui lòng nhập mật khẩu' })) return;
+    if (!validate(form, { email: emailRule, password: 'Vui lòng nhập mật khẩu' })) return;
     try {
       const backendUser = await login(form);
       navigate(postLoginPath(backendUser.role, from), { replace: true });
@@ -66,7 +67,7 @@ export default function LoginPage() {
         <div className="login-card-wrapper">
           <div className="login-logo-area">
             <div className="login-logo-circle">
-              <Camera size={26} className="text-primary" />
+              <img className="login-logo-image" src="/favicon.svg" alt="Logo Tiệm hình thẻ" />
             </div>
             <h1>Tiệm hình thẻ</h1>
             <p>Hệ thống Quản lý &amp; Xử lý ảnh thông minh</p>

@@ -7,11 +7,10 @@ const publicApiLimiter = rateLimit({
   limit: env.PUBLIC_LOOKUP_RATE_LIMIT_MAX,
   standardHeaders: true,
   legacyHeaders: false,
-  keyGenerator: (req) => {
-    const phone = (req.body?.phone || req.query?.phone || '').replace(/\D/g, '');
-    const orderCode = req.body?.order_code || req.query?.order_code || '';
-    return `${ipKeyGenerator(req.ip)}:${phone}:${orderCode}`;
-  },
+  // Mỗi API công khai có một quota riêng theo IP. Trước đây mọi request không
+  // dùng các field tiếng Anh `phone`/`order_code` đều rơi vào cùng một key rỗng,
+  // khiến việc mở trang, tải khung giờ và gửi biểu mẫu có thể chặn lẫn nhau.
+  keyGenerator: (req) => `${ipKeyGenerator(req.ip)}:${req.method}:${req.path}`,
   handler: (req, res, next) => next(errors.rateLimited())
 });
 

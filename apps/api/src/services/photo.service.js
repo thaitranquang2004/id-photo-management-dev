@@ -51,18 +51,58 @@ async function createPhotos(body, files, context) {
   const order = await ordersRepository.findById(body.don_hang_id);
   if (!order) throw errors.notFound('Không tìm thấy đơn hàng');
 
+  const cardType = files?.length
+    ? await catalogRepository.findCardType(order.loai_the_id)
+    : null;
+  if (files?.length && !cardType) throw errors.notFound('Không tìm thấy loại thẻ của đơn hàng');
+
   const photoInputs = files?.length
-    ? await Promise.all(files.map((file) => uploadOriginalFile(file, body.don_hang_id)))
+    ? await Promise.all(files.map(async (file) => {
+      const uploadedPhoto = await uploadOriginalFile(file, body.don_hang_id);
+
+      // QC ảnh gốc là một bước đánh giá độc lập, không chỉnh sửa ảnh. Nhờ vậy
+      // staff có thể duyệt thẳng ảnh gốc đủ tốt mà không phải chạy AI trước.
+      const aiFindings = await googleAiService.assessQuality({
+        imageBuffer: file.buffer,
+        mimeType: file.mimetype,
+        cardType
+      });
+      const qc = computeQc({
+        sourceWidthPx: uploadedPhoto.rong_px,
+        sourceHeightPx: uploadedPhoto.cao_px,
+        cardType,
+        aiFindings
+      });
+
+      return { ...uploadedPhoto, qc };
+    }))
     : [body];
 
   return withTransaction(async (client) => {
+    const lockedOrder = await ordersRepository.findByIdForUpdate(body.don_hang_id, client);
+    if (!lockedOrder) throw errors.notFound('Không tìm thấy đơn hàng');
+
+    // Upload ảnh là điểm bắt đầu xử lý thực tế của đơn, nên không cần thao tác
+    // "Bắt đầu xử lý" riêng ở giao diện nhân viên.
+    let updatedOrder = lockedOrder;
+    if (lockedOrder.trang_thai === 'cho_xu_ly') {
+      updatedOrder = await ordersRepository.updateStatus(lockedOrder.id, 'dang_xu_ly', {}, client);
+      await writeAudit('order.status_changed', 'don_hang', lockedOrder.id, context, {
+        old_data: lockedOrder,
+        new_data: updatedOrder
+      }, client);
+    }
+
     const photos = [];
     for (const input of photoInputs) {
-      const photo = await photosRepository.create({ ...body, ...input }, client);
+      const createdPhoto = await photosRepository.create({ ...body, ...input }, client);
+      const photo = input.qc
+        ? await photosRepository.updateQc(createdPhoto.id, input.qc, client)
+        : createdPhoto;
       photos.push(photo);
       await writeAudit('photo.created', 'anh',photo.id, context, { new_data: photo }, client);
     }
-    return { photos };
+    return { photos, order: updatedOrder };
   });
 }
 
@@ -142,12 +182,12 @@ async function processPhoto(photo, order, cardType, job, client) {
       ai_da_ap_dung: aiAssist
     }, client);
 
-    if (job.kiem_tra_nghiem_ngat && qc.trang_thai_qc === 'fail') {
+    if (job.kiem_tra_nghiem_ngat && qc.trang_thai_qc === 'loi') {
       const reason = `QC thất bại: ${qc.loi_chat_luong
         .filter((item) => item.severity === 'fail')
         .map((item) => item.message)
         .join('; ')}`;
-      return photosRepository.updateStatus(photo.id, 'rejected', { loi_xu_ly: reason }, client);
+      return photosRepository.updateStatus(photo.id, 'tu_choi', { loi_xu_ly: reason }, client);
     }
 
     return processed;
@@ -168,10 +208,10 @@ async function runProcessingJob(jobId, context) {
       results.push(await processPhoto(photo, order, cardType, job, client));
     }
 
-    const processedCount = results.filter((photo) => photo.trang_thai === 'processed').length;
+    const processedCount = results.filter((photo) => photo.trang_thai === 'da_xu_ly').length;
     const failedCount = results.length - processedCount;
     const finishedJob = await photosRepository.finishProcessingJob(job.id, {
-      trang_thai: processedCount > 0 ? 'completed' : 'failed',
+      trang_thai: processedCount > 0 ? 'hoan_tat' : 'that_bai',
       so_da_xu_ly: processedCount,
       so_that_bai: failedCount,
       loi: failedCount > 0 ? 'Một số ảnh xử lý thất bại' : null
@@ -189,8 +229,8 @@ async function batchProcess(body, context) {
   const created = await withTransaction(async (client) => {
     const order = await ordersRepository.findByIdForUpdate(body.don_hang_id, client);
     if (!order) throw errors.notFound('Không tìm thấy đơn hàng');
-    if (!['pending', 'processing'].includes(order.trang_thai)) {
-      throw errors.invalidState('Chỉ đơn pending hoặc processing mới được batch-process', { status: order.trang_thai });
+    if (!['cho_xu_ly', 'dang_xu_ly'].includes(order.trang_thai)) {
+      throw errors.invalidState('Chỉ đơn chờ xử lý hoặc đang xử lý mới được batch-process', { status: order.trang_thai });
     }
 
     const photos = await photosRepository.findManyByIds(body.danh_sach_anh_id, client);
@@ -199,8 +239,8 @@ async function batchProcess(body, context) {
     }
 
     let updatedOrder = order;
-    if (order.trang_thai === 'pending') {
-      updatedOrder = await ordersRepository.updateStatus(order.id, 'processing', {}, client);
+    if (order.trang_thai === 'cho_xu_ly') {
+      updatedOrder = await ordersRepository.updateStatus(order.id, 'dang_xu_ly', {}, client);
       await writeAudit('order.status_changed', 'don_hang', order.id, context, {
         old_data: order,
         new_data: updatedOrder
@@ -231,14 +271,31 @@ async function getPhoto(id) {
   return { photo };
 }
 
+async function getPhotoDownloadUrl(id) {
+  const photo = await photosRepository.findById(id);
+  if (!photo) throw errors.notFound('Không tìm thấy ảnh');
+  if (photo.ngay_don_dep) {
+    throw errors.invalidState('Ảnh đã hết hạn lưu trữ, không thể tải.');
+  }
+
+  const publicId = photo.cloudinary_anh_xu_ly_id || photo.cloudinary_anh_goc_id;
+  if (!publicId) throw errors.invalidState('Ảnh chưa có file để tải.');
+  return assetService.signedDownloadUrl(publicId, { format: 'jpg', attachment: true });
+}
+
 async function approvePhoto(id, context) {
   return withTransaction(async (client) => {
     const oldPhoto = await photosRepository.findById(id, client);
     if (!oldPhoto) throw errors.notFound('Không tìm thấy ảnh');
-    if (!['processed', 'approved'].includes(oldPhoto.trang_thai)) {
-      throw errors.invalidState('Chỉ ảnh processed mới được approved', { trang_thai: oldPhoto.trang_thai });
+    const rawPhotoPassedQc = oldPhoto.trang_thai === 'anh_goc'
+      && Number(oldPhoto.diem_chat_luong) > 80;
+    if (!['da_xu_ly', 'da_duyet'].includes(oldPhoto.trang_thai) && !rawPhotoPassedQc) {
+      throw errors.invalidState(
+        'Chỉ ảnh đã xử lý AI hoặc ảnh gốc có điểm QC trên 80 mới được duyệt',
+        { trang_thai: oldPhoto.trang_thai, diem_chat_luong: oldPhoto.diem_chat_luong }
+      );
     }
-    const photo = await photosRepository.updateStatus(id, 'approved', {}, client);
+    const photo = await photosRepository.updateStatus(id, 'da_duyet', {}, client);
     await writeAudit('photo.approved', 'anh',id, context, { old_data: oldPhoto, new_data: photo }, client);
     return { photo };
   });
@@ -248,10 +305,10 @@ async function rejectPhoto(id, body, context) {
   return withTransaction(async (client) => {
     const oldPhoto = await photosRepository.findById(id, client);
     if (!oldPhoto) throw errors.notFound('Không tìm thấy ảnh');
-    if (oldPhoto.trang_thai === 'approved') {
+    if (oldPhoto.trang_thai === 'da_duyet') {
       throw errors.invalidState('Không thể từ chối ảnh đã được duyệt.', { trang_thai: oldPhoto.trang_thai });
     }
-    const photo = await photosRepository.updateStatus(id, 'rejected', { loi_xu_ly: body.ly_do }, client);
+    const photo = await photosRepository.updateStatus(id, 'tu_choi', { loi_xu_ly: body.ly_do }, client);
     await writeAudit('photo.rejected', 'anh',id, context, { old_data: oldPhoto, new_data: photo }, client);
     return { photo };
   });
@@ -294,6 +351,7 @@ module.exports = {
   batchProcess,
   getProcessingJob,
   getPhoto,
+  getPhotoDownloadUrl,
   approvePhoto,
   rejectPhoto,
   requalifyPhoto

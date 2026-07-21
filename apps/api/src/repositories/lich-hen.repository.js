@@ -8,7 +8,7 @@ async function listKhungGioChup(ngayHen, client) {
      left join lateral (
        select count(*)::int as so_cho_da_xac_nhan from public.lich_hen l
        where l.loai_lich = 'dat_lich_chup' and l.trang_thai = 'da_xac_nhan'
-         and l.ngay_hen = $1 and l.khung_gio = c.khung_gio
+         and l.ngay_hen = $1 and l.khung_gio_chup_id = c.id
      ) d on true
      where c.dang_hoat_dong = true
      order by c.thu_tu, c.khung_gio`, [ngayHen], client);
@@ -29,18 +29,22 @@ async function findKhungGioForUpdate(khungGio, client) {
   return one('select * from public.cau_hinh_khung_gio_chup where khung_gio = $1 and dang_hoat_dong = true for update', [khungGio], client);
 }
 
-async function countDaXacNhan(ngayHen, khungGio, client) {
+async function findKhungGioByIdForUpdate(id, client) {
+  return one('select * from public.cau_hinh_khung_gio_chup where id = $1 and dang_hoat_dong = true for update', [id], client);
+}
+
+async function countDaXacNhan(ngayHen, khungGioChupId, client) {
   const row = await one(`select count(*)::int as count from public.lich_hen
-    where loai_lich = 'dat_lich_chup' and trang_thai = 'da_xac_nhan' and ngay_hen = $1 and khung_gio = $2`, [ngayHen, khungGio], client);
+    where loai_lich = 'dat_lich_chup' and trang_thai = 'da_xac_nhan' and ngay_hen = $1 and khung_gio_chup_id = $2`, [ngayHen, khungGioChupId], client);
   return row?.count || 0;
 }
 
 async function create(data, client) {
   return one(`insert into public.lich_hen
-    (don_hang_id, ten_khach, so_dien_thoai, email, ngay_hen, khung_gio, loai_lich, trang_thai, ghi_chu, nguoi_xac_nhan)
-    values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) returning *`,
+    (don_hang_id, ten_khach, so_dien_thoai, email, ngay_hen, khung_gio, khung_gio_chup_id, loai_lich, trang_thai, ghi_chu, nguoi_xac_nhan)
+    values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) returning *`,
     [data.don_hang_id || null, data.ten_khach, data.so_dien_thoai, data.email || null, data.ngay_hen, data.khung_gio,
-      data.loai_lich, data.trang_thai, data.ghi_chu || null, data.nguoi_xac_nhan || null], client);
+      data.khung_gio_chup_id || null, data.loai_lich, data.trang_thai, data.ghi_chu || null, data.nguoi_xac_nhan || null], client);
 }
 
 async function list(filters, { limit, offset }, client) {
@@ -51,7 +55,7 @@ async function list(filters, { limit, offset }, client) {
   params.push(limit, offset);
   const rows = await many(`select l.*, o.ma_don, count(*) over()::int as total from public.lich_hen l
     left join public.don_hang o on o.id=l.don_hang_id where ${where.join(' and ')}
-    order by l.ngay_hen, l.khung_gio, l.ngay_tao limit $${params.length - 1} offset $${params.length}`, params, client);
+    order by l.ngay_hen desc, l.khung_gio desc, l.ngay_tao desc limit $${params.length - 1} offset $${params.length}`, params, client);
   return { rows, total: rows[0]?.total || 0 };
 }
 
@@ -76,4 +80,4 @@ async function lichCanNhacLayHinh(client) {
 }
 async function danhDauDaNhac(id, client) { return one('update public.lich_hen set ngay_nhac_lay_hinh=now(), ngay_cap_nhat=now() where id=$1 returning *', [id], client); }
 
-module.exports = { listKhungGioChup, listCauHinh, updateCauHinh, findKhungGioForUpdate, countDaXacNhan, create, list, findById, updateStatus, ganDonVaHoanTat, lichCanNhacLayHinh, danhDauDaNhac };
+module.exports = { listKhungGioChup, listCauHinh, updateCauHinh, findKhungGioForUpdate, findKhungGioByIdForUpdate, countDaXacNhan, create, list, findById, updateStatus, ganDonVaHoanTat, lichCanNhacLayHinh, danhDauDaNhac };

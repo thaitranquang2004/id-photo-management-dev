@@ -12,6 +12,7 @@ import ErrorState from '../../components/feedback/ErrorState.jsx';
 import LoadingState from '../../components/feedback/LoadingState.jsx';
 import { formatDate } from '../../utils/format';
 import { useFormErrors } from '../../hooks/useFormErrors.js';
+import { emailRule, vietnamesePhoneRule } from '../../utils/validation.js';
 
 const emptyForm = {
   email: '',
@@ -62,7 +63,11 @@ export default function UsersPage() {
 
   function submitCreate(event) {
     event.preventDefault();
-    if (!createErrors.validate(form, { ho_ten: 'Vui lòng nhập họ tên', email: 'Vui lòng nhập email' })) return;
+    if (!createErrors.validate(form, {
+      ho_ten: 'Vui lòng nhập họ tên',
+      email: emailRule,
+      so_dien_thoai: { ...vietnamesePhoneRule, required: false }
+    })) return;
     createMutation.mutate({
       ...form,
       password: form.password || undefined
@@ -89,7 +94,10 @@ export default function UsersPage() {
     event.preventDefault();
     if (!selectedUser || !editForm) return;
 
-    if (!editErrors.validate(editForm, { ho_ten: 'Vui lòng nhập họ tên' })) return;
+    if (!editErrors.validate(editForm, {
+      ho_ten: 'Vui lòng nhập họ tên',
+      so_dien_thoai: { ...vietnamesePhoneRule, required: false }
+    })) return;
 
     const payload = {};
     if (editForm.ho_ten !== (selectedUser.ho_ten || '')) payload.ho_ten = editForm.ho_ten;
@@ -208,7 +216,14 @@ export default function UsersPage() {
               <Col md={6}>
                 <Form.Group>
                   <Form.Label>SĐT</Form.Label>
-                  <Form.Control value={form.so_dien_thoai} onChange={(event) => setForm((current) => ({ ...current, so_dien_thoai: event.target.value }))} />
+                  <Form.Control
+                    value={form.so_dien_thoai}
+                    inputMode="tel"
+                    placeholder="0901234567 hoặc +84901234567"
+                    onChange={(event) => { setForm((current) => ({ ...current, so_dien_thoai: event.target.value })); createErrors.clearError('so_dien_thoai'); }}
+                    isInvalid={!!createErrors.errors.so_dien_thoai}
+                  />
+                  <Form.Control.Feedback type="invalid">{createErrors.errors.so_dien_thoai}</Form.Control.Feedback>
                 </Form.Group>
               </Col>
               <Col md={6}>
@@ -282,8 +297,12 @@ export default function UsersPage() {
                     <Form.Label>SĐT</Form.Label>
                     <Form.Control
                       value={editForm.so_dien_thoai}
-                      onChange={(event) => setEditForm((current) => ({ ...current, so_dien_thoai: event.target.value }))}
+                      inputMode="tel"
+                      placeholder="0901234567 hoặc +84901234567"
+                      onChange={(event) => { setEditForm((current) => ({ ...current, so_dien_thoai: event.target.value })); editErrors.clearError('so_dien_thoai'); }}
+                      isInvalid={!!editErrors.errors.so_dien_thoai}
                     />
+                    <Form.Control.Feedback type="invalid">{editErrors.errors.so_dien_thoai}</Form.Control.Feedback>
                   </Form.Group>
                 </Col>
                 <Col md={6}>

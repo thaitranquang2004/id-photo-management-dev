@@ -17,11 +17,11 @@ import { useToast } from '../../hooks/useToast.jsx';
 
 const PAGE_SIZE = 20;
 const STATUS_META = {
-  new: { label: 'Mới', bg: 'primary' },
-  reviewed: { label: 'Đã xem', bg: 'info', text: 'dark' },
-  accepted: { label: 'Đã tạo đơn', bg: 'success' },
-  rejected: { label: 'Từ chối', bg: 'danger' },
-  completed: { label: 'Hoàn tất', bg: 'secondary' }
+  moi: { label: 'Mới', bg: 'primary' },
+  da_xem: { label: 'Đã xem', bg: 'info', text: 'dark' },
+  da_tao_don: { label: 'Đã tạo đơn', bg: 'success' },
+  tu_choi: { label: 'Từ chối', bg: 'danger' },
+  hoan_tat: { label: 'Hoàn tất', bg: 'secondary' }
 };
 
 function StatusBadge({ status }) {
@@ -71,7 +71,7 @@ export default function ReprintRequestsPage() {
   const detail = detailQuery.data;
   const request = detail?.request;
   const photos = detail?.photos || [];
-  const actionable = request && !request.don_in_lai_id && ['new', 'reviewed'].includes(request.trang_thai);
+  const actionable = request && !request.don_in_lai_id && ['moi', 'da_xem'].includes(request.trang_thai);
 
   function closeDetail() {
     setSelectedId(null);
@@ -91,11 +91,11 @@ export default function ReprintRequestsPage() {
           style={{ maxWidth: 200 }}
         >
           <option value="">Tất cả trạng thái</option>
-          <option value="new">Mới</option>
-          <option value="reviewed">Đã xem</option>
-          <option value="accepted">Đã tạo đơn</option>
-          <option value="rejected">Từ chối</option>
-          <option value="completed">Hoàn tất</option>
+          <option value="moi">Mới</option>
+          <option value="da_xem">Đã xem</option>
+          <option value="da_tao_don">Đã tạo đơn</option>
+          <option value="tu_choi">Từ chối</option>
+          <option value="hoan_tat">Hoàn tất</option>
         </Form.Select>
       </div>
 
@@ -180,15 +180,15 @@ export default function ReprintRequestsPage() {
           <Button variant="outline-secondary" onClick={closeDetail}>Đóng</Button>
           {actionable ? (
             <>
-              {request.trang_thai === 'new' ? (
-                <Button variant="outline-info" disabled={statusMutation.isPending} onClick={() => statusMutation.mutate({ trang_thai: 'reviewed' })}>
+              {request.trang_thai === 'moi' ? (
+                <Button variant="outline-info" disabled={statusMutation.isPending} onClick={() => statusMutation.mutate({ trang_thai: 'da_xem' })}>
                   Đã xem
                 </Button>
               ) : null}
               <Button
                 variant="outline-danger"
                 disabled={statusMutation.isPending || !rejectNote.trim()}
-                onClick={() => statusMutation.mutate({ trang_thai: 'rejected', ghi_chu: rejectNote })}
+                onClick={() => statusMutation.mutate({ trang_thai: 'tu_choi', ghi_chu: rejectNote })}
               >
                 Từ chối
               </Button>
@@ -197,8 +197,8 @@ export default function ReprintRequestsPage() {
               </Button>
             </>
           ) : null}
-          {request && request.trang_thai === 'accepted' && request.don_in_lai_id ? (
-            <Button variant="outline-success" disabled={statusMutation.isPending} onClick={() => statusMutation.mutate({ trang_thai: 'completed' })}>
+          {request && request.trang_thai === 'da_tao_don' && request.don_in_lai_id ? (
+            <Button variant="outline-success" disabled={statusMutation.isPending} onClick={() => statusMutation.mutate({ trang_thai: 'hoan_tat' })}>
               Đánh dấu hoàn tất
             </Button>
           ) : null}

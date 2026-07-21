@@ -28,6 +28,14 @@ export async function createPricing(payload) {
   return apiData('/pricing', { method: 'POST', body: payload });
 }
 
+export async function listOnlineFilePricing() {
+  return apiData('/pricing/online-file');
+}
+
+export async function createOnlineFilePricing(payload) {
+  return apiData('/pricing/online-file', { method: 'POST', body: payload });
+}
+
 export async function listAdminUsers(params = {}) {
   return apiRequest('/admin/users', { query: params });
 }

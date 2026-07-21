@@ -1,10 +1,11 @@
 import { NavLink } from 'react-router-dom';
-import { CalendarPlus, ImageUp, LogIn, Search } from 'lucide-react';
+import { CalendarPlus, ClipboardCheck, ImageUp, LogIn, Search } from 'lucide-react';
 
 const navItems = [
   { to: '/tra-cuu', label: 'Tra cứu đơn', icon: Search },
   { to: '/dat-lich', label: 'Đặt lịch chụp', icon: CalendarPlus },
-  { to: '/gui-anh', label: 'Gửi ảnh', icon: ImageUp }
+  { to: '/gui-anh', label: 'Gửi ảnh', icon: ImageUp },
+  { to: '/trang-thai', label: 'Kiểm tra yêu cầu', icon: ClipboardCheck }
 ];
 
 // Thanh điều hướng dùng chung cho các trang khách. Trang hiện tại được tô sáng

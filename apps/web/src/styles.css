@@ -305,11 +305,10 @@ h2 svg {
 
 .brand-dot {
   display: inline-block;
-  width: 0.9rem;
-  height: 0.9rem;
-  border-radius: 999px;
-  background: linear-gradient(135deg, var(--app-primary), var(--app-accent));
-  box-shadow: 0 0 10px rgba(99, 102, 241, 0.4);
+  flex: 0 0 auto;
+  width: 3rem;
+  height: 3rem;
+  background: url('/favicon.svg') center / contain no-repeat;
 }
 
 .sidebar-search {
@@ -954,6 +953,19 @@ h2 svg {
   box-shadow: 0 8px 20px -4px rgba(99, 102, 241, 0.15);
 }
 
+.login-logo-image {
+  width: 2.65rem;
+  height: 2.65rem;
+  object-fit: contain;
+}
+
+.sidebar-brand-logo {
+  flex: 0 0 auto;
+  width: 2.5rem;
+  height: 2.5rem;
+  object-fit: contain;
+}
+
 .login-logo-area h1 {
   font-size: 1.6rem;
   font-weight: 850;
@@ -1167,6 +1179,129 @@ h2 svg {
   border-color: rgba(99, 102, 241, 0.3);
 }
 
+.card-type-selector {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.card-type-option {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.85rem;
+  width: 100%;
+  padding: 1rem;
+  border: 1px solid var(--app-border);
+  border-radius: var(--app-radius);
+  background: var(--app-surface-soft);
+  color: var(--app-text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.card-type-option:hover {
+  border-color: rgba(99, 102, 241, 0.4);
+  background: var(--app-primary-soft);
+}
+
+.card-type-option:focus-visible {
+  outline: 3px solid rgba(99, 102, 241, 0.35);
+  outline-offset: 3px;
+}
+
+.card-type-option.is-selected {
+  border-color: var(--app-primary);
+  background: var(--app-primary-soft);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+}
+
+.card-type-option-check {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.25rem;
+  height: 1.25rem;
+  border: 1.5px solid #cbd5e1;
+  border-radius: 50%;
+  color: #ffffff;
+  flex: 0 0 auto;
+}
+
+.card-type-option.is-selected .card-type-option-check {
+  border-color: var(--app-primary);
+  background: var(--app-primary);
+}
+
+.card-type-option-copy {
+  display: grid;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
+.card-type-option-copy > strong {
+  color: #1e293b;
+  font-size: 0.98rem;
+  line-height: 1.3;
+}
+
+.card-type-option-copy > span:not(.card-type-option-meta) {
+  color: var(--app-muted);
+  font-size: 0.78rem;
+}
+
+.card-type-option-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  color: #475569;
+  font-size: 0.82rem;
+}
+
+.card-type-option-color {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.card-type-option-color i {
+  display: inline-block;
+  width: 0.8rem;
+  height: 0.8rem;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  border-radius: 3px;
+}
+
+.card-type-option-price {
+  display: grid;
+  gap: 0.15rem;
+  justify-items: end;
+  white-space: nowrap;
+}
+
+.card-type-option-price small {
+  color: var(--app-muted);
+  font-size: 0.72rem;
+}
+
+.card-type-option-price strong {
+  color: var(--app-primary);
+  font-size: 0.92rem;
+}
+
+@media (max-width: 575.98px) {
+  .card-type-option {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .card-type-option-price {
+    grid-column: 2;
+    justify-items: start;
+  }
+}
+
 .color-swatch {
   display: inline-block;
   width: 1.1rem;
@@ -1185,6 +1320,92 @@ h2 svg {
 }
 
 /* Order and Photos Details details */
+.order-detail-layout {
+  align-items: flex-start;
+}
+
+.order-detail-layout > [class*='col-'] {
+  min-width: 0;
+}
+
+.order-detail-sidebar {
+  display: grid;
+  gap: 1.25rem;
+  min-width: 0;
+}
+
+/* Lịch sử thanh toán có nhiều cột. Không để kích thước nội tại của bảng
+   kéo rộng cột trái và chồng lên khu vực xử lý ảnh ở bên phải. */
+.order-detail-sidebar > .app-panel {
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.order-detail-sidebar .table-responsive {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.order-detail-sidebar .table-responsive .data-table {
+  min-width: 42rem;
+}
+
+.order-detail-sidebar .page-header {
+  align-items: stretch;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 0;
+}
+
+.order-detail-sidebar .header-actions {
+  justify-content: flex-start;
+}
+
+.order-detail-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.order-detail-sidebar .header-actions.order-detail-status-actions {
+  display: grid !important;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  gap: 0.65rem;
+  width: 100%;
+  min-width: 0;
+}
+
+.order-detail-sidebar .order-detail-status-actions .btn {
+  width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.order-detail-workspace {
+  min-width: 0;
+}
+
+.order-detail-workspace .work-tabs {
+  margin-bottom: 1.5rem;
+}
+
+.order-detail-workspace .work-tabs + .tab-content {
+  padding-top: 0;
+}
+
+.order-detail-workspace .tab-pane > .app-panel > .empty-state {
+  margin-top: 1.25rem;
+}
+
+@media (max-width: 575.98px) {
+  .order-detail-sidebar .order-detail-status-actions {
+    grid-template-columns: 1fr;
+  }
+}
+
 .breadcrumb-line {
   display: inline-flex;
   align-items: center;
@@ -1234,6 +1455,15 @@ h2 svg {
 
 .work-tabs + .tab-content {
   padding-top: 0.5rem;
+}
+
+/* Trang tra cứu: nội dung ảnh bắt đầu sát dưới thanh tab để tránh khoảng hở thừa. */
+.public-lookup-tabs {
+  margin-bottom: 0.5rem;
+}
+
+.public-lookup-tabs + .tab-content {
+  padding-top: 0;
 }
 
 .selected-preview-grid {
@@ -1440,6 +1670,10 @@ h2 svg {
   font-size: 0.8rem;
 }
 
+.photo-card-actions .photo-card-download {
+  flex-basis: 100%;
+}
+
 .photo-preview-modal {
   display: grid;
   gap: 1rem;
@@ -1643,6 +1877,7 @@ h2 svg {
 .public-nav-link:hover {
   color: var(--app-primary);
   background: var(--app-primary-soft);
+  text-decoration: none;
 }
 
 .public-nav-link.active {
@@ -1695,6 +1930,14 @@ h2 svg {
   font-weight: 800;
   letter-spacing: -0.02em;
   color: #0f172a;
+}
+
+.booking-form-heading {
+  margin-bottom: 0.75rem;
+}
+
+.booking-form-heading .public-form-title {
+  margin-bottom: 0;
 }
 
 /* Lưới ảnh khách gửi (đặt lịch): thẻ có preview + nút cắt khổ/kiểm tra QC. */
@@ -1805,6 +2048,23 @@ h2 svg {
   font-style: italic;
 }
 
+.online-file-price {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 2.75rem;
+  padding: 0.375rem 0.75rem;
+  border: 1px solid var(--app-border);
+  border-radius: var(--app-radius);
+  background: var(--app-primary-soft);
+  color: var(--app-text);
+}
+
+.online-file-price strong {
+  color: var(--app-primary);
+  font-size: 1.05rem;
+}
+
 .public-panel {
   min-height: 100%;
   display: flex;
@@ -1835,6 +2095,66 @@ h2 svg {
   border-top: 1px solid var(--app-border);
 }
 
+/* Trang Đặt lịch/Gửi ảnh chỉ dùng cột trái để giới thiệu, nên phần hướng dẫn
+   cần nằm gần nội dung mở đầu hơn so với luồng tra cứu có form ở cùng cột. */
+.public-guide-heading {
+  margin-bottom: 0.75rem;
+}
+
+.lookup-tips.public-guide-tips {
+  position: relative;
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 0;
+}
+
+/* Đặt đường phân cách ở giữa phần mô tả và các bước, không sát phần bước. */
+.lookup-tips.public-guide-tips::before {
+  content: '';
+  position: absolute;
+  top: -0.75rem;
+  right: 0;
+  left: 0;
+  height: 1px;
+  background: var(--app-border);
+}
+
+.public-guide-image-button {
+  display: block;
+  width: 100%;
+  margin-top: 1.25rem;
+  padding: 0;
+  cursor: zoom-in;
+  border: 0;
+  border-radius: var(--app-radius);
+  background: transparent;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.public-guide-image-button:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--app-shadow);
+}
+
+.public-guide-image-button:focus-visible {
+  outline: 3px solid rgba(99, 102, 241, 0.45);
+  outline-offset: 3px;
+}
+
+.public-guide-image {
+  display: block;
+  width: 100%;
+  height: auto;
+  border: 1px solid var(--app-border);
+  border-radius: var(--app-radius);
+}
+
+.public-guide-modal-image {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
 /* Card hỗ trợ ghim đáy cột trái để lấp khoảng trống khi panel cao bằng cột form. */
 .public-panel-support {
   margin-top: auto;
@@ -1845,6 +2165,10 @@ h2 svg {
   border-radius: var(--app-radius-lg);
   background: var(--app-primary-soft);
   border: 1px solid rgba(99, 102, 241, 0.15);
+}
+
+.public-thanks-panel {
+  margin-top: 1rem;
 }
 
 .public-panel-support .support-icon {
@@ -1927,6 +2251,20 @@ h2 svg {
   gap: 1.25rem;
 }
 
+.public-request-appointment {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.public-request-appointment strong {
+  font-weight: 650;
+}
+
+.public-request-appointment span {
+  color: var(--app-muted);
+  font-size: 0.82rem;
+}
+
 .public-order-header {
   display: flex;
   justify-content: space-between;
@@ -2005,6 +2343,10 @@ h2 svg {
   padding: 0.75rem;
   background-color: #fafafa;
   border-top: 1px solid rgba(226, 232, 240, 0.5);
+}
+
+.public-photo-download-action{
+  justify-content: center;
 }
 
 .public-photo-actions .form-check {

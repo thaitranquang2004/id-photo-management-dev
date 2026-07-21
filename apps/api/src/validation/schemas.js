@@ -8,7 +8,6 @@ const {
   ONLINE_REQUEST_STATUSES,
   APPOINTMENT_STATUSES,
   APPOINTMENT_TYPES,
-  REQUEST_TYPES,
   NOTIFICATION_CHANNELS,
   INTAKE_SOURCES,
   DELIVERY_METHODS,
@@ -18,11 +17,24 @@ const {
 
 const uuid = z.uuid();
 const optionalUuid = uuid.optional().or(z.literal('').transform(() => undefined));
-const phone = z.string().trim().min(6).max(20).regex(/^[0-9+()\-\s.]+$/);
+const PHONE_MESSAGE = 'Số điện thoại phải có dạng 0xxxxxxxxx hoặc +84xxxxxxxxx';
+const EMAIL_MESSAGE = 'Email không đúng định dạng';
+const normalizePhone = (value) => value.replace(/[()\-\s.]/g, '');
+// Chỉ nhận số Việt Nam: 0 + 9/10 chữ số hoặc +84 + 9/10 chữ số.
+// Cho phép người dùng nhập dấu cách/dấu gạch nhưng luôn lưu ở dạng đã chuẩn hóa.
+const phone = z.string()
+  .trim()
+  .transform(normalizePhone)
+  .pipe(z.string().regex(/^(?:0\d{9,10}|\+84\d{9,10})$/, PHONE_MESSAGE));
+const optionalPhone = z.union([z.literal(''), phone]).optional().transform((value) => value || undefined);
 // Bounded free-text so notes/reasons can't be used to push oversized payloads into the DB.
 const longText = z.string().trim().max(2000);
-const email = z.email().optional().or(z.literal('').transform(() => undefined));
+const requiredEmail = z.email(EMAIL_MESSAGE);
+const email = requiredEmail.optional().or(z.literal('').transform(() => undefined));
 const optionalDate = z.coerce.date().optional().or(z.literal('').transform(() => undefined));
+// Only printed orders validate a minimum quantity. Online-file orders canonicalize
+// this field to 1 later, so legacy clients may send any integer or omit it.
+const optionalQuantity = z.coerce.number().int().optional();
 const paginationQuery = z.object({
   page: z.coerce.number().int().positive().optional(),
   limit: z.coerce.number().int().positive().max(100).optional()
@@ -61,16 +73,35 @@ const pricingCreateBody = z.object({
   message: 'hieu_luc_den phải lớn hơn hoặc bằng hieu_luc_tu'
 });
 
+const onlineFilePricingCreateBody = z.object({
+  gia_tron_goi: z.coerce.number().nonnegative(),
+  hieu_luc_tu: z.coerce.date(),
+  hieu_luc_den: z.coerce.date().optional()
+}).refine((value) => !value.hieu_luc_den || value.hieu_luc_den >= value.hieu_luc_tu, {
+  path: ['hieu_luc_den'],
+  message: 'hieu_luc_den phải lớn hơn hoặc bằng hieu_luc_tu'
+});
+
+function requirePrintedQuantity(value, ctx) {
+  // Body chuyển yêu cầu cho phép staff chỉ sửa một vài trường; lúc đó service
+  // sẽ lấy hình thức giao/số lượng đã lưu trên yêu cầu để kiểm tra tiếp.
+  if (value.hinh_thuc_giao && value.hinh_thuc_giao !== 'lay_file_truc_tuyen'
+    && (value.so_luong === undefined || value.so_luong < 4)) {
+    ctx.addIssue({ code: 'custom', path: ['so_luong'], message: 'Mỗi đơn tối thiểu 4 tấm' });
+  }
+}
+
 const orderCreateBody = z.object({
   khach_hang_id: uuid,
   loai_the_id: uuid,
-  so_luong: z.coerce.number().int().min(4, 'Mỗi đơn tối thiểu 4 tấm'),
+  so_luong: optionalQuantity,
   ngay_hen_lay: optionalDate,
   khung_gio_lay: z.string().trim().optional(),
   lich_hen_id: optionalUuid,
   ghi_chu: longText.optional(),
   hinh_thuc_giao: z.enum(DELIVERY_METHODS).default('lay_hinh_ngay')
 }).superRefine((value, ctx) => {
+  requirePrintedQuantity(value, ctx);
   if (value.hinh_thuc_giao === 'hen_lay_hinh' && (!value.ngay_hen_lay || !value.khung_gio_lay)) {
     ctx.addIssue({ code: 'custom', path: ['ngay_hen_lay'], message: 'Hẹn lấy hình cần ngày và khung giờ lấy' });
   }
@@ -81,7 +112,8 @@ const orderListQuery = paginationQuery.extend({
   nguon_don: z.enum(INTAKE_SOURCES).optional(),
   date_from: z.coerce.date().optional(),
   date_to: z.coerce.date().optional(),
-  nguoi_tao: uuid.optional()
+  nguoi_tao: uuid.optional(),
+  chua_thanh_toan: z.coerce.boolean().optional()
 });
 
 const reportOrdersQuery = paginationQuery.extend({
@@ -94,7 +126,7 @@ const reportOrdersQuery = paginationQuery.extend({
 
 const cancelOrderBody = z.object({ ly_do: longText.min(1) });
 const completeOrderBody = z.object({}).default({});
-const deliverOrderBody = z.object({ allow_unpaid_reason: z.string().trim().min(1).optional() }).default({});
+const deliverOrderBody = z.object({}).default({});
 
 const paymentCreateBody = z.object({
   loai: z.enum(PAYMENT_KINDS),
@@ -158,40 +190,32 @@ const publicOnlineStatusBody = z.object({
   so_dien_thoai: phone
 });
 
-const onlineRequestBody = z.object({
+// Yêu cầu gửi ảnh từ xa: khách chọn nhu cầu giao ảnh, nhưng đơn chỉ được tạo
+// sau khi staff tiếp nhận và chuyển yêu cầu thành đơn.
+const remoteOnlineRequestBody = z.object({
   ho_ten: z.string().trim().min(1),
   so_dien_thoai: phone,
-  email,
-  loai_the_id: optionalUuid,
-  loai_yeu_cau: z.enum(REQUEST_TYPES).default('both'),
-  ghi_chu: longText.optional(),
-  ngay_hen: optionalDate,
-  khung_gio: z.string().trim().optional()
-});
-
-const studioBookingBody = z.object({
-  ten_khach: z.string().trim().min(1),
-  so_dien_thoai: phone,
-  email: z.email(),
-  ngay_hen: z.coerce.date(),
-  khung_gio: z.string().trim().min(1),
-  ghi_chu: longText.optional()
-});
-
-const remoteOrderBody = z.object({
-  ho_ten: z.string().trim().min(1),
-  so_dien_thoai: phone,
-  email: z.email(),
+  email: requiredEmail,
   loai_the_id: uuid,
-  so_luong: z.coerce.number().int().min(4, 'Mỗi đơn tối thiểu 4 tấm'),
+  so_luong: optionalQuantity,
   hinh_thuc_giao: z.enum(['lay_file_truc_tuyen', 'hen_lay_hinh']),
   ngay_hen_lay: optionalDate,
   khung_gio_lay: z.string().trim().optional(),
   ghi_chu: longText.optional()
 }).superRefine((value, ctx) => {
+  requirePrintedQuantity(value, ctx);
   if (value.hinh_thuc_giao === 'hen_lay_hinh' && (!value.ngay_hen_lay || !value.khung_gio_lay)) {
     ctx.addIssue({ code: 'custom', path: ['ngay_hen_lay'], message: 'Hẹn lấy hình cần ngày và khung giờ lấy' });
   }
+});
+
+const studioBookingBody = z.object({
+  ten_khach: z.string().trim().min(1),
+  so_dien_thoai: phone,
+  email: requiredEmail,
+  ngay_hen: z.coerce.date(),
+  khung_gio: z.string().trim().min(1),
+  ghi_chu: longText.optional()
 });
 
 const onlineRequestListQuery = paginationQuery.extend({
@@ -202,20 +226,16 @@ const rejectRequestBody = z.object({ ghi_chu: longText.optional() }).default({})
 
 const convertRequestBody = z.object({
   loai_the_id: optionalUuid,
-  so_luong: z.coerce.number().int().min(4, 'Mỗi đơn tối thiểu 4 tấm'),
+  hinh_thuc_giao: z.enum(['lay_file_truc_tuyen', 'hen_lay_hinh']).optional(),
+  so_luong: optionalQuantity,
   ngay_hen_lay: z.coerce.date().optional(),
   khung_gio_lay: z.string().trim().optional(),
   ghi_chu: longText.optional()
-});
-
-const appointmentCreateBody = z.object({
-  ten_khach: z.string().trim().optional(),
-  so_dien_thoai: phone,
-  email: z.email().optional(),
-  ngay_hen: z.coerce.date(),
-  khung_gio: z.string().trim().min(1),
-  ghi_chu: longText.optional(),
-  loai_lich: z.enum(APPOINTMENT_TYPES).default('hen_lay_hinh')
+}).superRefine((value, ctx) => {
+  requirePrintedQuantity(value, ctx);
+  if (value.hinh_thuc_giao === 'hen_lay_hinh' && (!value.ngay_hen_lay || !value.khung_gio_lay)) {
+    ctx.addIssue({ code: 'custom', path: ['ngay_hen_lay'], message: 'Hẹn lấy hình cần ngày và khung giờ lấy' });
+  }
 });
 
 const appointmentListQuery = paginationQuery.extend({
@@ -243,17 +263,17 @@ const notificationListQuery = paginationQuery.extend({
 });
 
 const adminUserCreateBody = z.object({
-  email: z.email(),
+  email: requiredEmail,
   password: z.string().min(8).optional(),
   ho_ten: z.string().trim().min(1),
-  so_dien_thoai: z.string().trim().optional(),
+  so_dien_thoai: optionalPhone,
   vai_tro: z.enum(['staff', 'admin']).default('staff'),
   dang_hoat_dong: z.boolean().default(true)
 });
 
 const adminUserUpdateBody = z.object({
   ho_ten: z.string().trim().min(1).optional(),
-  so_dien_thoai: z.string().trim().optional(),
+  so_dien_thoai: optionalPhone,
   vai_tro: z.enum(['staff', 'admin']).optional(),
   dang_hoat_dong: z.boolean().optional(),
   ngay_luu_tru: z.coerce.date().nullable().optional()
@@ -270,6 +290,7 @@ module.exports = {
   cardTypeBody,
   cardTypePatchBody,
   pricingCreateBody,
+  onlineFilePricingCreateBody,
   orderCreateBody,
   orderListQuery,
   reportOrdersQuery,
@@ -289,12 +310,10 @@ module.exports = {
   publicQcBody,
   publicOnlineStatusBody,
   studioBookingBody,
-  remoteOrderBody,
-  onlineRequestBody,
+  remoteOnlineRequestBody,
   onlineRequestListQuery,
   rejectRequestBody,
   convertRequestBody,
-  appointmentCreateBody,
   appointmentListQuery,
   appointmentStatusBody,
   khungGioChupPatchBody,

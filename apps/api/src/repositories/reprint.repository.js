@@ -99,7 +99,7 @@ async function updateStatus(id, data, actorId, client) {
 async function linkOrder(id, orderId, actorId, client) {
   return one(
     `update public.yeu_cau_in_lai
-     set trang_thai = 'accepted',
+     set trang_thai = 'da_tao_don',
          don_in_lai_id = $2,
          nguoi_duyet = $3,
          ngay_duyet = now()

@@ -16,19 +16,19 @@ async function create(req, res) {
 }
 
 async function startProcessing(req, res) {
-  return sendSuccess(res, await orderService.changeStatus(req.validated.params.id, 'processing', requestContext(req)));
+  return sendSuccess(res, await orderService.changeStatus(req.validated.params.id, 'dang_xu_ly', requestContext(req)));
 }
 
 async function complete(req, res) {
-  return sendSuccess(res, await orderService.changeStatus(req.validated.params.id, 'completed', requestContext(req), req.validated.body));
+  return sendSuccess(res, await orderService.changeStatus(req.validated.params.id, 'hoan_tat', requestContext(req), req.validated.body));
 }
 
 async function deliver(req, res) {
-  return sendSuccess(res, await orderService.changeStatus(req.validated.params.id, 'delivered', requestContext(req), req.validated.body));
+  return sendSuccess(res, await orderService.changeStatus(req.validated.params.id, 'da_giao', requestContext(req), req.validated.body));
 }
 
 async function cancel(req, res) {
-  return sendSuccess(res, await orderService.changeStatus(req.validated.params.id, 'cancelled', requestContext(req), {
+  return sendSuccess(res, await orderService.changeStatus(req.validated.params.id, 'da_huy', requestContext(req), {
     reason: req.validated.body.ly_do
   }));
 }

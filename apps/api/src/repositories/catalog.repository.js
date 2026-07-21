@@ -1,5 +1,10 @@
 const { one, many } = require('../db/pool');
 
+function isOnlineFilePricingTableMissing(error) {
+  return error?.code === '42P01'
+    && String(error.message || '').includes('bang_gia_file_truc_tuyen');
+}
+
 async function listCardTypes(client) {
   // Trả về cột thật của loai_the (tiếng Việt) + giá hiện hành (field ghép: *_hien_hanh).
   return many(
@@ -90,18 +95,101 @@ async function archiveCardType(id, client) {
 
 async function listPricing(cardTypeId, client) {
   return many(
-    `select *
-     from public.bang_gia
-     where ($1::uuid is null or loai_the_id = $1)
-     order by loai_the_id, hieu_luc_tu desc`,
+    `select p.*, ct.ten as ten_loai_the
+     from public.bang_gia p
+     join public.loai_the ct on ct.id = p.loai_the_id
+     where ($1::uuid is null or p.loai_the_id = $1)
+     order by p.loai_the_id, p.hieu_luc_tu desc`,
     [cardTypeId || null],
+    client
+  );
+}
+
+async function listOnlineFilePricing(client) {
+  return many(
+    `select p.*, u.ho_ten as nguoi_tao_ten
+     from public.bang_gia_file_truc_tuyen p
+     left join public.nguoi_dung u on u.id = p.nguoi_tao
+     order by p.hieu_luc_tu desc, p.ngay_tao desc`,
+    [],
+    client
+  );
+}
+
+async function lockOnlineFilePricing(client) {
+  return many(
+    `select id, gia_tron_goi,
+            hieu_luc_tu::text as hieu_luc_tu,
+            hieu_luc_den::text as hieu_luc_den
+     from public.bang_gia_file_truc_tuyen
+     order by hieu_luc_tu
+     for update`,
+    [],
+    client
+  );
+}
+
+async function getCurrentOnlineFilePricing(effectiveDate, client) {
+  return one(
+    `select *
+     from public.bang_gia_file_truc_tuyen
+     where hieu_luc_tu <= $1::date
+       and (hieu_luc_den is null or hieu_luc_den >= $1::date)
+     order by hieu_luc_tu desc
+     limit 1
+     for share`,
+    [effectiveDate],
+    client
+  );
+}
+
+// During a rolling deploy, web/API code can reach an environment before its
+// migration is applied. Catalog screens should remain usable; order creation
+// still uses the strict function above and is blocked safely.
+async function getCurrentOnlineFilePricingOrNull(effectiveDate, client) {
+  try {
+    return await getCurrentOnlineFilePricing(effectiveDate, client);
+  } catch (error) {
+    if (isOnlineFilePricingTableMissing(error)) return null;
+    throw error;
+  }
+}
+
+async function closeOpenOnlineFilePricing(effectiveTo, client) {
+  return many(
+    `update public.bang_gia_file_truc_tuyen
+     set hieu_luc_den = $1::date,
+         ngay_cap_nhat = now()
+     where hieu_luc_den is null
+       and hieu_luc_tu <= $1::date
+     returning *`,
+    [effectiveTo],
+    client
+  );
+}
+
+async function insertOnlineFilePricing(data, actorId, client) {
+  return one(
+    `insert into public.bang_gia_file_truc_tuyen (
+       gia_tron_goi, hieu_luc_tu, hieu_luc_den, nguoi_tao
+     )
+     values ($1, $2, $3, $4)
+     returning *`,
+    [
+      data.gia_tron_goi,
+      data.hieu_luc_tu,
+      data.hieu_luc_den || null,
+      actorId || null
+    ],
     client
   );
 }
 
 async function lockPricingForCardType(cardTypeId, client) {
   return many(
-    `select *
+    `select id, loai_the_id,
+            hieu_luc_tu::text as hieu_luc_tu,
+            hieu_luc_den::text as hieu_luc_den
      from public.bang_gia
      where loai_the_id = $1
      order by hieu_luc_tu
@@ -140,6 +228,21 @@ async function closeOpenPricing(cardTypeId, effectiveTo, client) {
   );
 }
 
+// Archive dừng hiệu lực ngay trong ngày archive. Lịch sử giá vẫn được giữ lại
+// để các đơn cũ và trang Bảng giá có thể truy vết đúng tên loại thẻ.
+async function closeActivePricingForCardType(cardTypeId, effectiveTo, client) {
+  return many(
+    `update public.bang_gia
+     set hieu_luc_den = $2::date
+     where loai_the_id = $1
+       and hieu_luc_tu <= $2::date
+       and (hieu_luc_den is null or hieu_luc_den > $2::date)
+     returning *`,
+    [cardTypeId, effectiveTo],
+    client
+  );
+}
+
 async function insertPricing(data, actorId, client) {
   return one(
     `insert into public.bang_gia (
@@ -166,8 +269,16 @@ module.exports = {
   updateCardType,
   archiveCardType,
   listPricing,
+  listOnlineFilePricing,
+  lockOnlineFilePricing,
+  getCurrentOnlineFilePricing,
+  getCurrentOnlineFilePricingOrNull,
+  isOnlineFilePricingTableMissing,
+  closeOpenOnlineFilePricing,
+  insertOnlineFilePricing,
   lockPricingForCardType,
   getCurrentPricing,
   closeOpenPricing,
+  closeActivePricingForCardType,
   insertPricing
 };

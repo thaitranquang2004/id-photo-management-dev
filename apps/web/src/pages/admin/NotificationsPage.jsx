@@ -8,7 +8,7 @@ import LoadingState from '../../components/feedback/LoadingState.jsx';
 import PaginationBar from '../../components/common/Pagination.jsx';
 import { formatDate } from '../../utils/format';
 
-const PAGE_SIZE = 20;
+const PAGE_SIZE = 4;
 
 const EVENT_LABEL = {
   online_request_received: 'Nhận yêu cầu online',
@@ -17,10 +17,10 @@ const EVENT_LABEL = {
 };
 
 const STATUS_META = {
-  sent: { label: 'Đã gửi', bg: 'success' },
-  simulated: { label: 'Mô phỏng', bg: 'info', text: 'dark' },
-  failed: { label: 'Thất bại', bg: 'danger' },
-  pending: { label: 'Đang gửi', bg: 'secondary' }
+  da_gui: { label: 'Đã gửi', bg: 'success' },
+  mo_phong: { label: 'Mô phỏng', bg: 'info', text: 'dark' },
+  that_bai: { label: 'Thất bại', bg: 'danger' },
+  cho_gui: { label: 'Chờ gửi', bg: 'secondary' }
 };
 
 function StatusBadge({ status }) {
@@ -45,7 +45,7 @@ export default function NotificationsPage() {
       <div className="page-header">
         <div>
           <h1>Thông báo</h1>
-          <p>Nhật ký email (thật) và Zalo (mô phỏng) gửi cho khách.</p>
+          <p>Nhật ký email và Zalo gửi cho khách.</p>
         </div>
         <Form.Select value={kenh} onChange={(e) => { setChannel(e.target.value); setPage(1); }} style={{ maxWidth: 200 }}>
           <option value="">Tất cả kênh</option>

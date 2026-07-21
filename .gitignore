@@ -10,3 +10,9 @@ coverage/
 docs/
 .claude/
 .vscode/
+.playwright-cli/
+database/*
+!database/migrations/
+database/migrations/*
+!database/migrations/20260718_03_gia_file_truc_tuyen.sql
+database/

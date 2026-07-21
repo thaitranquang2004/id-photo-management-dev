@@ -1,10 +1,10 @@
 import { Badge } from 'react-bootstrap';
 
 const STATUS_MAP = {
-  not_checked: { label: 'Chưa kiểm tra', bg: 'light', text: 'dark' },
-  pass: { label: 'QC đạt', bg: 'success' },
-  warn: { label: 'QC cảnh báo', bg: 'warning', text: 'dark' },
-  fail: { label: 'QC lỗi', bg: 'danger' }
+  chua_kiem_tra: { label: 'Chưa kiểm tra', bg: 'light', text: 'dark' },
+  dat: { label: 'QC đạt', bg: 'success' },
+  canh_bao: { label: 'QC cảnh báo', bg: 'warning', text: 'dark' },
+  loi: { label: 'QC lỗi', bg: 'danger' }
 };
 
 export default function QcStatusBadge({ status }) {

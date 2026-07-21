@@ -32,7 +32,7 @@ async function findApprovedByOrder(orderId, client) {
   return many(
     `select *
      from public.anh
-     where don_hang_id = $1 and trang_thai = 'approved'
+     where don_hang_id = $1 and trang_thai = 'da_duyet'
      order by ngay_tao desc`,
     [orderId],
     client
@@ -43,7 +43,7 @@ async function updateStatus(id, status, patch, client) {
   return one(
     `update public.anh
      set trang_thai = $2,
-         ngay_duyet = case when $2 = 'approved' then now() else ngay_duyet end,
+         ngay_duyet = case when $2 = 'da_duyet' then now() else ngay_duyet end,
          loi_xu_ly = coalesce($3, loi_xu_ly),
          ngay_cap_nhat = now()
      where id = $1
@@ -56,7 +56,7 @@ async function updateStatus(id, status, patch, client) {
 async function markProcessed(id, data, client) {
   return one(
     `update public.anh
-     set trang_thai = 'processed',
+     set trang_thai = 'da_xu_ly',
          cloudinary_anh_xu_ly_id = $2,
          metadata_anh_xu_ly = $3,
          diem_chat_luong = $4,
@@ -100,7 +100,7 @@ async function updateQc(id, data, client) {
 async function markProcessingFailed(id, message, client) {
   return one(
     `update public.anh
-     set trang_thai = 'rejected',
+     set trang_thai = 'tu_choi',
          loi_xu_ly = $2,
          ngay_cap_nhat = now()
      where id = $1
@@ -115,7 +115,7 @@ async function createProcessingJob(data, actorId, client) {
     `insert into public.tac_vu_xu_ly (
        don_hang_id, nguoi_yeu_cau, nha_cung_cap, trang_thai, kiem_tra_nghiem_ngat, che_do_xu_ly, so_anh
      )
-     values ($1, $2, $3, 'queued', $4, $5, $6)
+     values ($1, $2, $3, 'cho_xu_ly', $4, $5, $6)
      returning *`,
     [
       data.don_hang_id,
@@ -132,7 +132,7 @@ async function createProcessingJob(data, actorId, client) {
 async function markPhotosProcessing(photoIds, jobId, client) {
   return many(
     `update public.anh
-     set trang_thai = 'processing',
+     set trang_thai = 'dang_xu_ly',
          tac_vu_xu_ly_id = $2,
          so_lan_xu_ly = so_lan_xu_ly + 1,
          ngay_cap_nhat = now()
@@ -150,7 +150,7 @@ async function findProcessingJob(id, client) {
 async function markJobStarted(id, client) {
   return one(
     `update public.tac_vu_xu_ly
-     set trang_thai = 'processing',
+     set trang_thai = 'dang_xu_ly',
          bat_dau_luc = coalesce(bat_dau_luc, now())
      where id = $1
      returning *`,

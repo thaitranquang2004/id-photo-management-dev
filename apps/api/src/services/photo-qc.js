@@ -93,7 +93,7 @@ function computeQc({ sourceWidthPx, sourceHeightPx, cardType, aiFindings }) {
   const penalty = issues.reduce((sum, item) => sum + (item.severity === 'fail' ? 40 : 10), 0);
 
   return {
-    trang_thai_qc: hasFail ? 'fail' : hasWarn ? 'warn' : 'pass',
+    trang_thai_qc: hasFail ? 'loi' : hasWarn ? 'canh_bao' : 'dat',
     diem_chat_luong: Math.max(0, Math.min(100, 100 - penalty)),
     loi_chat_luong: issues
   };

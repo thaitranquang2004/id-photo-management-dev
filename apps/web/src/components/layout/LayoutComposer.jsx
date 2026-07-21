@@ -44,8 +44,8 @@ export default function LayoutComposer({ photos, widthMm, heightMm }) {
   const w = Number(widthMm) || 30;
   const h = Number(heightMm) || 40;
   const [copies, setCopies] = useState(4);
-  const [marginMm, setMarginMm] = useState(5);
-  const [gapMm, setGapMm] = useState(2);
+  const [marginMm, setMarginMm] = useState(3);
+  const [gapMm, setGapMm] = useState(0);
   const [tiles, setTiles] = useState([]);
   const [downloading, setDownloading] = useState(false);
   const inited = useRef(false);

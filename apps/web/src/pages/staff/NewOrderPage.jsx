@@ -1,7 +1,7 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { Check, Search, UserPlus } from 'lucide-react';
 import { useMemo, useState } from 'react';
-import { Alert, Button, Col, Form, InputGroup, ListGroup, Row, Table } from 'react-bootstrap';
+import { Alert, Button, Col, Form, ListGroup, Row } from 'react-bootstrap';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { listCardTypes } from '../../api/admin';
 import { createCustomer, searchCustomersByPhone } from '../../api/customers';
@@ -13,6 +13,7 @@ import { formatCurrency } from '../../utils/format';
 import { useFormErrors } from '../../hooks/useFormErrors.js';
 import { useToast } from '../../hooks/useToast.jsx';
 import { TIME_SLOTS } from '../../utils/constants.js';
+import { normalizeVietnamesePhone, optionalEmailRule, vietnamesePhoneRule } from '../../utils/validation.js';
 
 const steps = ['Khách hàng', 'Thông tin đơn', 'Xác nhận'];
 
@@ -48,7 +49,6 @@ export default function NewOrderPage() {
     mutationFn: searchCustomersByPhone,
     onSuccess: (result) => {
       setCustomers(result);
-      if (result.length === 1) setSelectedCustomer(result[0]);
     }
   });
 
@@ -85,32 +85,43 @@ export default function NewOrderPage() {
 
   const cardTypes = cardTypesQuery.data?.card_types || [];
   const selectedCardType = cardTypes.find((cardType) => cardType.id === orderForm.loai_the_id);
+  const isOnlineFileDelivery = orderForm.hinh_thuc_giao === 'lay_file_truc_tuyen';
+  const onlineFilePrice = cardTypesQuery.data?.gia_file_truc_tuyen_hien_hanh;
+  const hasOnlineFilePrice = onlineFilePrice !== null && onlineFilePrice !== undefined;
   const estimatedTotal = useMemo(() => {
     if (!selectedCardType) return 0;
+    if (isOnlineFileDelivery) return Number(onlineFilePrice || 0);
     return Number(selectedCardType.gia_moi_ban_hien_hanh || 0) * Number(orderForm.so_luong || 0)
       + Number(selectedCardType.phi_xu_ly_hien_hanh || 0);
-  }, [orderForm.so_luong, selectedCardType]);
+  }, [isOnlineFileDelivery, onlineFilePrice, orderForm.so_luong, selectedCardType]);
 
   function handleSearch(event) {
     event.preventDefault();
-    if (!searchErrors.validate({ so_dien_thoai }, { so_dien_thoai: 'Vui lòng nhập số điện thoại để tìm' })) return;
-    const value = so_dien_thoai.trim();
+    if (!searchErrors.validate({ so_dien_thoai }, { so_dien_thoai: vietnamesePhoneRule })) return;
+    const value = normalizeVietnamesePhone(so_dien_thoai);
+    setSelectedCustomer(null);
+    setCustomers([]);
+    setDupCandidates(null);
     setCustomerForm((current) => ({ ...current, so_dien_thoai: value }));
     searchMutation.mutate(value);
   }
 
   function submitCustomer(event) {
     event.preventDefault();
-    if (!customerErrors.validate(customerForm, { ho_ten: 'Vui lòng nhập họ tên', so_dien_thoai: 'Vui lòng nhập số điện thoại' })) return;
+    if (!customerErrors.validate(customerForm, {
+      ho_ten: 'Vui lòng nhập họ tên',
+      so_dien_thoai: vietnamesePhoneRule,
+      email: optionalEmailRule
+    })) return;
     setDupCandidates(null);
-    dupCheckMutation.mutate(customerForm.so_dien_thoai.trim());
+    dupCheckMutation.mutate(normalizeVietnamesePhone(customerForm.so_dien_thoai));
   }
 
   function forceCreateCustomer() {
     createCustomerMutation.mutate(customerForm);
   }
 
-  function pickExistingCustomer(customer) {
+  function selectCustomer(customer) {
     setDupCandidates(null);
     setSelectedCustomer(customer);
     setCustomers([customer]);
@@ -122,8 +133,16 @@ export default function NewOrderPage() {
       setStepError('Vui lòng chọn một loại thẻ.');
       return;
     }
-    if (Number(orderForm.so_luong) < 4) {
+    if (isOnlineFileDelivery && !hasOnlineFilePrice) {
+      setStepError('Tiệm chưa cấu hình giá file trực tuyến. Vui lòng liên hệ Admin.');
+      return;
+    }
+    if (!isOnlineFileDelivery && Number(orderForm.so_luong) < 4) {
       setStepError('Số lượng tối thiểu là 4 tấm/đơn.');
+      return;
+    }
+    if (orderForm.hinh_thuc_giao === 'hen_lay_hinh' && (!orderForm.ngay_hen_lay || !orderForm.khung_gio_lay)) {
+      setStepError('Vui lòng chọn ngày và khung giờ lấy hình.');
       return;
     }
     setStepError('');
@@ -132,16 +151,17 @@ export default function NewOrderPage() {
 
   function submitOrder() {
     if (!selectedCustomer || !selectedCardType) return;
-    createOrderMutation.mutate({
+    const payload = {
       khach_hang_id: selectedCustomer.id,
       loai_the_id: selectedCardType.id,
-      so_luong: Number(orderForm.so_luong),
       ngay_hen_lay: orderForm.hinh_thuc_giao === 'hen_lay_hinh' ? orderForm.ngay_hen_lay || undefined : undefined,
       khung_gio_lay: orderForm.hinh_thuc_giao === 'hen_lay_hinh' ? orderForm.khung_gio_lay || undefined : undefined,
       ghi_chu: orderForm.ghi_chu || undefined,
       lich_hen_id: lichHenId || undefined,
       hinh_thuc_giao: orderForm.hinh_thuc_giao
-    });
+    };
+    if (!isOnlineFileDelivery) payload.so_luong = Number(orderForm.so_luong);
+    createOrderMutation.mutate(payload);
   }
 
   return (
@@ -168,249 +188,261 @@ export default function NewOrderPage() {
       </div>
 
       {step === 0 ? (
-        <Row className="g-3">
-          <Col lg={6}>
-            <section className="app-panel">
-              <h2>Tìm khách bằng SĐT</h2>
-              <Form onSubmit={handleSearch}>
-                <InputGroup className="mb-1" hasValidation>
-                  <Form.Control
-                    value={so_dien_thoai}
-                    onChange={(event) => { setPhone(event.target.value); searchErrors.clearError('so_dien_thoai'); }}
-                    placeholder="Nhập số điện thoại"
-                    isInvalid={!!searchErrors.errors.so_dien_thoai}
-                  />
-                  <Button type="submit" disabled={searchMutation.isPending}>
-                    <Search size={17} aria-hidden="true" />
-                    Tìm
-                  </Button>
-                  <Form.Control.Feedback type="invalid">{searchErrors.errors.so_dien_thoai}</Form.Control.Feedback>
-                </InputGroup>
-                <div className="mb-3" />
-              </Form>
-              {searchMutation.isPending ? <LoadingState label="Đang tìm khách..." /> : null}
-              {searchMutation.error ? (
-                <Alert variant="warning" className="mb-0">Không tìm được khách. Vui lòng kiểm tra lại số điện thoại hoặc tạo khách mới.</Alert>
-              ) : null}
-              {customers.length > 0 ? (
-                <ListGroup className="selection-list">
-                  {customers.map((customer) => (
-                    <ListGroup.Item
-                      key={customer.id}
-                      action
-                      active={selectedCustomer?.id === customer.id}
-                      onClick={() => setSelectedCustomer(customer)}
-                    >
-                      <div className="fw-semibold">{customer.ho_ten}</div>
-                      <div className="small">{customer.so_dien_thoai}</div>
-                    </ListGroup.Item>
-                  ))}
-                </ListGroup>
-              ) : !searchMutation.isIdle && !searchMutation.isPending ? (
-                <EmptyState title="Chưa có khách" description="Tạo khách mới ở form bên cạnh nếu số điện thoại chưa tồn tại." />
-              ) : null}
-              <div className="mt-3 text-end">
-                <Button onClick={() => setStep(1)} disabled={!selectedCustomer}>
-                  Tiếp tục
+        <div className="d-grid gap-3">
+          <section className="app-panel">
+            <h2>Tìm khách bằng SĐT</h2>
+            <Form onSubmit={handleSearch}>
+              <div className="d-flex align-items-stretch gap-3">
+                <Form.Control
+                  className="flex-grow-1"
+                  value={so_dien_thoai}
+                  onChange={(event) => {
+                    setPhone(event.target.value);
+                    setCustomers([]);
+                    setSelectedCustomer(null);
+                    setDupCandidates(null);
+                    searchMutation.reset();
+                    searchErrors.clearError('so_dien_thoai');
+                  }}
+                  placeholder="Nhập số điện thoại"
+                  isInvalid={!!searchErrors.errors.so_dien_thoai}
+                />
+                <Button type="submit" className="button-nowrap" disabled={searchMutation.isPending}>
+                  <Search size={17} aria-hidden="true" />
+                  Tìm
                 </Button>
               </div>
-            </section>
-          </Col>
-          <Col lg={6}>
-            <section className="app-panel">
-              <h2>Thêm khách mới</h2>
-              <Form onSubmit={submitCustomer}>
-                <Row className="g-3">
-                  <Col md={6}>
-                    <Form.Group>
-                      <Form.Label>Họ tên</Form.Label>
-                      <Form.Control
-                        value={customerForm.ho_ten}
-                        onChange={(event) => { setCustomerForm((current) => ({ ...current, ho_ten: event.target.value })); customerErrors.clearError('ho_ten'); }}
-                        isInvalid={!!customerErrors.errors.ho_ten}
-                      />
-                      <Form.Control.Feedback type="invalid">{customerErrors.errors.ho_ten}</Form.Control.Feedback>
-                    </Form.Group>
-                  </Col>
-                  <Col md={6}>
-                    <Form.Group>
-                      <Form.Label>Số điện thoại</Form.Label>
-                      <Form.Control
-                        value={customerForm.so_dien_thoai}
-                        onChange={(event) => { setCustomerForm((current) => ({ ...current, so_dien_thoai: event.target.value })); customerErrors.clearError('so_dien_thoai'); setDupCandidates(null); }}
-                        isInvalid={!!customerErrors.errors.so_dien_thoai}
-                      />
-                      <Form.Control.Feedback type="invalid">{customerErrors.errors.so_dien_thoai}</Form.Control.Feedback>
-                    </Form.Group>
-                  </Col>
-                  <Col md={6}>
-                    <Form.Group>
-                      <Form.Label>Email</Form.Label>
-                      <Form.Control
-                        type="email"
-                        value={customerForm.email}
-                        onChange={(event) => setCustomerForm((current) => ({ ...current, email: event.target.value }))}
-                      />
-                    </Form.Group>
-                  </Col>
-                  <Col md={6}>
-                    <Form.Group>
-                      <Form.Label>Ghi chú</Form.Label>
-                      <Form.Control
-                        value={customerForm.ghi_chu}
-                        onChange={(event) => setCustomerForm((current) => ({ ...current, ghi_chu: event.target.value }))}
-                      />
-                    </Form.Group>
-                  </Col>
-                </Row>
-                {dupCandidates && dupCandidates.length > 0 ? (
-                  <Alert variant="warning" className="mt-3 mb-0">
-                    <div className="fw-semibold mb-2">Số điện thoại này đã có {dupCandidates.length} khách. Chọn khách sẵn có để tránh tạo trùng:</div>
-                    <ListGroup className="mb-2">
-                      {dupCandidates.map((customer) => (
-                        <ListGroup.Item key={customer.id} action onClick={() => pickExistingCustomer(customer)}>
-                          <div className="fw-semibold">{customer.ho_ten}</div>
-                          <div className="small">{customer.so_dien_thoai}</div>
-                        </ListGroup.Item>
-                      ))}
-                    </ListGroup>
-                    <Button size="sm" variant="outline-danger" onClick={forceCreateCustomer} disabled={createCustomerMutation.isPending}>
-                      Vẫn tạo khách mới
-                    </Button>
-                  </Alert>
-                ) : null}
-                {createCustomerMutation.error ? <Alert variant="danger" className="mt-3">{createCustomerMutation.error.message}</Alert> : null}
-                <Button
-                  type="submit"
-                  className="mt-3 button-nowrap"
-                  disabled={createCustomerMutation.isPending || dupCheckMutation.isPending}
-                >
-                  <UserPlus size={17} aria-hidden="true" />
-                  Thêm khách
-                </Button>
-              </Form>
-            </section>
-          </Col>
-        </Row>
+              {searchErrors.errors.so_dien_thoai ? <div className="invalid-feedback d-block">{searchErrors.errors.so_dien_thoai}</div> : null}
+            </Form>
+            {searchMutation.isPending ? <LoadingState label="Đang tìm khách..." /> : null}
+            {searchMutation.error ? (
+              <Alert variant="warning" className="mt-3 mb-0">Không tìm được khách. Vui lòng kiểm tra lại số điện thoại.</Alert>
+            ) : null}
+            {customers.length > 0 ? (
+              <ListGroup className="selection-list mt-3" aria-label="Kết quả tìm khách">
+                {customers.map((customer) => (
+                  <ListGroup.Item key={customer.id} action onClick={() => selectCustomer(customer)}>
+                    <div className="fw-semibold">{customer.ho_ten}</div>
+                    <div className="small">{customer.so_dien_thoai}</div>
+                  </ListGroup.Item>
+                ))}
+              </ListGroup>
+            ) : null}
+          </section>
+
+          <section className="app-panel">
+            <h2>Thêm khách mới</h2>
+            <Form onSubmit={submitCustomer}>
+              <div className="d-grid gap-3">
+                <Form.Group>
+                  <Form.Label>Họ tên</Form.Label>
+                  <Form.Control
+                    value={customerForm.ho_ten}
+                    onChange={(event) => { setCustomerForm((current) => ({ ...current, ho_ten: event.target.value })); customerErrors.clearError('ho_ten'); }}
+                    isInvalid={!!customerErrors.errors.ho_ten}
+                  />
+                  <Form.Control.Feedback type="invalid">{customerErrors.errors.ho_ten}</Form.Control.Feedback>
+                </Form.Group>
+                <Form.Group>
+                  <Form.Label>Số điện thoại</Form.Label>
+                  <Form.Control
+                    value={customerForm.so_dien_thoai}
+                    inputMode="tel"
+                    placeholder="0901234567 hoặc +84901234567"
+                    onChange={(event) => { setCustomerForm((current) => ({ ...current, so_dien_thoai: event.target.value })); customerErrors.clearError('so_dien_thoai'); setDupCandidates(null); }}
+                    isInvalid={!!customerErrors.errors.so_dien_thoai}
+                  />
+                  <Form.Control.Feedback type="invalid">{customerErrors.errors.so_dien_thoai}</Form.Control.Feedback>
+                </Form.Group>
+                <Form.Group>
+                  <Form.Label>Email</Form.Label>
+                  <Form.Control
+                    type="email"
+                    value={customerForm.email}
+                    onChange={(event) => { setCustomerForm((current) => ({ ...current, email: event.target.value })); customerErrors.clearError('email'); }}
+                    isInvalid={!!customerErrors.errors.email}
+                  />
+                  <Form.Control.Feedback type="invalid">{customerErrors.errors.email}</Form.Control.Feedback>
+                </Form.Group>
+                <Form.Group>
+                  <Form.Label>Ghi chú</Form.Label>
+                  <Form.Control
+                    value={customerForm.ghi_chu}
+                    onChange={(event) => setCustomerForm((current) => ({ ...current, ghi_chu: event.target.value }))}
+                  />
+                </Form.Group>
+              </div>
+              {dupCandidates && dupCandidates.length > 0 ? (
+                <Alert variant="warning" className="mt-3 mb-0">
+                  <div className="fw-semibold mb-2">Số điện thoại này đã có {dupCandidates.length} khách. Chọn khách sẵn có để tránh tạo trùng:</div>
+                  <ListGroup className="selection-list mb-2">
+                    {dupCandidates.map((customer) => (
+                      <ListGroup.Item key={customer.id} action onClick={() => selectCustomer(customer)}>
+                        <div className="fw-semibold">{customer.ho_ten}</div>
+                        <div className="small">{customer.so_dien_thoai}</div>
+                      </ListGroup.Item>
+                    ))}
+                  </ListGroup>
+                  <Button size="sm" variant="outline-danger" onClick={forceCreateCustomer} disabled={createCustomerMutation.isPending}>
+                    Vẫn tạo khách mới
+                  </Button>
+                </Alert>
+              ) : null}
+              {createCustomerMutation.error ? <Alert variant="danger" className="mt-3">{createCustomerMutation.error.message}</Alert> : null}
+              <Button
+                type="submit"
+                className="mt-3 button-nowrap"
+                disabled={createCustomerMutation.isPending || dupCheckMutation.isPending}
+              >
+                <UserPlus size={17} aria-hidden="true" />
+                Thêm khách
+              </Button>
+            </Form>
+          </section>
+        </div>
       ) : null}
 
       {step === 1 ? (
-        <section className="app-panel">
-          <h2>Chọn loại thẻ và thông tin nhận ảnh</h2>
+        <>
           {cardTypesQuery.isLoading ? <LoadingState /> : null}
           {cardTypesQuery.error ? <ErrorState error={cardTypesQuery.error} /> : null}
           {!cardTypesQuery.isLoading && !cardTypesQuery.error ? (
-            <>
-              <div className="table-responsive">
-                <Table hover className="align-middle data-table">
-                  <thead>
-                    <tr>
-                      <th>Chọn</th>
-                      <th>Loại thẻ</th>
-                      <th>Kích thước</th>
-                      <th>Nền</th>
-                      <th>Giá hiện hành</th>
-                      <th>Yêu cầu</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {cardTypes.map((cardType) => (
-                      <tr key={cardType.id} className={orderForm.loai_the_id === cardType.id ? 'selected-row' : ''}>
-                        <td>
-                          <Form.Check
-                            type="radio"
-                            name="card-type"
-                            checked={orderForm.loai_the_id === cardType.id}
-                            onChange={() => { setOrderForm((current) => ({ ...current, loai_the_id: cardType.id })); setStepError(''); }}
-                            aria-label={`Chọn ${cardType.ten}`}
-                          />
-                        </td>
-                        <td>
-                          <div className="fw-semibold">{cardType.ten}</div>
-                          <div className="text-muted small">{cardType.ma_viet_tat}</div>
-                        </td>
-                        <td>{cardType.rong_mm} x {cardType.cao_mm} mm</td>
-                        <td>
-                          <span className="color-swatch" style={{ backgroundColor: cardType.mau_nen }} />
-                          {cardType.mau_nen}
-                        </td>
-                        <td>{formatCurrency(Number(cardType.gia_moi_ban_hien_hanh || 0) + Number(cardType.phi_xu_ly_hien_hanh || 0))}</td>
-                        <td className="requirements-cell">{JSON.stringify(cardType.yeu_cau || {})}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </Table>
-              </div>
-              {cardTypes.length === 0 ? <EmptyState title="Chưa có loại thẻ" description="Admin cần tạo loại thẻ trước khi staff tạo đơn." /> : null}
-              <Row className="g-3 mt-1">
-                <Col md={3}>
-                  <Form.Group>
-                    <Form.Label>Số lượng</Form.Label>
-                    <Form.Control
-                      type="number"
-                      min="4"
-                      value={orderForm.so_luong}
-                      onChange={(event) => { setOrderForm((current) => ({ ...current, so_luong: event.target.value })); setStepError(''); }}
-                      isInvalid={Number(orderForm.so_luong) < 4}
-                    />
-                    <Form.Text muted>Tối thiểu 4 tấm/đơn.</Form.Text>
-                  </Form.Group>
-                </Col>
-                <Col md={3}>
-                  <Form.Group>
-                    <Form.Label>Hình thức giao</Form.Label>
-                    <Form.Select
-                      value={orderForm.hinh_thuc_giao}
-                      onChange={(event) => setOrderForm((current) => ({ ...current, hinh_thuc_giao: event.target.value }))}
-                    >
-                      <option value="lay_file_truc_tuyen">Chỉ lấy file trực tuyến</option>
-                      <option value="lay_hinh_ngay">Lấy hình ngay</option>
-                      <option value="hen_lay_hinh">Hẹn lấy hình</option>
-                    </Form.Select>
-                  </Form.Group>
-                </Col>
-                <Col md={3}>
-                  <Form.Group>
-                    <Form.Label>Ngày hẹn lấy</Form.Label>
-                    <Form.Control
-                      type="date"
-                      value={orderForm.ngay_hen_lay}
-                      onChange={(event) => setOrderForm((current) => ({ ...current, ngay_hen_lay: event.target.value }))}
-                    />
-                    <Form.Text muted>Bỏ trống = lấy liền.</Form.Text>
-                  </Form.Group>
-                </Col>
-                <Col md={3}>
-                  <Form.Group>
-                    <Form.Label>Khung giờ lấy</Form.Label>
-                    <Form.Select
-                      value={orderForm.khung_gio_lay}
-                      onChange={(event) => setOrderForm((current) => ({ ...current, khung_gio_lay: event.target.value }))}
-                      disabled={!orderForm.ngay_hen_lay}
-                    >
-                      <option value="">Cả ngày</option>
-                      {TIME_SLOTS.map((slot) => <option key={slot} value={slot}>{slot}</option>)}
-                    </Form.Select>
-                  </Form.Group>
-                </Col>
-                <Col md={3}>
-                  <Form.Group>
-                    <Form.Label>Ghi chú đơn</Form.Label>
-                    <Form.Control
-                      value={orderForm.ghi_chu}
-                      onChange={(event) => setOrderForm((current) => ({ ...current, ghi_chu: event.target.value }))}
-                    />
-                  </Form.Group>
-                </Col>
-              </Row>
-              {stepError ? <Alert variant="danger" className="mt-3 mb-0">{stepError}</Alert> : null}
-              <div className="panel-actions">
-                <Button variant="outline-secondary" onClick={() => setStep(0)}>Quay lại</Button>
-                <Button onClick={goToConfirm} disabled={cardTypes.length === 0}>Tiếp tục</Button>
-              </div>
-            </>
+            <Row className="g-3 align-items-start">
+              <Col lg={7}>
+                <section className="app-panel">
+                  <h2>Chọn loại thẻ</h2>
+                  {cardTypes.length > 0 ? (
+                    <div className="card-type-selector">
+                      {cardTypes.map((cardType) => {
+                        const isSelected = orderForm.loai_the_id === cardType.id;
+                        const currentPrice = Number(cardType.gia_moi_ban_hien_hanh || 0) + Number(cardType.phi_xu_ly_hien_hanh || 0);
+                        const displayedPrice = isOnlineFileDelivery ? onlineFilePrice : currentPrice;
+                        return (
+                          <button
+                            type="button"
+                            key={cardType.id}
+                            className={`card-type-option${isSelected ? ' is-selected' : ''}`}
+                            onClick={() => { setOrderForm((current) => ({ ...current, loai_the_id: cardType.id })); setStepError(''); }}
+                            aria-pressed={isSelected}
+                          >
+                            <span className="card-type-option-check" aria-hidden="true">{isSelected ? <Check size={15} /> : null}</span>
+                            <span className="card-type-option-copy">
+                              <strong>{cardType.ten}</strong>
+                              <span>{cardType.ma_viet_tat}</span>
+                              <span className="card-type-option-meta">
+                                {cardType.rong_mm} x {cardType.cao_mm} mm
+                                <span aria-hidden="true">·</span>
+                                <span className="card-type-option-color">
+                                  <i style={{ backgroundColor: cardType.mau_nen }} aria-hidden="true" />
+                                  {cardType.mau_nen}
+                                </span>
+                              </span>
+                            </span>
+                            <span className="card-type-option-price">
+                              <small>{isOnlineFileDelivery ? 'Giá file trực tuyến' : 'Giá hiện hành'}</small>
+                              <strong>{isOnlineFileDelivery && !hasOnlineFilePrice ? 'Chưa cấu hình' : formatCurrency(displayedPrice)}</strong>
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ) : <EmptyState title="Chưa có loại thẻ" description="Admin cần tạo loại thẻ trước khi staff tạo đơn." />}
+                </section>
+              </Col>
+              <Col lg={5}>
+                <section className="app-panel">
+                  <h2>Thông tin nhận ảnh</h2>
+                  {selectedCardType ? (
+                    <div className="summary-box mb-3">
+                      <span>Loại thẻ đã chọn</span>
+                      <strong>{selectedCardType.ten}</strong>
+                      <small>{selectedCardType.rong_mm} x {selectedCardType.cao_mm} mm · Nền {selectedCardType.mau_nen}{isOnlineFileDelivery ? ' · Nhận file trực tuyến' : ''}</small>
+                    </div>
+                  ) : <Alert variant="light" className="mb-3">Chọn một loại thẻ ở cột bên trái để tiếp tục.</Alert>}
+
+                  <div className="d-grid gap-3">
+                    <Form.Group>
+                      <Form.Label>Hình thức nhận ảnh</Form.Label>
+                      <Form.Select
+                        value={orderForm.hinh_thuc_giao}
+                        onChange={(event) => { setOrderForm((current) => ({ ...current, hinh_thuc_giao: event.target.value })); setStepError(''); }}
+                      >
+                        <option value="lay_file_truc_tuyen">Chỉ lấy file trực tuyến</option>
+                        <option value="lay_hinh_ngay">Lấy hình ngay</option>
+                        <option value="hen_lay_hinh">Hẹn lấy hình</option>
+                      </Form.Select>
+                    </Form.Group>
+                    {!isOnlineFileDelivery ? (
+                      <Form.Group>
+                        <Form.Label>Số lượng</Form.Label>
+                        <Form.Control
+                          type="number"
+                          min="4"
+                          value={orderForm.so_luong}
+                          onChange={(event) => { setOrderForm((current) => ({ ...current, so_luong: event.target.value })); setStepError(''); }}
+                          isInvalid={Number(orderForm.so_luong) < 4}
+                        />
+                        <Form.Text muted>Tối thiểu 4 tấm/đơn.</Form.Text>
+                      </Form.Group>
+                    ) : null}
+                    {orderForm.hinh_thuc_giao === 'hen_lay_hinh' ? (
+                      <Row className="g-3">
+                        <Col sm={6}>
+                          <Form.Group>
+                            <Form.Label>Ngày hẹn lấy</Form.Label>
+                            <Form.Control
+                              type="date"
+                              value={orderForm.ngay_hen_lay}
+                              onChange={(event) => { setOrderForm((current) => ({ ...current, ngay_hen_lay: event.target.value })); setStepError(''); }}
+                            />
+                          </Form.Group>
+                        </Col>
+                        <Col sm={6}>
+                          <Form.Group>
+                            <Form.Label>Khung giờ lấy</Form.Label>
+                            <Form.Select
+                              value={orderForm.khung_gio_lay}
+                              onChange={(event) => { setOrderForm((current) => ({ ...current, khung_gio_lay: event.target.value })); setStepError(''); }}
+                              disabled={!orderForm.ngay_hen_lay}
+                            >
+                              <option value="">Chọn khung giờ</option>
+                              {TIME_SLOTS.map((slot) => <option key={slot} value={slot}>{slot}</option>)}
+                            </Form.Select>
+                          </Form.Group>
+                        </Col>
+                      </Row>
+                    ) : null}
+                    <Form.Group>
+                      <Form.Label>Ghi chú đơn</Form.Label>
+                      <Form.Control
+                        as="textarea"
+                        rows={3}
+                        value={orderForm.ghi_chu}
+                        onChange={(event) => setOrderForm((current) => ({ ...current, ghi_chu: event.target.value }))}
+                      />
+                    </Form.Group>
+                  </div>
+
+                  <div className="summary-box mt-3">
+                    <span>{isOnlineFileDelivery ? 'Giá file trực tuyến' : 'Giá tạm tính'}</span>
+                    <strong>{isOnlineFileDelivery
+                      ? (hasOnlineFilePrice ? formatCurrency(onlineFilePrice) : 'Chưa cấu hình')
+                      : (selectedCardType ? formatCurrency(estimatedTotal) : 'Chọn loại thẻ')}</strong>
+                    <small>{isOnlineFileDelivery
+                      ? 'Giá trọn gói mỗi đơn, không tính theo số lượng.'
+                      : (selectedCardType ? `${orderForm.so_luong} tấm` : 'Giá sẽ hiện sau khi chọn loại thẻ.')}</small>
+                  </div>
+                  {isOnlineFileDelivery && !hasOnlineFilePrice ? <Alert variant="warning" className="mt-3 mb-0">Admin cần cấu hình giá file trực tuyến trước khi tạo đơn.</Alert> : null}
+                  {stepError ? <Alert variant="danger" className="mt-3 mb-0">{stepError}</Alert> : null}
+                  <div className="panel-actions">
+                    <Button variant="outline-secondary" onClick={() => setStep(0)}>Quay lại</Button>
+                    <Button onClick={goToConfirm} disabled={cardTypes.length === 0 || (isOnlineFileDelivery && !hasOnlineFilePrice)}>Tiếp tục</Button>
+                  </div>
+                </section>
+              </Col>
+            </Row>
           ) : null}
-        </section>
+        </>
       ) : null}
 
       {step === 2 ? (
@@ -431,29 +463,32 @@ export default function NewOrderPage() {
                 <small>{selectedCardType?.rong_mm} x {selectedCardType?.cao_mm} mm</small>
               </div>
             </Col>
-            <Col md={4}>
-              <div className="summary-box">
-                <span>Số lượng</span>
-                <strong>{orderForm.so_luong}</strong>
-              </div>
-            </Col>
-            <Col md={4}>
+            {!isOnlineFileDelivery ? (
+              <Col md={4}>
+                <div className="summary-box">
+                  <span>Số lượng</span>
+                  <strong>{orderForm.so_luong}</strong>
+                </div>
+              </Col>
+            ) : null}
+            <Col md={isOnlineFileDelivery ? 6 : 4}>
               <div className="summary-box">
                 <span>Ngày hẹn</span>
                 <strong>{orderForm.ngay_hen_lay || '-'}</strong>
               </div>
             </Col>
-            <Col md={4}>
+            <Col md={isOnlineFileDelivery ? 6 : 4}>
               <div className="summary-box">
-                <span>Giá tạm tính</span>
+                <span>{isOnlineFileDelivery ? 'Giá file trực tuyến' : 'Giá tạm tính'}</span>
                 <strong>{formatCurrency(estimatedTotal)}</strong>
+                {isOnlineFileDelivery ? <small>Giá trọn gói mỗi đơn.</small> : null}
               </div>
             </Col>
           </Row>
           {createOrderMutation.error ? <Alert variant="danger" className="mt-3">{createOrderMutation.error.message}</Alert> : null}
           <div className="panel-actions">
             <Button variant="outline-secondary" onClick={() => setStep(1)}>Quay lại</Button>
-            <Button onClick={submitOrder} disabled={createOrderMutation.isPending || !selectedCustomer || !selectedCardType}>
+            <Button onClick={submitOrder} disabled={createOrderMutation.isPending || !selectedCustomer || !selectedCardType || (isOnlineFileDelivery && !hasOnlineFilePrice)}>
               {createOrderMutation.isPending ? 'Đang tạo đơn...' : 'Tạo đơn'}
             </Button>
           </div>

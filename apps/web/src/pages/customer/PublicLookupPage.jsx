@@ -17,14 +17,17 @@ import PublicTopbar from '../../components/layout/PublicTopbar.jsx';
 import { formatDateOnly } from '../../utils/format';
 import { useFormErrors } from '../../hooks/useFormErrors.js';
 import { useToast } from '../../hooks/useToast.jsx';
+import { vietnamesePhoneRule } from '../../utils/validation.js';
 
 const COLLECTION_PAGE_SIZE = 4;
+const PHOTOS_PAGE_SIZE = 4;
 
 export default function PublicLookupPage() {
   const [searchParams] = useSearchParams();
   const autoLookupDone = useRef(false);
   const [lookupForm, setLookupForm] = useState({ so_dien_thoai: '', ma_don: '' });
   const [selectedPhotos, setSelectedPhotos] = useState([]);
+  const [photosPage, setPhotosPage] = useState(1);
   const [collectionPage, setCollectionPage] = useState(1);
   const [activeTab, setActiveTab] = useState('photos');
   const [reprintForm, setReprintForm] = useState({ so_luong: 1, ly_do: '', ghi_chu: '' });
@@ -40,6 +43,7 @@ export default function PublicLookupPage() {
     onSuccess: () => {
       setSelectedPhotos([]);
       setReprintForm({ so_luong: 1, ly_do: '', ghi_chu: '' });
+      setPhotosPage(1);
       setCollectionPage(1);
       setActiveTab('photos');
     }
@@ -64,9 +68,12 @@ export default function PublicLookupPage() {
   });
 
   const result = lookupMutation.data;
+  const hasResult = Boolean(result);
   const photos = result?.photos || [];
   const orderInfo = result?.order_info;
   const collection = result?.collection || [];
+  const photosPages = Math.ceil(photos.length / PHOTOS_PAGE_SIZE);
+  const pagedPhotos = photos.slice((photosPage - 1) * PHOTOS_PAGE_SIZE, photosPage * PHOTOS_PAGE_SIZE);
   const collectionPages = Math.ceil(collection.length / COLLECTION_PAGE_SIZE);
   const pagedCollection = collection.slice((collectionPage - 1) * COLLECTION_PAGE_SIZE, collectionPage * COLLECTION_PAGE_SIZE);
 
@@ -88,7 +95,7 @@ export default function PublicLookupPage() {
   function submitLookup(event) {
     event.preventDefault();
     const rules = {
-      so_dien_thoai: 'Vui lòng nhập số điện thoại',
+      so_dien_thoai: vietnamesePhoneRule,
       ma_don: 'Vui lòng nhập mã đơn'
     };
     if (!validate(lookupForm, rules)) return;
@@ -116,9 +123,9 @@ export default function PublicLookupPage() {
       <Container>
         <PublicTopbar />
 
-        <Row className="g-4">
-          <Col lg={5} className="d-flex flex-column">
-            <section className="app-panel public-panel flex-grow-1">
+        <Row className={`g-4 ${hasResult ? 'align-items-start' : 'align-items-stretch'}`}>
+          <Col lg={5}>
+            <section className="app-panel public-panel">
               <div className="public-heading">
                 <span className="lookup-badge">Khách hàng</span>
                 <h1>Tra cứu đơn hình thẻ</h1>
@@ -191,8 +198,8 @@ export default function PublicLookupPage() {
             </section>
           </Col>
 
-          <Col lg={7} className="d-flex flex-column">
-            <section className="app-panel public-panel flex-grow-1">
+          <Col lg={7} className={hasResult ? undefined : 'd-flex'}>
+            <section className={`app-panel public-panel${hasResult ? '' : ' flex-grow-1'}`}>
               {!result ? (
                 <EmptyState title="Chưa có kết quả" description="Thông tin đơn và ảnh đã duyệt sẽ hiển thị sau khi tra cứu đúng." />
               ) : (
@@ -225,36 +232,39 @@ export default function PublicLookupPage() {
                   <Tabs
                     activeKey={activeTab}
                     onSelect={(key) => setActiveTab(key || 'photos')}
-                    className="work-tabs mt-1"
+                    className="work-tabs public-lookup-tabs mt-1"
                   >
                     <Tab eventKey="photos" title="Ảnh đã duyệt">
                       {photos.length === 0 ? (
-                        <EmptyState title="Chưa có ảnh approved" description="Cửa hàng sẽ cập nhật ảnh sau khi duyệt." />
+                        <EmptyState title="Chưa có ảnh đã duyệt" description="Cửa hàng sẽ cập nhật ảnh sau khi duyệt." />
                       ) : (
-                        <div className="public-photo-grid">
-                          {photos.map((photo) => (
-                            <div className="public-photo" key={photo.id}>
-                              {photo.da_don_dep ? (
-                                <div className="photo-placeholder">Ảnh đã hết hạn lưu trữ (quá 6 tháng)</div>
-                              ) : photo.signed_url ? (
-                                <Image src={photo.signed_url} alt="Ảnh đã duyệt" fluid />
-                              ) : (
-                                <div className="photo-placeholder">No preview</div>
-                              )}
-                              <div className="public-photo-actions">
-                                  {orderInfo?.co_the_tai_file ? <Button
-                                    size="sm"
-                                    variant="outline-primary"
-                                  disabled={photo.da_don_dep || (downloadMutation.isPending && downloadMutation.variables === photo.id)}
-                                  onClick={() => downloadMutation.mutate(photo.id)}
-                                  >
-                                    <Download size={15} aria-hidden="true" />
-                                    {downloadMutation.isPending && downloadMutation.variables === photo.id ? 'Đang lấy link' : 'Tải'}
-                                  </Button> : <span className="text-muted small">Chưa đủ điều kiện tải file</span>}
+                        <>
+                          <div className="public-photo-row">
+                            {pagedPhotos.map((photo) => (
+                              <div className="public-photo" key={photo.id}>
+                                {photo.da_don_dep ? (
+                                  <div className="photo-placeholder">Ảnh đã hết hạn lưu trữ (quá 6 tháng)</div>
+                                ) : photo.signed_url ? (
+                                  <Image src={photo.signed_url} alt="Ảnh đã duyệt" fluid />
+                                ) : (
+                                  <div className="photo-placeholder">Không thể xem trước ảnh này</div>
+                                )}
+                                <div className="public-photo-actions public-photo-download-action">
+                                    {orderInfo?.co_the_tai_file ? <Button
+                                      size="sm"
+                                      variant="outline-primary"
+                                    disabled={photo.da_don_dep || (downloadMutation.isPending && downloadMutation.variables === photo.id)}
+                                    onClick={() => downloadMutation.mutate(photo.id)}
+                                    >
+                                      <Download size={15} aria-hidden="true" />
+                                      {downloadMutation.isPending && downloadMutation.variables === photo.id ? 'Đang lấy link' : 'Tải'}
+                                    </Button> : <span className="text-muted small">Cần hoàn tất và thanh toán đủ để tải file</span>}
+                                </div>
                               </div>
-                            </div>
-                          ))}
-                        </div>
+                            ))}
+                          </div>
+                          <PaginationBar page={photosPage} totalPages={photosPages} onChange={setPhotosPage} />
+                        </>
                       )}
                     </Tab>
 
@@ -267,30 +277,33 @@ export default function PublicLookupPage() {
                         {photos.length === 0 ? (
                           <EmptyState title="Chưa có ảnh để in lại" description="Đơn chưa có ảnh đã duyệt." />
                         ) : (
-                          <div className="public-photo-grid mb-3">
-                            {photos.map((photo) => (
-                              <div
-                                className={`public-photo${selectedPhotos.includes(photo.id) ? ' selected' : ''}`}
-                                key={photo.id}
-                              >
-                                {photo.da_don_dep ? (
-                                  <div className="photo-placeholder">Ảnh đã hết hạn lưu trữ (quá 6 tháng)</div>
-                                ) : photo.signed_url ? (
-                                  <Image src={photo.signed_url} alt="Ảnh đã duyệt" fluid />
-                                ) : (
-                                  <div className="photo-placeholder">No preview</div>
-                                )}
-                                <div className="public-photo-actions">
-                                  <Form.Check
-                                    className="d-flex align-items-center gap-2 m-0"
-                                    checked={selectedPhotos.includes(photo.id)}
-                                    onChange={() => togglePhoto(photo.id)}
-                                    label="Chọn in lại"
-                                    disabled={photo.da_don_dep}
-                                  />
+                          <div className="mb-3">
+                            <div className="public-photo-row">
+                              {pagedPhotos.map((photo) => (
+                                <div
+                                  className={`public-photo${selectedPhotos.includes(photo.id) ? ' selected' : ''}`}
+                                  key={photo.id}
+                                >
+                                  {photo.da_don_dep ? (
+                                    <div className="photo-placeholder">Ảnh đã hết hạn lưu trữ (quá 6 tháng)</div>
+                                  ) : photo.signed_url ? (
+                                    <Image src={photo.signed_url} alt="Ảnh đã duyệt" fluid />
+                                  ) : (
+                                    <div className="photo-placeholder">Không thể xem trước ảnh này</div>
+                                  )}
+                                  <div className="public-photo-actions">
+                                    <Form.Check
+                                      className="d-flex align-items-center gap-2 m-0"
+                                      checked={selectedPhotos.includes(photo.id)}
+                                      onChange={() => togglePhoto(photo.id)}
+                                      label="Chọn in lại"
+                                      disabled={photo.da_don_dep}
+                                    />
+                                  </div>
                                 </div>
-                              </div>
-                            ))}
+                              ))}
+                            </div>
+                            <PaginationBar page={photosPage} totalPages={photosPages} onChange={setPhotosPage} />
                           </div>
                         )}
                         <Row className="g-3">
@@ -354,7 +367,7 @@ export default function PublicLookupPage() {
                               ) : photo.signed_url ? (
                                 <Image src={photo.signed_url} alt="Ảnh thẻ đã duyệt" fluid />
                               ) : (
-                                <div className="photo-placeholder">No preview</div>
+                                <div className="photo-placeholder">Không thể xem trước ảnh này</div>
                               )}
                               <div className="public-photo-actions">
                                 <span className="small text-muted">{photo.ma_don} · {formatDateOnly(photo.ngay_tao)}</span>

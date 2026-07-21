@@ -11,16 +11,24 @@ async function listKhungGioChup(ngay_hen) {
 }
 
 async function datLichChup(body, context = {}) {
-  const lich_hen = await withTransaction(async (client) => {
+  const outcome = await withTransaction(async (client) => {
     const slot = await lichHenRepository.findKhungGioForUpdate(body.khung_gio, client);
     if (!slot) throw errors.validation('Khung giờ chụp không còn hoạt động', { field: 'khung_gio' });
-    return lichHenRepository.create({ ...body, loai_lich: 'dat_lich_chup', trang_thai: 'cho_xac_nhan' }, client);
+    const lich_hen = await lichHenRepository.create({
+      ...body,
+      khung_gio: slot.khung_gio,
+      khung_gio_chup_id: slot.id,
+      loai_lich: 'dat_lich_chup',
+      trang_thai: 'cho_xac_nhan'
+    }, client);
+    const notifications = await notificationService.enqueueEvent('dat_lich_chup_da_nhan', {
+      customer_name: lich_hen.ten_khach, email: lich_hen.email, phone: lich_hen.so_dien_thoai,
+      preferred_date: lich_hen.ngay_hen, time_slot: lich_hen.khung_gio
+    }, client);
+    return { lich_hen, notifications };
   });
-  await notificationService.notifyEvent('dat_lich_chup_da_nhan', {
-    customer_name: lich_hen.ten_khach, email: lich_hen.email, phone: lich_hen.so_dien_thoai,
-    preferred_date: lich_hen.ngay_hen, time_slot: lich_hen.khung_gio
-  });
-  return { lich_hen };
+  await notificationService.dispatchRows(outcome.notifications);
+  return { lich_hen: outcome.lich_hen };
 }
 
 async function listLichHen(query) {
@@ -34,22 +42,26 @@ async function capNhatTrangThai(id, body, context) {
     if (!old) throw errors.notFound('Không tìm thấy lịch hẹn');
     if (old.loai_lich === 'dat_lich_chup' && body.trang_thai === 'da_xac_nhan') {
       if (old.trang_thai !== 'cho_xac_nhan') throw errors.invalidState('Chỉ lịch chờ xác nhận mới có thể xác nhận');
-      const slot = await lichHenRepository.findKhungGioForUpdate(old.khung_gio, client);
+      const slot = old.khung_gio_chup_id
+        ? await lichHenRepository.findKhungGioByIdForUpdate(old.khung_gio_chup_id, client)
+        : await lichHenRepository.findKhungGioForUpdate(old.khung_gio, client);
       if (!slot) throw errors.validation('Khung giờ chụp không còn hoạt động');
-      const confirmed = await lichHenRepository.countDaXacNhan(old.ngay_hen, old.khung_gio, client);
+      const confirmed = await lichHenRepository.countDaXacNhan(old.ngay_hen, slot.id, client);
       if (confirmed >= slot.suc_chua_toi_da) throw errors.invalidState('Khung giờ chụp đã đủ chỗ', { suc_chua_toi_da: slot.suc_chua_toi_da });
     }
     const lich_hen = await lichHenRepository.updateStatus(id, body, context.user.id, client);
     await writeAudit('lich_hen.cap_nhat_trang_thai', 'lich_hen', id, context, { old_data: old, new_data: lich_hen }, client);
-    return lich_hen;
+    let notifications = [];
+    if (lich_hen.loai_lich === 'dat_lich_chup' && ['da_xac_nhan', 'tu_choi'].includes(lich_hen.trang_thai)) {
+      notifications = await notificationService.enqueueEvent(lich_hen.trang_thai === 'da_xac_nhan' ? 'dat_lich_chup_da_xac_nhan' : 'dat_lich_chup_tu_choi', {
+        customer_name: lich_hen.ten_khach, email: lich_hen.email, phone: lich_hen.so_dien_thoai,
+        preferred_date: lich_hen.ngay_hen, time_slot: lich_hen.khung_gio, note: lich_hen.ghi_chu
+      }, client);
+    }
+    return { lich_hen, notifications };
   });
-  if (outcome.loai_lich === 'dat_lich_chup' && ['da_xac_nhan', 'tu_choi'].includes(outcome.trang_thai)) {
-    await notificationService.notifyEvent(outcome.trang_thai === 'da_xac_nhan' ? 'dat_lich_chup_da_xac_nhan' : 'dat_lich_chup_tu_choi', {
-      customer_name: outcome.ten_khach, email: outcome.email, phone: outcome.so_dien_thoai,
-      preferred_date: outcome.ngay_hen, time_slot: outcome.khung_gio, note: outcome.ghi_chu
-    });
-  }
-  return { appointment: outcome };
+  await notificationService.dispatchRows(outcome.notifications);
+  return { appointment: outcome.lich_hen };
 }
 
 async function listCauHinh() { return { khung_gio: await lichHenRepository.listCauHinh() }; }
@@ -62,8 +74,12 @@ async function capNhatCauHinh(id, body) {
 async function nhacLichLayHinh() {
   const lichHen = await lichHenRepository.lichCanNhacLayHinh();
   for (const item of lichHen) {
-    await notificationService.notifyEvent('nhac_hen_lay_hinh', { customer_name: item.ten_khach, email: item.email, phone: item.so_dien_thoai, preferred_date: item.ngay_hen, time_slot: item.khung_gio, order_id: item.don_hang_id });
-    await lichHenRepository.danhDauDaNhac(item.id);
+    const outcome = await withTransaction(async (client) => {
+      const notifications = await notificationService.enqueueEvent('nhac_hen_lay_hinh', { customer_name: item.ten_khach, email: item.email, phone: item.so_dien_thoai, preferred_date: item.ngay_hen, time_slot: item.khung_gio, order_id: item.don_hang_id }, client);
+      await lichHenRepository.danhDauDaNhac(item.id, client);
+      return { notifications };
+    });
+    await notificationService.dispatchRows(outcome.notifications);
   }
   return lichHen.length;
 }
